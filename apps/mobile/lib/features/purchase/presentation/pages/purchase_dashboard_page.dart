@@ -296,123 +296,127 @@ class _PurchaseDashboardPageState extends ConsumerState<PurchaseDashboardPage> {
         color: AppTheme.darkBackground,
         border: Border(bottom: BorderSide(color: AppTheme.darkBorder)),
       ),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 10,
-        crossAxisAlignment: WrapCrossAlignment.center,
+      child: Row(
         children: [
-          // Financial Year selector
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-            decoration: BoxDecoration(
-              color: AppTheme.darkSurface,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppTheme.darkBorder),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _selectedFinYear,
-                dropdownColor: AppTheme.darkSurface,
-                style: const TextStyle(color: Colors.white, fontSize: 13),
-                icon: const Icon(Icons.arrow_drop_down, color: AppTheme.darkTextSecondary),
-                items: const [
-                  DropdownMenuItem(value: '2026-27', child: Text('FY 2026-27 (Current)')),
-                  DropdownMenuItem(value: '2025-26', child: Text('FY 2025-26')),
-                  DropdownMenuItem(value: 'ALL', child: Text('All Financial Years')),
-                ],
-                onChanged: (val) {
-                  if (val != null) {
-                    setState(() => _selectedFinYear = val);
-                    _refreshDashboard();
-                  }
-                },
-              ),
-            ),
-          ),
-
-          // Date Range Filter button
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.white,
-              backgroundColor: AppTheme.darkSurface,
-              side: const BorderSide(color: AppTheme.darkBorder),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            onPressed: () async {
-              final picked = await showDateRangePicker(
-                context: context,
-                firstDate: DateTime(2024),
-                lastDate: DateTime(2030),
-                initialDateRange: _selectedDateRange,
-                builder: (context, child) => Theme(
-                  data: ThemeData.dark().copyWith(
-                    colorScheme: const ColorScheme.dark(
-                      primary: AppTheme.primary,
-                      onPrimary: Colors.white,
-                      surface: AppTheme.darkSurface,
-                      onSurface: Colors.white,
+          Expanded(
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 10,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                // Financial Year selector
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.darkSurface,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.darkBorder),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _selectedFinYear,
+                      dropdownColor: AppTheme.darkSurface,
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      icon: const Icon(Icons.arrow_drop_down, color: AppTheme.darkTextSecondary),
+                      items: const [
+                        DropdownMenuItem(value: '2026-27', child: Text('FY 2026-27 (Current)')),
+                        DropdownMenuItem(value: '2025-26', child: Text('FY 2025-26')),
+                        DropdownMenuItem(value: 'ALL', child: Text('All Financial Years')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() => _selectedFinYear = val);
+                          _refreshDashboard();
+                        }
+                      },
                     ),
                   ),
-                  child: child!,
                 ),
-              );
-              if (picked != null) {
-                setState(() => _selectedDateRange = picked);
-                _refreshDashboard();
-              }
-            },
-            icon: const Icon(Icons.calendar_today, size: 14, color: AppTheme.primary),
-            label: Text(
-              _selectedDateRange == null
-                  ? 'Date Range: All'
-                  : '${_dateFormat.format(_selectedDateRange!.start)} - ${_dateFormat.format(_selectedDateRange!.end)}',
-              style: const TextStyle(fontSize: 12),
+
+                // Date Range Filter button
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    backgroundColor: AppTheme.darkSurface,
+                    side: const BorderSide(color: AppTheme.darkBorder),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: () async {
+                    final picked = await showDateRangePicker(
+                      context: context,
+                      firstDate: DateTime(2024),
+                      lastDate: DateTime(2030),
+                      initialDateRange: _selectedDateRange,
+                      builder: (context, child) => Theme(
+                        data: ThemeData.dark().copyWith(
+                          colorScheme: const ColorScheme.dark(
+                            primary: AppTheme.primary,
+                            onPrimary: Colors.white,
+                            surface: AppTheme.darkSurface,
+                            onSurface: Colors.white,
+                          ),
+                        ),
+                        child: child!,
+                      ),
+                    );
+                    if (picked != null) {
+                      setState(() => _selectedDateRange = picked);
+                      _refreshDashboard();
+                    }
+                  },
+                  icon: const Icon(Icons.calendar_today, size: 14, color: AppTheme.primary),
+                  label: Text(
+                    _selectedDateRange == null
+                        ? 'Date Range: All'
+                        : '${_dateFormat.format(_selectedDateRange!.start)} - ${_dateFormat.format(_selectedDateRange!.end)}',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+
+                if (_selectedDateRange != null)
+                  IconButton(
+                    tooltip: 'Clear Date Filter',
+                    icon: const Icon(Icons.clear, size: 16, color: AppTheme.darkTextSecondary),
+                    onPressed: () {
+                      setState(() => _selectedDateRange = null);
+                      _refreshDashboard();
+                    },
+                  ),
+
+                // Status Filter
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.darkSurface,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.darkBorder),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _selectedStatus,
+                      dropdownColor: AppTheme.darkSurface,
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      icon: const Icon(Icons.filter_list, color: AppTheme.darkTextSecondary, size: 16),
+                      items: const [
+                        DropdownMenuItem(value: 'ALL', child: Text('Status: All')),
+                        DropdownMenuItem(value: 'UNPAID', child: Text('Unpaid Invoices')),
+                        DropdownMenuItem(value: 'PARTIALLY_PAID', child: Text('Partially Paid')),
+                        DropdownMenuItem(value: 'PAID', child: Text('Paid Invoices')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() => _selectedStatus = val);
+                          _refreshDashboard();
+                        }
+                      },
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-
-          if (_selectedDateRange != null)
-            IconButton(
-              tooltip: 'Clear Date Filter',
-              icon: const Icon(Icons.clear, size: 16, color: AppTheme.darkTextSecondary),
-              onPressed: () {
-                setState(() => _selectedDateRange = null);
-                _refreshDashboard();
-              },
-            ),
-
-          // Status Filter
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-            decoration: BoxDecoration(
-              color: AppTheme.darkSurface,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppTheme.darkBorder),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _selectedStatus,
-                dropdownColor: AppTheme.darkSurface,
-                style: const TextStyle(color: Colors.white, fontSize: 13),
-                icon: const Icon(Icons.filter_list, color: AppTheme.darkTextSecondary, size: 16),
-                items: const [
-                  DropdownMenuItem(value: 'ALL', child: Text('Status: All')),
-                  DropdownMenuItem(value: 'UNPAID', child: Text('Unpaid Invoices')),
-                  DropdownMenuItem(value: 'PARTIALLY_PAID', child: Text('Partially Paid')),
-                  DropdownMenuItem(value: 'PAID', child: Text('Paid Invoices')),
-                ],
-                onChanged: (val) {
-                  if (val != null) {
-                    setState(() => _selectedStatus = val);
-                    _refreshDashboard();
-                  }
-                },
-              ),
-            ),
-          ),
-
-          const Spacer(),
-
+          const SizedBox(width: 8),
           // Refresh button
           IconButton(
             tooltip: 'Refresh Data',
@@ -852,7 +856,13 @@ class _PurchaseDashboardPageState extends ConsumerState<PurchaseDashboardPage> {
                 final invoiceNum = inw['vendorInvoiceNumber']?.toString() ?? 'N/A';
                 final grandTotal = (inw['grandTotal'] as num?)?.toDouble() ?? 0.0;
                 final items = (inw['items'] as List? ?? []);
-                final dateStr = inw['inwardDate'] != null ? _dateFormat.format(DateTime.parse(inw['inwardDate'])) : '';
+                DateTime? parsedDate;
+                if (inw['inwardDate'] != null) {
+                  try {
+                    parsedDate = DateTime.tryParse(inw['inwardDate'].toString());
+                  } catch (_) {}
+                }
+                final dateStr = parsedDate != null ? _dateFormat.format(parsedDate) : '';
 
                 return ExpansionTile(
                   iconColor: AppTheme.primary,
