@@ -18,7 +18,6 @@ class PurchaseDashboardPage extends ConsumerStatefulWidget {
 
 class _PurchaseDashboardPageState extends ConsumerState<PurchaseDashboardPage> {
   final _searchController = TextEditingController();
-  final _currencyFormat = NumberFormat.currency(locale: 'en_IN', symbol: '₹');
   final _dateFormat = DateFormat('dd MMM yyyy');
 
   String _selectedFinYear = '2026-27';
@@ -48,81 +47,87 @@ class _PurchaseDashboardPageState extends ConsumerState<PurchaseDashboardPage> {
         );
   }
 
+  String _formatCurrency(num? value) {
+    if (value == null) return '₹0.00';
+    final parts = value.toStringAsFixed(2).split('.');
+    final intPart = parts[0].replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
+    );
+    return '₹$intPart.${parts[1]}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(purchaseDashboardProvider);
-    final isDesktop = MediaQuery.of(context).size.width >= 1024;
     final isMobile = MediaQuery.of(context).size.width < 768;
 
     return Scaffold(
       backgroundColor: AppTheme.darkBackground,
-      body: RefreshIndicator(
-        onRefresh: () async => _refreshDashboard(),
-        color: AppTheme.primary,
-        child: CustomScrollView(
-          slivers: [
-            // Page Header with Title & Top Quick Actions
-            SliverToBoxAdapter(
-              child: _buildTopHeader(isMobile),
-            ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 1. Page Header with Title & Top Quick Actions
+          _buildTopHeader(isMobile),
 
-            // Dynamic Filters Bar
-            SliverToBoxAdapter(
-              child: _buildFilterBar(isMobile),
-            ),
+          // 2. Dynamic Filters Bar
+          _buildFilterBar(isMobile),
 
-            // Main Content Area
-            if (state.isLoading)
-              const SliverFillRemaining(
-                child: Center(
-                  child: CircularProgressIndicator(color: AppTheme.primary),
-                ),
-              )
-            else if (state.error != null)
-              SliverFillRemaining(
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.error_outline, size: 48, color: AppTheme.error),
-                      const SizedBox(height: 12),
-                      Text(state.error!, style: const TextStyle(color: AppTheme.darkTextSecondary)),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
-                        onPressed: _refreshDashboard,
-                        child: const Text('Retry'),
+          // 3. Main Content Area
+          Expanded(
+            child: state.isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(color: AppTheme.primary),
+                  )
+                : state.error != null
+                    ? _buildErrorView(state.error!)
+                    : RefreshIndicator(
+                        onRefresh: () async => _refreshDashboard(),
+                        color: AppTheme.primary,
+                        child: SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // SECTION 1: INWARD PURCHASE SUMMARY
+                              _buildSectionTitle('INWARD PURCHASE SUMMARY'),
+                              const SizedBox(height: 12),
+                              _buildSummaryCards(state.summary ?? {}, isMobile),
+                              const SizedBox(height: 28),
+
+                              // SECTION 2: PENDING INVOICES
+                              _buildPendingInvoicesSection(state.pendingInvoices, isMobile),
+                              const SizedBox(height: 28),
+
+                              // SECTION 3: INWARD ENTRY REGISTER
+                              _buildInwardRegisterSection(state.recentInwards, isMobile),
+                              const SizedBox(height: 40),
+                            ],
+                          ),
+                        ),
                       ),
-                    ],
-                  ),
-                ),
-              )
-            else
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // SECTION 1: INWARD PURCHASE SUMMARY
-                      _buildSectionTitle('INWARD PURCHASE SUMMARY'),
-                      const SizedBox(height: 12),
-                      _buildSummaryCards(state.summary ?? {}, isMobile),
-                      const SizedBox(height: 28),
+          ),
+        ],
+      ),
+    );
+  }
 
-                      // SECTION 2: PENDING INVOICES
-                      _buildPendingInvoicesSection(state.pendingInvoices, isMobile),
-                      const SizedBox(height: 28),
-
-                      // SECTION 3: INWARD ENTRY REGISTER
-                      _buildInwardRegisterSection(state.recentInwards, isMobile),
-                      const SizedBox(height: 40),
-                    ],
-                  ),
-                ),
-              ),
-          ],
-        ),
+  Widget _buildErrorView(String error) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline, size: 48, color: AppTheme.error),
+          const SizedBox(height: 12),
+          Text(error, style: const TextStyle(color: AppTheme.darkTextSecondary)),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
+            onPressed: _refreshDashboard,
+            child: const Text('Retry'),
+          ),
+        ],
       ),
     );
   }
@@ -133,7 +138,7 @@ class _PurchaseDashboardPageState extends ConsumerState<PurchaseDashboardPage> {
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: 20,
-        vertical: isMobile ? 16 : 20,
+        vertical: isMobile ? 14 : 18,
       ),
       decoration: const BoxDecoration(
         color: AppTheme.darkSurface,
@@ -163,7 +168,7 @@ class _PurchaseDashboardPageState extends ConsumerState<PurchaseDashboardPage> {
                         'Purchase / Procurement',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 22,
+                          fontSize: 20,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 0.3,
                         ),
@@ -208,7 +213,7 @@ class _PurchaseDashboardPageState extends ConsumerState<PurchaseDashboardPage> {
             ],
           ),
           if (isMobile) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
@@ -255,7 +260,7 @@ class _PurchaseDashboardPageState extends ConsumerState<PurchaseDashboardPage> {
         foregroundColor: Colors.white,
         side: const BorderSide(color: AppTheme.darkBorder),
         backgroundColor: AppTheme.darkBackground,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
       onPressed: onTap,
@@ -273,7 +278,7 @@ class _PurchaseDashboardPageState extends ConsumerState<PurchaseDashboardPage> {
       style: ElevatedButton.styleFrom(
         backgroundColor: AppTheme.primary,
         foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
@@ -436,14 +441,14 @@ class _PurchaseDashboardPageState extends ConsumerState<PurchaseDashboardPage> {
       ),
       _buildDynamicCard(
         title: 'Total Inward Amount',
-        value: _currencyFormat.format(totalInwardAmount),
+        value: _formatCurrency(totalInwardAmount),
         icon: Icons.inventory_2_outlined,
         color: AppTheme.success,
         subtitle: 'From authoritative inward GRN ledger',
       ),
       _buildDynamicCard(
         title: 'Pending Amount',
-        value: _currencyFormat.format(pendingAmount),
+        value: _formatCurrency(pendingAmount),
         icon: Icons.pending_actions_outlined,
         color: AppTheme.primary,
         subtitle: 'Outstanding supplier invoice payables',
@@ -633,11 +638,11 @@ class _PurchaseDashboardPageState extends ConsumerState<PurchaseDashboardPage> {
               ),
               DataCell(Text(invoiceNumber, style: const TextStyle(color: Colors.white))),
               DataCell(Text(dept, style: const TextStyle(color: AppTheme.darkTextSecondary))),
-              DataCell(Text(_currencyFormat.format(total), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600))),
-              DataCell(Text(_currencyFormat.format(paid), style: const TextStyle(color: AppTheme.success))),
+              DataCell(Text(_formatCurrency(total), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600))),
+              DataCell(Text(_formatCurrency(paid), style: const TextStyle(color: AppTheme.success))),
               DataCell(
                 Text(
-                  _currencyFormat.format(balance),
+                  _formatCurrency(balance),
                   style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -712,14 +717,14 @@ class _PurchaseDashboardPageState extends ConsumerState<PurchaseDashboardPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text('Total Amount', style: TextStyle(color: AppTheme.darkTextSecondary, fontSize: 11)),
-                      Text(_currencyFormat.format(total), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                      Text(_formatCurrency(total), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                     ],
                   ),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text('Paid', style: TextStyle(color: AppTheme.darkTextSecondary, fontSize: 11)),
-                      Text(_currencyFormat.format(paid), style: const TextStyle(color: AppTheme.success, fontWeight: FontWeight.w600)),
+                      Text(_formatCurrency(paid), style: const TextStyle(color: AppTheme.success, fontWeight: FontWeight.w600)),
                     ],
                   ),
                   Column(
@@ -727,7 +732,7 @@ class _PurchaseDashboardPageState extends ConsumerState<PurchaseDashboardPage> {
                     children: [
                       const Text('Pending Balance', style: TextStyle(color: AppTheme.darkTextSecondary, fontSize: 11)),
                       Text(
-                        _currencyFormat.format(balance),
+                        _formatCurrency(balance),
                         style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold, fontSize: 15),
                       ),
                     ],
@@ -856,7 +861,7 @@ class _PurchaseDashboardPageState extends ConsumerState<PurchaseDashboardPage> {
                     ),
                   ),
                   trailing: Text(
-                    _currencyFormat.format(grandTotal),
+                    _formatCurrency(grandTotal),
                     style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
                   ),
                   children: [
@@ -907,7 +912,7 @@ class _PurchaseDashboardPageState extends ConsumerState<PurchaseDashboardPage> {
                                     child: Text('₹$rate', style: const TextStyle(color: AppTheme.darkTextSecondary, fontSize: 12)),
                                   ),
                                   Expanded(
-                                    child: Text(_currencyFormat.format(amt), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
+                                    child: Text(_formatCurrency(amt), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
                                   ),
                                   _buildQCStatusBadge(qcStatus),
                                 ],
