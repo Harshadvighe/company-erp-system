@@ -49,12 +49,11 @@ class _PurchaseDashboardPageState extends ConsumerState<PurchaseDashboardPage> {
 
   String _formatCurrency(num? value) {
     if (value == null) return '₹0.00';
-    final parts = value.toStringAsFixed(2).split('.');
-    final intPart = parts[0].replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
-    );
-    return '₹$intPart.${parts[1]}';
+    try {
+      return NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 2).format(value);
+    } catch (_) {
+      return '₹${value.toStringAsFixed(2)}';
+    }
   }
 
   @override
