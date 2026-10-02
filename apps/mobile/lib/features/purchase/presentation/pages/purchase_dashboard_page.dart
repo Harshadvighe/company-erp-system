@@ -21,7 +21,7 @@ class _PurchaseDashboardPageState extends ConsumerState<PurchaseDashboardPage> {
   final _dateFormat = DateFormat('dd MMM yyyy');
 
   String _selectedFinYear = '2026-27';
-  String? _selectedStatus;
+  String _selectedStatus = 'ALL';
   DateTimeRange? _selectedDateRange;
 
   @override
@@ -43,7 +43,7 @@ class _PurchaseDashboardPageState extends ConsumerState<PurchaseDashboardPage> {
           finYear: _selectedFinYear == 'ALL' ? null : _selectedFinYear,
           fromDate: _selectedDateRange?.start.toIso8601String(),
           toDate: _selectedDateRange?.end.toIso8601String(),
-          status: _selectedStatus,
+          status: _selectedStatus == 'ALL' ? null : _selectedStatus,
         );
   }
 
@@ -391,21 +391,22 @@ class _PurchaseDashboardPageState extends ConsumerState<PurchaseDashboardPage> {
               border: Border.all(color: AppTheme.darkBorder),
             ),
             child: DropdownButtonHideUnderline(
-              child: DropdownButton<String?>(
+              child: DropdownButton<String>(
                 value: _selectedStatus,
-                hint: const Text('Status: All', style: TextStyle(color: AppTheme.darkTextSecondary, fontSize: 13)),
                 dropdownColor: AppTheme.darkSurface,
                 style: const TextStyle(color: Colors.white, fontSize: 13),
                 icon: const Icon(Icons.filter_list, color: AppTheme.darkTextSecondary, size: 16),
                 items: const [
-                  DropdownMenuItem(value: null, child: Text('Status: All')),
+                  DropdownMenuItem(value: 'ALL', child: Text('Status: All')),
                   DropdownMenuItem(value: 'UNPAID', child: Text('Unpaid Invoices')),
                   DropdownMenuItem(value: 'PARTIALLY_PAID', child: Text('Partially Paid')),
                   DropdownMenuItem(value: 'PAID', child: Text('Paid Invoices')),
                 ],
                 onChanged: (val) {
-                  setState(() => _selectedStatus = val);
-                  _refreshDashboard();
+                  if (val != null) {
+                    setState(() => _selectedStatus = val);
+                    _refreshDashboard();
+                  }
                 },
               ),
             ),
