@@ -10,20 +10,27 @@ final _dashboardDataProvider = FutureProvider<Map<String, dynamic>>((ref) async 
   return ref.watch(crmRepositoryProvider).getDashboard();
 });
 
-class DashboardPage extends ConsumerWidget {
+class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DashboardPage> createState() => _DashboardPageState();
+}
+
+class _DashboardPageState extends ConsumerState<DashboardPage> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(customerListProvider.notifier).loadCustomers();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
     final dashAsync = ref.watch(_dashboardDataProvider);
     final customerState = ref.watch(customerListProvider);
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (customerState.customers.isEmpty && !customerState.isLoading) {
-        ref.read(customerListProvider.notifier).loadCustomers();
-      }
-    });
 
     return Scaffold(
       body: RefreshIndicator(
