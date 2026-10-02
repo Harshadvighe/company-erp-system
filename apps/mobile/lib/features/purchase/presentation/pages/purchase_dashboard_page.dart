@@ -618,13 +618,22 @@ class _PurchaseDashboardPageState extends ConsumerState<PurchaseDashboardPage> {
           DataColumn(label: Text('Action', style: TextStyle(color: AppTheme.darkTextSecondary, fontWeight: FontWeight.bold))),
         ],
         rows: invoices.map((inv) {
-          final vendorName = inv['vendor']?['companyName'] ?? 'Unknown Vendor';
-          final invoiceNumber = inv['invoiceNumber'] ?? 'N/A';
-          final dept = inv['departmentId'] ?? 'Procurement';
-          final total = (inv['totalAmount'] as num?)?.toDouble() ?? 0.0;
-          final paid = (inv['paidAmount'] as num?)?.toDouble() ?? 0.0;
-          final balance = (inv['balanceAmount'] as num?)?.toDouble() ?? 0.0;
-          final status = inv['status'] ?? 'UNPAID';
+          final vendor = inv['vendor'];
+          final vendorName = vendor is Map
+              ? (vendor['companyName']?.toString() ?? 'Unknown Vendor')
+              : (vendor?.toString() ?? 'Unknown Vendor');
+          final invoiceNumber = inv['invoiceNumber']?.toString() ?? 'N/A';
+          final dept = (inv['department'] ?? inv['departmentId'])?.toString() ?? 'Procurement';
+          final total = (inv['invoiceTotal'] as num?)?.toDouble() ??
+              (inv['totalAmount'] as num?)?.toDouble() ??
+              0.0;
+          final paid = (inv['paid'] as num?)?.toDouble() ??
+              (inv['paidAmount'] as num?)?.toDouble() ??
+              0.0;
+          final balance = (inv['pendingBalance'] as num?)?.toDouble() ??
+              (inv['balanceAmount'] as num?)?.toDouble() ??
+              0.0;
+          final status = inv['status']?.toString() ?? 'UNPAID';
 
           return DataRow(
             cells: [
@@ -678,12 +687,21 @@ class _PurchaseDashboardPageState extends ConsumerState<PurchaseDashboardPage> {
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final inv = invoices[index];
-        final vendorName = inv['vendor']?['companyName'] ?? 'Vendor';
-        final invoiceNumber = inv['invoiceNumber'] ?? 'N/A';
-        final total = (inv['totalAmount'] as num?)?.toDouble() ?? 0.0;
-        final paid = (inv['paidAmount'] as num?)?.toDouble() ?? 0.0;
-        final balance = (inv['balanceAmount'] as num?)?.toDouble() ?? 0.0;
-        final status = inv['status'] ?? 'UNPAID';
+        final vendor = inv['vendor'];
+        final vendorName = vendor is Map
+            ? (vendor['companyName']?.toString() ?? 'Vendor')
+            : (vendor?.toString() ?? 'Vendor');
+        final invoiceNumber = inv['invoiceNumber']?.toString() ?? 'N/A';
+        final total = (inv['invoiceTotal'] as num?)?.toDouble() ??
+            (inv['totalAmount'] as num?)?.toDouble() ??
+            0.0;
+        final paid = (inv['paid'] as num?)?.toDouble() ??
+            (inv['paidAmount'] as num?)?.toDouble() ??
+            0.0;
+        final balance = (inv['pendingBalance'] as num?)?.toDouble() ??
+            (inv['balanceAmount'] as num?)?.toDouble() ??
+            0.0;
+        final status = inv['status']?.toString() ?? 'UNPAID';
 
         return Container(
           padding: const EdgeInsets.all(16),
@@ -827,9 +845,12 @@ class _PurchaseDashboardPageState extends ConsumerState<PurchaseDashboardPage> {
               separatorBuilder: (_, __) => const Divider(height: 1, color: AppTheme.darkBorder),
               itemBuilder: (context, index) {
                 final inw = inwards[index];
-                final inwardNum = inw['inwardNumber'] ?? 'N/A';
-                final vendorName = inw['vendor']?['companyName'] ?? 'Vendor';
-                final invoiceNum = inw['vendorInvoiceNumber'] ?? 'N/A';
+                final inwardNum = inw['inwardNumber']?.toString() ?? 'N/A';
+                final vendor = inw['vendor'];
+                final vendorName = vendor is Map
+                    ? (vendor['companyName']?.toString() ?? 'Vendor')
+                    : (vendor?.toString() ?? 'Vendor');
+                final invoiceNum = inw['vendorInvoiceNumber']?.toString() ?? 'N/A';
                 final grandTotal = (inw['grandTotal'] as num?)?.toDouble() ?? 0.0;
                 final items = (inw['items'] as List? ?? []);
                 final dateStr = inw['inwardDate'] != null ? _dateFormat.format(DateTime.parse(inw['inwardDate'])) : '';

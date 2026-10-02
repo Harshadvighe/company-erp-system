@@ -116,8 +116,11 @@ class _ChequeManagementModalState extends ConsumerState<ChequeManagementModal> {
                             final chq = _cheques[index];
                             final status = chq['status'] ?? 'ISSUED';
                             final amount = (chq['amount'] as num?)?.toDouble() ?? 0.0;
-                            final vendorName = chq['vendor']?['companyName'] ?? chq['payeeName'] ?? 'Vendor';
-                            final chequeNum = chq['chequeNumber'] ?? 'N/A';
+                            final vendor = chq['vendor'];
+                            final vendorName = vendor is Map
+                                ? (vendor['companyName']?.toString() ?? chq['payeeName']?.toString() ?? 'Vendor')
+                                : (vendor?.toString() ?? chq['payeeName']?.toString() ?? 'Vendor');
+                            final chequeNum = chq['chequeNumber']?.toString() ?? 'N/A';
                             final bank = chq['bankName'] ?? '';
                             final branch = chq['branch'] ?? '';
 

@@ -36,7 +36,9 @@ class _PayInvoiceDialogState extends ConsumerState<PayInvoiceDialog> {
   @override
   void initState() {
     super.initState();
-    final balance = (widget.invoice['balanceAmount'] as num?)?.toDouble() ?? 0.0;
+    final balance = (widget.invoice['pendingBalance'] as num?)?.toDouble() ??
+        (widget.invoice['balanceAmount'] as num?)?.toDouble() ??
+        0.0;
     _amountController.text = balance > 0 ? balance.toStringAsFixed(2) : '';
   }
 
@@ -54,11 +56,20 @@ class _PayInvoiceDialogState extends ConsumerState<PayInvoiceDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final invoiceNumber = widget.invoice['invoiceNumber'] ?? 'N/A';
-    final vendorName = widget.invoice['vendor']?['companyName'] ?? 'Vendor';
-    final totalAmount = (widget.invoice['totalAmount'] as num?)?.toDouble() ?? 0.0;
-    final paidAmount = (widget.invoice['paidAmount'] as num?)?.toDouble() ?? 0.0;
-    final balanceAmount = (widget.invoice['balanceAmount'] as num?)?.toDouble() ?? 0.0;
+    final invoiceNumber = widget.invoice['invoiceNumber']?.toString() ?? 'N/A';
+    final vendor = widget.invoice['vendor'];
+    final vendorName = vendor is Map
+        ? (vendor['companyName']?.toString() ?? 'Vendor')
+        : (vendor?.toString() ?? 'Vendor');
+    final totalAmount = (widget.invoice['invoiceTotal'] as num?)?.toDouble() ??
+        (widget.invoice['totalAmount'] as num?)?.toDouble() ??
+        0.0;
+    final paidAmount = (widget.invoice['paid'] as num?)?.toDouble() ??
+        (widget.invoice['paidAmount'] as num?)?.toDouble() ??
+        0.0;
+    final balanceAmount = (widget.invoice['pendingBalance'] as num?)?.toDouble() ??
+        (widget.invoice['balanceAmount'] as num?)?.toDouble() ??
+        0.0;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -353,7 +364,9 @@ class _PayInvoiceDialogState extends ConsumerState<PayInvoiceDialog> {
           'chequeNumber': _chequeNumberController.text.trim(),
           'bankName': _chequeBankController.text.trim(),
           'branch': _chequeBranchController.text.trim(),
-          'payeeName': widget.invoice['vendor']?['companyName'] ?? 'Vendor',
+          'payeeName': (widget.invoice['vendor'] is Map)
+              ? (widget.invoice['vendor']['companyName']?.toString() ?? 'Vendor')
+              : (widget.invoice['vendor']?.toString() ?? 'Vendor'),
         },
       };
 
