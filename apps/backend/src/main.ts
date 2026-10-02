@@ -41,6 +41,35 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
+  // Serve Flutter Web frontend directly through NestJS (at root / and all non-API paths)
+  const express = require('express');
+  const path = require('path');
+  const fs = require('fs');
+
+  const webCandidates = [
+    path.resolve(process.cwd(), '../mobile/build/web'),
+    path.resolve(process.cwd(), 'apps/mobile/build/web'),
+    path.resolve(__dirname, '../../../../apps/mobile/build/web'),
+    'd:/saark/New folder (2)/apps/mobile/build/web',
+  ];
+  const webDir = webCandidates.find((dir) => fs.existsSync(dir));
+
+  if (webDir) {
+    logger.log(`📱 Serving Flutter Web frontend from: ${webDir}`);
+    app.use(express.static(webDir));
+
+    // Client-side SPA routing fallback for Flutter Web
+    app.use((req: any, res: any, next: any) => {
+      if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.startsWith('/swagger')) {
+        const indexPath = path.join(webDir, 'index.html');
+        if (fs.existsSync(indexPath)) {
+          return res.sendFile(indexPath);
+        }
+      }
+      next();
+    });
+  }
+
   const port = process.env.PORT || 3000;
   await app.listen(port, '0.0.0.0');
 
