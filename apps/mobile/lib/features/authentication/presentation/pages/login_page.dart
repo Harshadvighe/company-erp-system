@@ -24,6 +24,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   String? _errorMessage;
 
   @override
+  void initState() {
+    super.initState();
+    _emailController.text = 'admin';
+    _passwordController.text = 'Saark@2026';
+  }
+
+  @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
@@ -225,7 +232,53 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   'Enter your credentials to access the ERP platform',
                   style: TextStyle(color: Colors.grey, fontSize: 13),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 16),
+
+                // Demo Credentials Box
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppTheme.primary.withOpacity(0.25)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.key_rounded, size: 18, color: AppTheme.primary),
+                      const SizedBox(width: 10),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Default Admin Account:',
+                              style: TextStyle(fontSize: 11, color: AppTheme.darkTextSecondary, fontWeight: FontWeight.w600),
+                            ),
+                            Text(
+                              'admin / Saark@2026',
+                              style: TextStyle(fontSize: 13, color: Colors.white, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          visualDensity: VisualDensity.compact,
+                          backgroundColor: AppTheme.primary.withOpacity(0.15),
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _emailController.text = 'admin';
+                            _passwordController.text = 'Saark@2026';
+                          });
+                        },
+                        child: const Text('Fill', style: TextStyle(fontSize: 12, color: AppTheme.primary, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
 
                 // Error Banner
                 if (_errorMessage != null) ...[
