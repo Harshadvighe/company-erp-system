@@ -1,0 +1,521 @@
+// Prisma Schema for Saark Exploration ERP System
+// Dual Compatibility: Currently SQLite, easily migratable to PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// -------------------------------------------------------------
+// 1. AUTHENTICATION & ACCESS CONTROL (RBAC / PBAC)
+// -------------------------------------------------------------
+
+model User {
+  id           String     @id @default(uuid())
+  username     String     @unique
+  email        String     @unique
+  passwordHash String
+  fullName     String
+  phone        String?
+  designation  String?
+  departmentId String?
+  status       String     @default("ACTIVE") // ACTIVE, INACTIVE, LOCKED
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  department   Department? @relation(fields: [departmentId], references: [id])
+  userRoles    UserRole[]
+  auditLogs    AuditLog[]
+  notifications Notification[]
+
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  code        String   @unique
+  description String?
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  module      String   // CUSTOMERS, SALES, PURCHASE, INVENTORY, etc.
+  action      String   // VIEW, CREATE, EDIT, DELETE, APPROVE, EXPORT
+  description String?
+
+  rolePermissions RolePermission[]
+
+  @@unique([module, action])
+  @@map("permissions")
+}
+
+model UserRole {
+  userId String
+  roleId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// -------------------------------------------------------------
+// 2. ADMINISTRATION MASTERS
+// -------------------------------------------------------------
+
+model Company {
+  id          String   @id @default(uuid())
+  name        String
+  legalName   String
+  gstin       String
+  pan         String
+  cin         String?
+  email       String
+  phone       String
+  website     String?
+  address     String
+  city        String
+  state       String
+  country     String   @default("India")
+  pincode     String
+  logoUrl     String?
+  bankName    String?
+  accountNo   String?
+  ifscCode    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("companies")
+}
+
+model Department {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  code      String   @unique
+  users     User[]
+  createdAt DateTime @default(now())
+
+  @@map("departments")
+}
+
+model FinancialYear {
+  id        String   @id @default(uuid())
+  name      String   @unique // 2025-26, 2026-27
+  startDate DateTime
+  endDate   DateTime
+  isCurrent Boolean  @default(false)
+
+  @@map("financial_years")
+}
+
+model TaxRate {
+  id         String  @id @default(uuid())
+  name       String  // GST 18%, GST 12%, GST 5%, GST 0%
+  percentage Float
+  cgst       Float
+  sgst       Float
+  igst       Float
+
+  products   Product[]
+
+  @@map("tax_rates")
+}
+
+model PaymentMode {
+  id        String   @id @default(uuid())
+  name      String   @unique // Cash, NEFT/RTGS, UPI, Cheque, Credit Card
+  code      String   @unique
+  createdAt DateTime @default(now())
+
+  @@map("payment_modes")
+}
+
+// -------------------------------------------------------------
+// 3. CUSTOMER MASTER & CONTACTS & VALUATION
+// -------------------------------------------------------------
+
+model Customer {
+  id               String   @id @default(uuid())
+  customerCode     String   @unique // CUS-2026-00001
+  companyName      String
+  gstin            String?
+  pan              String?
+  customerType     String   @default("END_CUSTOMER") // DEALER, DISTRIBUTOR, END_CUSTOMER, OEM, GOVT
+  customerCategory String   @default("STANDARD")
+  contactPerson    String
+  designation      String?
+  email            String
+  phone            String
+  alternatePhone   String?
+  website          String?
+  address          String
+  country          String   @default("India")
+  state            String
+  district         String
+  city             String
+  pincode          String
+  ownerName        String?
+  staffCount       Int      @default(0)
+  turnover         String?
+  industry         String?
+  source           String?  @default("DIRECT")
+  customerRating   Float    @default(5.0)
+  status           String   @default("ACTIVE")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  contacts     CustomerContact[]
+  interactions CustomerInteraction[]
+  valuations   CustomerValuation?
+  leads        Lead[]
+  enquiries    Enquiry[]
+  panelSpecs   PanelSpecification[]
+
+  @@map("customers")
+}
+
+model CustomerContact {
+  id           String   @id @default(uuid())
+  customerId   String
+  name         String
+  designation  String?
+  department   String?
+  phone        String?
+  mobile       String
+  email        String?
+  whatsapp     String?
+  isPrimary    Boolean  @default(false)
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  customer     Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  interactions CustomerInteraction[]
+
+  @@map("customer_contacts")
+}
+
+model CustomerInteraction {
+  id              String   @id @default(uuid())
+  customerId      String
+  contactId       String?
+  interactionType String   // CALL, EMAIL, WHATSAPP, MEETING, VISIT, DEMO, FOLLOWUP
+  interactionDate DateTime @default(now())
+  subject         String
+  description     String
+  outcome         String?
+  nextFollowUp    DateTime?
+  recordedBy      String
+  attachmentUrl   String?
+  audioUrl        String?
+  createdAt       DateTime @default(now())
+
+  customer Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  contact  CustomerContact? @relation(fields: [contactId], references: [id])
+
+  @@map("customer_interactions")
+}
+
+model CustomerValuation {
+  id                 String   @id @default(uuid())
+  customerId         String   @unique
+  vfdWorkScore       Float    @default(0)
+  dewateringWorkScore Float   @default(0)
+  isDealer           Boolean  @default(false)
+  isDistributor      Boolean  @default(false)
+  ratingScore        Float    @default(5.0)
+  valuablePercentage Float    @default(50.0)
+  activityCount      Int      @default(0)
+  dealerName         String?
+  distributorName    String?
+  updatedAt          DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("customer_valuations")
+}
+
+// -------------------------------------------------------------
+// 4. VENDOR & PRODUCT MASTERS
+// -------------------------------------------------------------
+
+model Vendor {
+  id               String   @id @default(uuid())
+  vendorCode       String   @unique // VEN-2026-00001
+  companyName      String
+  gstin            String?
+  pan              String?
+  contactPerson    String
+  email            String
+  phone            String
+  address          String
+  city             String
+  state            String
+  productsSupplied String?
+  paymentTerms     String?  @default("NET_30")
+  creditLimit      Float    @default(0)
+  rating           Float    @default(5.0)
+  status           String   @default("ACTIVE")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("vendors")
+}
+
+model ProductCategory {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  code      String    @unique
+  products  Product[]
+
+  @@map("product_categories")
+}
+
+model Unit {
+  id        String    @id @default(uuid())
+  name      String    @unique // Nos, Sets, Meters, Kg, Liters
+  code      String    @unique
+  products  Product[]
+
+  @@map("units")
+}
+
+model Product {
+  id            String   @id @default(uuid())
+  sku           String   @unique
+  name          String
+  categoryId    String
+  productType   String   @default("FINISHED_PRODUCT") // FINISHED_PRODUCT, RAW_MATERIAL, COMPONENT, SERVICE
+  description   String?
+  unitId        String
+  taxRateId     String?
+  hsnSac        String?
+  purchasePrice Float
+  sellingPrice  Float
+  minSellingPrice Float?
+  reorderLevel  Int      @default(10)
+  openingStock  Int      @default(0)
+  currentStock  Int      @default(0)
+  imageUrl      String?
+  status        String   @default("ACTIVE")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  category      ProductCategory @relation(fields: [categoryId], references: [id])
+  unit          Unit            @relation(fields: [unitId], references: [id])
+  taxRate       TaxRate?        @relation(fields: [taxRateId], references: [id])
+  bomItems      PanelBOMItem[]
+  stockItems    StockItem[]
+
+  @@map("products")
+}
+
+// -------------------------------------------------------------
+// 5. CRM (LEADS & ENQUIRIES)
+// -------------------------------------------------------------
+
+model Lead {
+  id             String   @id @default(uuid())
+  leadNumber     String   @unique // LEAD-2026-00001
+  companyName    String
+  contactPerson  String
+  phone          String
+  email          String?
+  source         String?  @default("EXHIBITION")
+  productInterest String?
+  requirement    String?
+  estimatedValue Float    @default(0)
+  assignedTo     String?
+  priority       String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  status         String   @default("NEW") // NEW, CONTACTED, QUALIFIED, PROPOSAL, NEGOTIATION, WON, LOST
+  customerId     String?
+  nextFollowUp   DateTime?
+  remarks        String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  customer Customer? @relation(fields: [customerId], references: [id])
+
+  @@map("leads")
+}
+
+model Enquiry {
+  id            String   @id @default(uuid())
+  enquiryNumber String   @unique // ENQ-2026-00001
+  customerId    String
+  enquiryDate   DateTime @default(now())
+  productInterest String
+  quantity      Int      @default(1)
+  requirement   String?
+  expectedValue Float    @default(0)
+  assignedTo    String?
+  priority      String   @default("MEDIUM")
+  status        String   @default("PENDING") // PENDING, QUOTED, CLOSED_WON, CLOSED_LOST
+  followUpDate  DateTime?
+  remarks       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id])
+
+  @@map("enquiries")
+}
+
+// -------------------------------------------------------------
+// 6. CLIENT SPECIFIC: PANEL MANUFACTURING & BOM
+// -------------------------------------------------------------
+
+model PanelSpecification {
+  id            String   @id @default(uuid())
+  panelCode     String   @unique // PANEL-2026-0001
+  customerId    String
+  panelType     String   // VFD_PANEL, BOOSTER_PUMP, STP_PANEL, HVAC_PANEL, DEWATERING_PANEL
+  voltage       String   @default("415V 3-Phase")
+  currentRating String   @default("100A")
+  pumpQty       Int      @default(2)
+  pumpHp        Float    @default(7.5)
+  controlType   String   @default("AUTOMATIC_PLC") // AUTOMATIC_PLC, MANUAL, STAR_DELTA, DOL
+  starterType   String?  @default("VFD")
+  ipRating      String   @default("IP55")
+  enclosureType String   @default("POWDER_COATED_MS")
+  
+  // Costing & Formula Breakdown
+  materialCost  Float    @default(0)
+  labourCost    Float    @default(0)
+  overheadCost  Float    @default(0)
+  marginPercent Float    @default(15.0)
+  finalPrice    Float    @default(0)
+  status        String   @default("DRAFT") // DRAFT, APPROVED, IN_PRODUCTION
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  customer Customer       @relation(fields: [customerId], references: [id])
+  bomItems PanelBOMItem[]
+
+  @@map("panel_specifications")
+}
+
+model PanelBOMItem {
+  id            String @id @default(uuid())
+  panelSpecId   String
+  productId     String?
+  componentName String
+  specification String?
+  manufacturer  String?
+  quantity      Int    @default(1)
+  unitPrice     Float  @default(0)
+  totalPrice    Float  @default(0)
+
+  panelSpec PanelSpecification @relation(fields: [panelSpecId], references: [id], onDelete: Cascade)
+  product   Product?           @relation(fields: [productId], references: [id])
+
+  @@map("panel_bom_items")
+}
+
+// -------------------------------------------------------------
+// 7. INVENTORY & WAREHOUSES
+// -------------------------------------------------------------
+
+model Warehouse {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  location  String
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+
+  stockItems StockItem[]
+
+  @@map("warehouses")
+}
+
+model StockItem {
+  id               String   @id @default(uuid())
+  warehouseId      String
+  productId        String
+  currentQuantity  Int      @default(0)
+  reservedQuantity Int      @default(0)
+  updatedAt        DateTime @updatedAt
+
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id])
+  product   Product   @relation(fields: [productId], references: [id])
+
+  @@unique([warehouseId, productId])
+  @@map("stock_items")
+}
+
+// -------------------------------------------------------------
+// 8. DOCUMENTS, NOTIFICATIONS & AUDIT LOGS
+// -------------------------------------------------------------
+
+model DocumentItem {
+  id           String   @id @default(uuid())
+  documentCode String   @unique // DOC-2026-0001
+  name         String
+  documentType String   // GST_CERT, PO_COPY, PANEL_DRAWING, INVOICE, MANUAL
+  entityType   String   // CUSTOMER, VENDOR, PRODUCT, PROJECT, INVOICE
+  entityId     String
+  fileName     String
+  fileSize     Int
+  mimeType     String
+  storagePath  String
+  uploadedBy   String
+  createdAt    DateTime @default(now())
+
+  @@map("document_items")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  module    String   // CRM, SALES, INVENTORY, TASK
+  entityId  String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String?
+  userEmail   String?
+  action      String   // CREATE, UPDATE, DELETE, LOGIN, APPROVE, EXPORT
+  module      String   // CUSTOMERS, LEADS, PRODUCTS, PANEL_MFG, AUTH
+  entityType  String?
+  entityId    String?
+  details     String?
+  ipAddress   String?
+  timestamp   DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}

@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    container_name: saark_erp_backend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+      - DATABASE_PROVIDER=sqlite
+      - DATABASE_URL=file:../../storage/saark_erp.db
+      - STORAGE_PROVIDER=local
+      - STORAGE_LOCAL_BASE_PATH=../../storage
+      - JWT_SECRET=saark_erp_production_jwt_secret_key_2026_x98123
+    volumes:
+      - ./storage:/app/storage
+
+  # Future PostgreSQL container option
+  # postgres:
+  #   image: postgres:16-alpine
+  #   container_name: saark_erp_postgres
+  #   restart: always
+  #   environment:
+  #     POSTGRES_USER: saark
+  #     POSTGRES_PASSWORD: saark_secure_password
+  #     POSTGRES_DB: saark_erp_db
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+
+# volumes:
+#   postgres_data:
