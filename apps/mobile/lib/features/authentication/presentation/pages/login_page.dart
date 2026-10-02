@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:saark_erp_mobile/core/theme/app_theme.dart';
-import 'package:saark_erp_mobile/core/auth/auth_provider.dart';
 import 'package:saark_erp_mobile/core/network/dio_client.dart';
 import 'package:saark_erp_mobile/core/constants/app_constants.dart';
 import 'package:saark_erp_mobile/features/authentication/data/auth_repository.dart';
@@ -53,7 +52,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       );
 
       if (mounted) {
-        context.go('/dashboard');
+        final location = GoRouterState.of(context).matchedLocation;
+        if (location == '/login') {
+          context.go('/dashboard');
+        }
       }
     } on Exception catch (e) {
       String message = 'Login failed. Please check your credentials.';

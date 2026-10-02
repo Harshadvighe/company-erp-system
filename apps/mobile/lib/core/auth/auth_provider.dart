@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:saark_erp_mobile/core/constants/app_constants.dart';
+import 'package:saark_erp_mobile/core/storage/app_storage.dart';
 
 // ─── Auth State Model ───────────────────────────────────────────────────────
 
@@ -92,15 +92,13 @@ class AuthState {
 // ─── Auth Notifier ───────────────────────────────────────────────────────────
 
 class AuthNotifier extends StateNotifier<AuthState> {
-  static const _storage = FlutterSecureStorage();
-
   AuthNotifier() : super(const AuthState()) {
     _restoreSession();
   }
 
   Future<void> _restoreSession() async {
     try {
-      final profile = await _storage.read(key: AppConstants.userProfileKey);
+      final profile = await AppStorage.read(AppConstants.userProfileKey);
       if (profile != null) {
         try {
           final json = jsonDecode(profile) as Map<String, dynamic>;
@@ -110,21 +108,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
         }
       }
     } catch (_) {
-      // If secure storage fails on device, fallback to logged out state safely
       state = const AuthState();
     }
   }
 
   Future<void> setUser(AuthUser user, String accessToken, String refreshToken) async {
-    await _storage.write(key: AppConstants.accessTokenKey, value: accessToken);
-    await _storage.write(key: AppConstants.refreshTokenKey, value: refreshToken);
-    await _storage.write(
-        key: AppConstants.userProfileKey, value: jsonEncode(user.toJson()));
+    await AppStorage.write(AppConstants.accessTokenKey, accessToken);
+    await AppStorage.write(AppConstants.refreshTokenKey, refreshToken);
+    await AppStorage.write(
+        AppConstants.userProfileKey, jsonEncode(user.toJson()));
     state = AuthState(user: user);
   }
 
   Future<void> logout() async {
-    await _storage.deleteAll();
+    await AppStorage.deleteAll();
     state = const AuthState();
   }
 

@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class AppConstants {
   // Public Cloudflare Tunnel URL - Works on 4G/5G mobile data & Wi-Fi anywhere

@@ -17,19 +17,38 @@ import 'package:saark_erp_mobile/features/production/presentation/pages/panel_sp
 import 'package:saark_erp_mobile/features/production/presentation/pages/panel_spec_form_page.dart';
 import 'package:saark_erp_mobile/features/purchase/presentation/pages/purchase_dashboard_page.dart';
 
+class RouterNotifier extends ChangeNotifier {
+  final Ref _ref;
+
+  RouterNotifier(this._ref) {
+    _ref.listen<AuthState>(
+      authProvider,
+      (_, __) => notifyListeners(),
+    );
+  }
+
+  String? redirect(BuildContext context, GoRouterState state) {
+    final authState = _ref.read(authProvider);
+    final isLoggedIn = authState.isAuthenticated;
+    final isLoginPage = state.matchedLocation == '/login';
+
+    if (!isLoggedIn && !isLoginPage) return '/login';
+    if (isLoggedIn && isLoginPage) return '/dashboard';
+    return null;
+  }
+}
+
+final routerNotifierProvider = Provider<RouterNotifier>((ref) {
+  return RouterNotifier(ref);
+});
+
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
+  final notifier = ref.watch(routerNotifierProvider);
 
   return GoRouter(
     initialLocation: '/dashboard',
-    redirect: (context, state) {
-      final isLoggedIn = authState.isAuthenticated;
-      final isLoginPage = state.matchedLocation == '/login';
-
-      if (!isLoggedIn && !isLoginPage) return '/login';
-      if (isLoggedIn && isLoginPage) return '/dashboard';
-      return null;
-    },
+    refreshListenable: notifier,
+    redirect: notifier.redirect,
     routes: [
       // ─── Auth ──────────────────────────────────────────────────────
       GoRoute(

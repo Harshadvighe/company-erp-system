@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:saark_erp_mobile/core/constants/app_constants.dart';
+import 'package:saark_erp_mobile/core/storage/app_storage.dart';
 
 final dioProvider = Provider<Dio>((ref) {
   final dio = Dio(BaseOptions(
@@ -23,14 +23,13 @@ final dioProvider = Provider<Dio>((ref) {
 
 class AuthInterceptor extends Interceptor {
   final Ref ref;
-  static const _storage = FlutterSecureStorage();
 
   AuthInterceptor(this.ref);
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
     options.baseUrl = AppConstants.baseUrl;
-    final token = await _storage.read(key: AppConstants.accessTokenKey);
+    final token = await AppStorage.read(AppConstants.accessTokenKey);
     if (token != null) {
       options.headers['Authorization'] = 'Bearer $token';
     }
@@ -41,8 +40,8 @@ class AuthInterceptor extends Interceptor {
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     if (err.response?.statusCode == 401) {
       // Session expired — clear tokens
-      await _storage.delete(key: AppConstants.accessTokenKey);
-      await _storage.delete(key: AppConstants.refreshTokenKey);
+      await AppStorage.delete(AppConstants.accessTokenKey);
+      await AppStorage.delete(AppConstants.refreshTokenKey);
     }
     handler.next(err);
   }
