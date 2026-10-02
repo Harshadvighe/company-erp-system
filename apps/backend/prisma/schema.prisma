@@ -266,14 +266,23 @@ model Vendor {
   id               String   @id @default(uuid())
   vendorCode       String   @unique // VEN-2026-00001
   companyName      String
+  legalName        String?
   gstin            String?
   pan              String?
+  vendorType       String?  @default("MANUFACTURER") // MANUFACTURER, DEALER, DISTRIBUTOR, SERVICE_PROVIDER, IMPORTER, OTHER
+  vendorCategory   String?  @default("STANDARD")
   contactPerson    String
+  designation      String?
   email            String
   phone            String
+  alternatePhone   String?
+  website          String?
   address          String
-  city             String
+  country          String   @default("India")
   state            String
+  district         String?
+  city             String
+  pincode          String?
   productsSupplied String?
   paymentTerms     String?  @default("NET_30")
   creditLimit      Float    @default(0)
@@ -281,6 +290,18 @@ model Vendor {
   status           String   @default("ACTIVE")
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+
+  contacts         VendorContact[]
+  addresses        VendorAddress[]
+  bankAccounts     VendorBankAccount[]
+  rfqVendors       RFQVendor[]
+  quotations       VendorQuotation[]
+  purchaseOrders   PurchaseOrder[]
+  inwardEntries    InwardEntry[]
+  purchaseInvoices PurchaseInvoice[]
+  purchasePayments PurchasePayment[]
+  cheques          Cheque[]
+  purchaseReturns  PurchaseReturn[]
 
   @@map("vendors")
 }
@@ -324,11 +345,18 @@ model Product {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  category      ProductCategory @relation(fields: [categoryId], references: [id])
-  unit          Unit            @relation(fields: [unitId], references: [id])
-  taxRate       TaxRate?        @relation(fields: [taxRateId], references: [id])
-  bomItems      PanelBOMItem[]
-  stockItems    StockItem[]
+  category          ProductCategory           @relation(fields: [categoryId], references: [id])
+  unit              Unit                      @relation(fields: [unitId], references: [id])
+  taxRate           TaxRate?                  @relation(fields: [taxRateId], references: [id])
+  bomItems          PanelBOMItem[]
+  stockItems        StockItem[]
+  stockTransactions StockTransaction[]
+  prItems           PurchaseRequisitionItem[]
+  rfqItems          RFQItem[]
+  quotationItems    VendorQuotationItem[]
+  poItems           PurchaseOrderItem[]
+  inwardItems       InwardEntryItem[]
+  returnItems       PurchaseReturnItem[]
 
   @@map("products")
 }
@@ -447,7 +475,9 @@ model Warehouse {
   status    String   @default("ACTIVE")
   createdAt DateTime @default(now())
 
-  stockItems StockItem[]
+  stockItems        StockItem[]
+  stockTransactions StockTransaction[]
+  inwardEntries     InwardEntry[]
 
   @@map("warehouses")
 }
@@ -465,6 +495,512 @@ model StockItem {
 
   @@unique([warehouseId, productId])
   @@map("stock_items")
+}
+
+// -------------------------------------------------------------
+// 8. PURCHASE & PROCUREMENT & STOCK TRANSACTIONS
+// -------------------------------------------------------------
+
+model VendorContact {
+  id              String   @id @default(uuid())
+  vendorId        String
+  contactPerson   String
+  designation     String?
+  mobile          String
+  alternateMobile String?
+  email           String?
+  isPrimary       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@map("vendor_contacts")
+}
+
+model VendorAddress {
+  id          String   @id @default(uuid())
+  vendorId    String
+  addressType String   @default("BILLING") // BILLING, SHIPPING, FACTORY, WAREHOUSE
+  addressLine String
+  country     String   @default("India")
+  state       String
+  district    String?
+  city        String
+  location    String?
+  pincode     String
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@map("vendor_addresses")
+}
+
+model VendorBankAccount {
+  id            String   @id @default(uuid())
+  vendorId      String
+  accountHolder String
+  bankName      String
+  accountNumber String
+  ifscCode      String
+  branch        String?
+  accountType   String   @default("CURRENT") // CURRENT, SAVINGS
+  isPrimary     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@map("vendor_bank_accounts")
+}
+
+model PurchaseRequisition {
+  id            String   @id @default(uuid())
+  prNumber      String   @unique // PR-2026-00001
+  requesterId   String?
+  requesterName String
+  departmentId  String?
+  date          DateTime @default(now())
+  requiredDate  DateTime?
+  priority      String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  purpose       String?
+  estimatedCost Float    @default(0)
+  status        String   @default("SUBMITTED") // DRAFT, SUBMITTED, APPROVED, REJECTED, CANCELLED
+  approvedBy    String?
+  approvalDate  DateTime?
+  remarks       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  items PurchaseRequisitionItem[]
+
+  @@map("purchase_requisitions")
+}
+
+model PurchaseRequisitionItem {
+  id              String  @id @default(uuid())
+  prId            String
+  productId       String?
+  itemDescription String
+  quantity        Float
+  unit            String
+  estimatedRate   Float   @default(0)
+  estimatedAmount Float   @default(0)
+
+  pr      PurchaseRequisition @relation(fields: [prId], references: [id], onDelete: Cascade)
+  product Product?            @relation(fields: [productId], references: [id])
+
+  @@map("purchase_requisition_items")
+}
+
+model RFQ {
+  id            String    @id @default(uuid())
+  rfqNumber     String    @unique // RFQ-2026-00001
+  date          DateTime  @default(now())
+  departmentId  String?
+  requesterName String
+  requiredDate  DateTime?
+  closingDate   DateTime?
+  status        String    @default("OPEN") // OPEN, CLOSED, CANCELLED
+  remarks       String?
+  createdAt     DateTime  @default(now())
+
+  items      RFQItem[]
+  vendors    RFQVendor[]
+  quotations VendorQuotation[]
+
+  @@map("rfqs")
+}
+
+model RFQItem {
+  id              String  @id @default(uuid())
+  rfqId           String
+  productId       String?
+  itemDescription String
+  quantity        Float
+  unit            String
+
+  rfq     RFQ      @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id])
+
+  @@map("rfq_items")
+}
+
+model RFQVendor {
+  id       String @id @default(uuid())
+  rfqId    String
+  vendorId String
+  status   String @default("INVITED") // INVITED, QUOTED, DECLINED
+
+  rfq    RFQ    @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  vendor Vendor @relation(fields: [vendorId], references: [id])
+
+  @@unique([rfqId, vendorId])
+  @@map("rfq_vendors")
+}
+
+model VendorQuotation {
+  id              String    @id @default(uuid())
+  quotationNumber String    @unique // VQ-2026-00001
+  vendorId        String
+  rfqId           String?
+  date            DateTime  @default(now())
+  validityDate    DateTime?
+  deliveryTime    String?
+  paymentTerms    String?
+  subtotal        Float     @default(0)
+  discount        Float     @default(0)
+  taxAmount       Float     @default(0)
+  totalAmount     Float     @default(0)
+  isSelected      Boolean   @default(false)
+  selectionReason String?
+  remarks         String?
+  createdAt       DateTime  @default(now())
+
+  vendor Vendor                @relation(fields: [vendorId], references: [id])
+  rfq    RFQ?                  @relation(fields: [rfqId], references: [id])
+  items  VendorQuotationItem[]
+
+  @@map("vendor_quotations")
+}
+
+model VendorQuotationItem {
+  id              String  @id @default(uuid())
+  quotationId     String
+  productId       String?
+  itemDescription String
+  quantity        Float
+  unit            String
+  rate            Float
+  discount        Float   @default(0)
+  taxRate         Float   @default(0)
+  taxAmount       Float   @default(0)
+  totalAmount     Float
+
+  quotation VendorQuotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  product   Product?        @relation(fields: [productId], references: [id])
+
+  @@map("vendor_quotation_items")
+}
+
+model PurchaseOrder {
+  id               String    @id @default(uuid())
+  poNumber         String    @unique // PO-2026-00001
+  vendorId         String
+  rfqId            String?
+  quotationId      String?
+  date             DateTime  @default(now())
+  expectedDelivery DateTime?
+  departmentId     String?
+  warehouseId      String?
+  paymentTerms     String?
+  subtotal         Float     @default(0)
+  discount         Float     @default(0)
+  taxAmount        Float     @default(0)
+  totalAmount      Float     @default(0)
+  status           String    @default("DRAFT") // DRAFT, SUBMITTED, PENDING_APPROVAL, APPROVED, PARTIALLY_RECEIVED, COMPLETED, CANCELLED
+  approvedBy       String?
+  approvalDate     DateTime?
+  remarks          String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  vendor           Vendor              @relation(fields: [vendorId], references: [id])
+  items            PurchaseOrderItem[]
+  inwardEntries    InwardEntry[]
+  purchaseInvoices PurchaseInvoice[]
+
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id               String  @id @default(uuid())
+  poId             String
+  productId        String?
+  itemDescription  String
+  orderedQuantity  Float
+  receivedQuantity Float   @default(0)
+  unit             String
+  rate             Float
+  discount         Float   @default(0)
+  taxRate          Float   @default(0)
+  taxAmount        Float   @default(0)
+  totalAmount      Float
+
+  po      PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  product Product?      @relation(fields: [productId], references: [id])
+
+  @@map("purchase_order_items")
+}
+
+model InwardEntry {
+  id                   String    @id @default(uuid())
+  inwardNumber         String    @unique // GRN-2026-00001
+  inwardDate           DateTime  @default(now())
+  vendorId             String
+  purchaseOrderId      String?
+  vendorInvoiceNumber  String
+  invoiceDate          DateTime?
+  departmentId         String?
+  warehouseId          String?
+  receivedBy           String
+  transporter          String?
+  vehicleNumber        String?
+  lrNumber             String?
+  deliveryChallanNumber String?
+  subtotal             Float     @default(0)
+  discount             Float     @default(0)
+  taxAmount            Float     @default(0)
+  grandTotal           Float     @default(0)
+  remarks              String?
+  attachmentUrl        String?
+  status               String    @default("RECEIVED") // RECEIVED, QC_PENDING, QC_COMPLETED, REJECTED
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  vendor           Vendor            @relation(fields: [vendorId], references: [id])
+  purchaseOrder    PurchaseOrder?    @relation(fields: [purchaseOrderId], references: [id])
+  warehouse        Warehouse?        @relation(fields: [warehouseId], references: [id])
+  items            InwardEntryItem[]
+  purchaseInvoices PurchaseInvoice[]
+  purchaseReturns  PurchaseReturn[]
+
+  @@map("inward_entries")
+}
+
+model InwardEntryItem {
+  id               String    @id @default(uuid())
+  inwardEntryId    String
+  productId        String
+  poItemId         String?
+  quantity         Float
+  unit             String
+  rate             Float
+  discount         Float     @default(0)
+  taxRate          Float     @default(0)
+  taxAmount        Float     @default(0)
+  amount           Float
+  batchNumber      String?
+  serialNumber     String?
+  expiryDate       DateTime?
+  qcRequired       Boolean   @default(true)
+  qcStatus         String    @default("PENDING") // PENDING, ACCEPTED, PARTIALLY_ACCEPTED, REJECTED
+  acceptedQuantity Float     @default(0)
+  rejectedQuantity Float     @default(0)
+  rejectionReason  String?
+  inspectedBy      String?
+  inspectionDate   DateTime?
+  stockUpdated     Boolean   @default(false)
+
+  inwardEntry InwardEntry @relation(fields: [inwardEntryId], references: [id], onDelete: Cascade)
+  product     Product     @relation(fields: [productId], references: [id])
+
+  @@map("inward_entry_items")
+}
+
+model StockTransaction {
+  id              String   @id @default(uuid())
+  productId       String
+  warehouseId     String
+  transactionType String   // INWARD_GRN, PURCHASE_RETURN, ADJUSTMENT, STOCK_IN, STOCK_OUT, TRANSFER
+  referenceType   String   // INWARD, PURCHASE_RETURN, MANUAL
+  referenceId     String?
+  quantity        Float    // Positive for IN, Negative for OUT
+  unit            String
+  unitCost        Float    @default(0)
+  totalCost       Float    @default(0)
+  batchNumber     String?
+  serialNumber    String?
+  transactionDate DateTime @default(now())
+  userId          String?
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  product   Product   @relation(fields: [productId], references: [id])
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id])
+
+  @@map("stock_transactions")
+}
+
+model PurchaseInvoice {
+  id              String    @id @default(uuid())
+  invoiceNumber   String    @unique // PINV-2026-00001
+  vendorId        String
+  purchaseOrderId String?
+  inwardEntryId   String?
+  departmentId    String?
+  financialYear   String?   // e.g. 2025-26
+  invoiceDate     DateTime  @default(now())
+  dueDate         DateTime?
+  subtotal        Float     @default(0)
+  discount        Float     @default(0)
+  taxAmount       Float     @default(0)
+  totalAmount     Float     @default(0)
+  paidAmount      Float     @default(0)
+  balanceAmount   Float     @default(0)
+  status          String    @default("UNPAID") // UNPAID, PARTIALLY_PAID, PAID, OVERDUE, CANCELLED
+  attachmentUrl   String?
+  remarks         String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  vendor          Vendor                @relation(fields: [vendorId], references: [id])
+  purchaseOrder   PurchaseOrder?        @relation(fields: [purchaseOrderId], references: [id])
+  inwardEntry     InwardEntry?          @relation(fields: [inwardEntryId], references: [id])
+  items           PurchaseInvoiceItem[]
+  payments        PurchasePayment[]
+  cheques         Cheque[]
+  purchaseReturns PurchaseReturn[]
+
+  @@map("purchase_invoices")
+}
+
+model PurchaseInvoiceItem {
+  id              String  @id @default(uuid())
+  invoiceId       String
+  productId       String?
+  itemDescription String
+  quantity        Float
+  unit            String
+  rate            Float
+  discount        Float   @default(0)
+  taxRate         Float   @default(0)
+  taxAmount       Float   @default(0)
+  amount          Float
+
+  invoice PurchaseInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@map("purchase_invoice_items")
+}
+
+model PurchasePayment {
+  id                String   @id @default(uuid())
+  paymentNumber     String   @unique // PAY-2026-00001
+  vendorId          String
+  purchaseInvoiceId String
+  paymentDate       DateTime @default(now())
+  amount            Float
+  paymentMode       String   // CASH, BANK_TRANSFER, UPI, NEFT, RTGS, CHEQUE, OTHER
+  bankAccount       String?
+  referenceNumber   String?
+  transactionNumber String?
+  remarks           String?
+  attachmentUrl     String?
+  status            String   @default("COMPLETED")
+  createdAt         DateTime @default(now())
+
+  vendor          Vendor          @relation(fields: [vendorId], references: [id])
+  purchaseInvoice PurchaseInvoice @relation(fields: [purchaseInvoiceId], references: [id])
+  cheques         Cheque[]
+
+  @@map("purchase_payments")
+}
+
+model Cheque {
+  id                String    @id @default(uuid())
+  chequeNumber      String
+  vendorId          String
+  purchaseInvoiceId String?
+  purchasePaymentId String
+  chequeDate        DateTime
+  bankName          String
+  branch            String?
+  amount            Float
+  payeeName         String
+  depositDate       DateTime?
+  clearanceDate     DateTime?
+  status            String    @default("ISSUED") // ISSUED, DEPOSITED, CLEARED, BOUNCED, CANCELLED
+  remarks           String?
+  bounceReason      String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  vendor          Vendor           @relation(fields: [vendorId], references: [id])
+  purchaseInvoice PurchaseInvoice? @relation(fields: [purchaseInvoiceId], references: [id])
+  purchasePayment PurchasePayment  @relation(fields: [purchasePaymentId], references: [id], onDelete: Cascade)
+
+  @@map("cheques")
+}
+
+model OutwardDocument {
+  id              String   @id @default(uuid())
+  outwardNumber   String   @unique // OUT-2026-00001
+  date            DateTime @default(now())
+  outwardType     String   // MATERIAL_OUTWARD, DOCUMENT_OUTWARD, SAMPLE, REPAIR, RETURN, DISPATCH, OTHER
+  departmentId    String?
+  fromLocation    String
+  toLocation      String
+  partyType       String?  // CUSTOMER, VENDOR, INTERNAL, OTHER
+  partyId         String?
+  partyName       String?
+  personName      String?
+  purpose         String?
+  referenceNumber String?
+  documentNumber  String?
+  vehicleNumber   String?
+  status          String   @default("DISPATCHED") // DRAFT, DISPATCHED, DELIVERED, CANCELLED
+  remarks         String?
+  attachmentUrl   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  items OutwardDocumentItem[]
+
+  @@map("outward_documents")
+}
+
+model OutwardDocumentItem {
+  id           String  @id @default(uuid())
+  outwardId    String
+  productId    String?
+  materialName String
+  quantity     Float
+  unit         String
+  remarks      String?
+
+  outward OutwardDocument @relation(fields: [outwardId], references: [id], onDelete: Cascade)
+
+  @@map("outward_document_items")
+}
+
+model PurchaseReturn {
+  id                String   @id @default(uuid())
+  returnNumber      String   @unique // PRET-2026-00001
+  vendorId          String
+  inwardEntryId     String?
+  purchaseInvoiceId String?
+  returnDate        DateTime @default(now())
+  reason            String
+  subtotal          Float    @default(0)
+  taxAmount         Float    @default(0)
+  grandTotal        Float    @default(0)
+  remarks           String?
+  status            String   @default("RETURNED")
+  attachmentUrl     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  vendor          Vendor              @relation(fields: [vendorId], references: [id])
+  inwardEntry     InwardEntry?        @relation(fields: [inwardEntryId], references: [id])
+  purchaseInvoice PurchaseInvoice?    @relation(fields: [purchaseInvoiceId], references: [id])
+  items           PurchaseReturnItem[]
+
+  @@map("purchase_returns")
+}
+
+model PurchaseReturnItem {
+  id        String  @id @default(uuid())
+  returnId  String
+  productId String
+  quantity  Float
+  unit      String
+  rate      Float
+  amount    Float
+  reason    String?
+
+  return  PurchaseReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  product Product        @relation(fields: [productId], references: [id])
+
+  @@map("purchase_return_items")
 }
 
 // -------------------------------------------------------------

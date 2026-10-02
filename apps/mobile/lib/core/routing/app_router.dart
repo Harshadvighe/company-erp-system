@@ -15,6 +15,7 @@ import 'package:saark_erp_mobile/features/crm/presentation/pages/enquiries_list_
 import 'package:saark_erp_mobile/features/production/presentation/pages/panel_specs_list_page.dart';
 import 'package:saark_erp_mobile/features/production/presentation/pages/panel_spec_detail_page.dart';
 import 'package:saark_erp_mobile/features/production/presentation/pages/panel_spec_form_page.dart';
+import 'package:saark_erp_mobile/features/purchase/presentation/pages/purchase_dashboard_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
@@ -104,7 +105,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/sales/quotations', builder: (_, __) => _comingSoon('Sales — Phase 2')),
           GoRoute(path: '/sales/orders', builder: (_, __) => _comingSoon('Sales Orders — Phase 2')),
           GoRoute(path: '/sales/invoices', builder: (_, __) => _comingSoon('Invoices — Phase 2')),
-          GoRoute(path: '/purchase/orders', builder: (_, __) => _comingSoon('Purchase — Phase 2')),
+          // ─── Purchase / Procurement Module ───────────────────────
+          GoRoute(
+            path: '/purchase',
+            name: 'purchase',
+            builder: (context, state) => const PurchaseDashboardPage(),
+          ),
+          GoRoute(
+            path: '/purchase/orders',
+            name: 'purchase-orders',
+            builder: (context, state) => const PurchaseDashboardPage(),
+          ),
+          GoRoute(
+            path: '/purchase/inward',
+            name: 'purchase-inward',
+            builder: (context, state) => const PurchaseDashboardPage(),
+          ),
           GoRoute(path: '/inventory', builder: (_, __) => _comingSoon('Inventory — Phase 2')),
           // ─── Production / Panel Manufacturing ────────────────────
           GoRoute(
