@@ -231,7 +231,11 @@ class CrmDashboardPage extends ConsumerWidget {
   }
 
   Widget _buildActivitiesCard(Map<String, dynamic> data) {
-    final meetings = (data['meetingsToday'] as List? ?? []);
+    final rawMeetings = data['recentMeetings'] ?? data['meetings'];
+    final meetings = rawMeetings is List ? rawMeetings : <dynamic>[];
+    final count = data['meetingsToday'] is num
+        ? (data['meetingsToday'] as num).toInt()
+        : meetings.length;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -247,7 +251,7 @@ class CrmDashboardPage extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('Scheduled Client Meetings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-              Text('${meetings.length} scheduled', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              Text('$count scheduled', style: const TextStyle(fontSize: 11, color: Colors.grey)),
             ],
           ),
           const SizedBox(height: 10),
@@ -260,13 +264,14 @@ class CrmDashboardPage extends ConsumerWidget {
             ),
           ] else ...[
             ...meetings.map((m) {
+              if (m is! Map) return const SizedBox.shrink();
               final meet = m as Map<String, dynamic>;
               return ListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.groups_outlined, color: AppTheme.primary),
-                title: Text(meet['subject'] ?? 'Client Discussion'),
-                subtitle: Text('Time: ${meet['scheduledAt'] ?? 'Today'}'),
+                title: Text(meet['subject']?.toString() ?? 'Client Discussion'),
+                subtitle: Text('Time: ${meet['startTime'] ?? meet['scheduledAt'] ?? 'Today'}'),
               );
             }),
           ],

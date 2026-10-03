@@ -38,6 +38,9 @@ export class CrmService {
       pendingFollowUps,
       overdueFollowUps,
       meetingsToday,
+      totalCustomers,
+      activeCustomers,
+      recentMeetings,
     ] = await Promise.all([
       this.prisma.lead.count({ where: scope }),
       this.prisma.lead.count({ where: { ...scope, status: 'NEW' } }),
@@ -68,6 +71,20 @@ export class CrmService {
           startTime: {
             gte: new Date(new Date().setHours(0, 0, 0, 0)),
             lte: new Date(new Date().setHours(23, 59, 59, 999)),
+          },
+        },
+      }),
+      this.prisma.customer.count(),
+      this.prisma.customer.count({ where: { status: 'ACTIVE' } }),
+      this.prisma.crmMeeting.findMany({
+        take: 5,
+        orderBy: { startTime: 'desc' },
+        include: {
+          activity: {
+            include: {
+              customer: { select: { companyName: true } },
+              lead: { select: { companyName: true } },
+            },
           },
         },
       }),
@@ -105,6 +122,10 @@ export class CrmService {
       followUpsToday: pendingFollowUps,
       overdueFollowUps,
       meetingsToday,
+      totalCustomers,
+      activeCustomers,
+      recentMeetings,
+      meetings: recentMeetings,
     };
   }
 
@@ -424,7 +445,35 @@ export class CrmService {
       pipeline[stage].totalValue += opp.estimatedValue || 0;
     });
 
-    return pipeline;
+    const columns = stages.map((s) => ({
+      stage: s,
+      count: pipeline[s]?.count || 0,
+      totalValue: pipeline[s]?.totalValue || 0,
+      items: pipeline[s]?.items || [],
+    }));
+
+    const totalPipelineValue = opps
+      .filter((o) => !['CLOSED_WON', 'CLOSED_LOST'].includes(o.stage))
+      .reduce((sum, o) => sum + (o.estimatedValue || 0), 0);
+
+    const weightedPipelineValue = opps
+      .filter((o) => !['CLOSED_WON', 'CLOSED_LOST'].includes(o.stage))
+      .reduce((sum, o) => sum + (o.weightedValue || 0), 0);
+
+    const wonValue = opps
+      .filter((o) => o.stage === 'CLOSED_WON')
+      .reduce((sum, o) => sum + (o.estimatedValue || 0), 0);
+
+    return {
+      ...pipeline,
+      columns,
+      summary: {
+        totalCount: opps.length,
+        totalPipelineValue,
+        weightedPipelineValue,
+        wonValue,
+      },
+    };
   }
 
   async createOpportunity(dto: any, user?: any) {
@@ -715,6 +764,50 @@ export class CrmService {
     }
 
     return [];
+  }
+
+  async getAnalyticsOverview(user?: any) {
+    const scope = this.buildScopeFilter(user);
+
+    const [oppStages, sources, wonVsLostStats] = await Promise.all([
+      this.prisma.opportunity.groupBy({
+        by: ['stage'],
+        where: scope,
+        _count: { id: true },
+        _sum: { estimatedValue: true, weightedValue: true },
+      }),
+      this.prisma.lead.groupBy({
+        by: ['source'],
+        where: scope,
+        _count: { id: true },
+      }),
+      this.prisma.opportunity.findMany({
+        where: {
+          ...scope,
+          stage: { in: ['CLOSED_WON', 'CLOSED_LOST'] },
+        },
+        select: { stage: true, estimatedValue: true },
+      }),
+    ]);
+
+    const wonOpps = wonVsLostStats.filter((o) => o.stage === 'CLOSED_WON');
+    const lostOpps = wonVsLostStats.filter((o) => o.stage === 'CLOSED_LOST');
+
+    return {
+      opportunityStages: oppStages.map((o) => ({
+        stage: o.stage,
+        count: o._count.id,
+        totalValue: o._sum.estimatedValue || 0,
+        weightedValue: o._sum.weightedValue || 0,
+      })),
+      leadSources: sources.map((s) => ({ source: s.source || 'UNKNOWN', count: s._count.id })),
+      wonVsLost: {
+        wonCount: wonOpps.length,
+        lostCount: lostOpps.length,
+        wonValue: wonOpps.reduce((sum, o) => sum + (o.estimatedValue || 0), 0),
+        lostValue: lostOpps.reduce((sum, o) => sum + (o.estimatedValue || 0), 0),
+      },
+    };
   }
 
   // ─── ENQUIRIES ────────────────────────────────────────────────────────────

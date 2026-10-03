@@ -148,6 +148,13 @@ export class CrmController {
   }
 
   // ─── ANALYTICS ────────────────────────────────────────────────────────────
+  @Get('analytics')
+  @RequirePermissions('CRM:VIEW')
+  @ApiOperation({ summary: 'Get CRM overall analytics overview' })
+  getAnalyticsOverview(@Req() req: any) {
+    return this.crmService.getAnalyticsOverview(req.user);
+  }
+
   @Get('analytics/:type')
   @RequirePermissions('CRM:VIEW')
   @ApiOperation({ summary: 'Get CRM analytics: pipeline, lead-sources, product-demand' })
