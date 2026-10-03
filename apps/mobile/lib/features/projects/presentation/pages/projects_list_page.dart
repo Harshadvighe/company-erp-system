@@ -30,6 +30,16 @@ class _ProjectsListPageState extends ConsumerState<ProjectsListPage> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              context.go('/dashboard');
+            }
+          },
+        ),
         title: const Text('Projects Portfolio'),
         actions: [
           if (user?.canCreate('PROJECTS') == true)

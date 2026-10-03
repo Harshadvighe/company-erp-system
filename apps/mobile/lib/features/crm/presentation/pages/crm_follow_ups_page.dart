@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:saark_erp_mobile/core/theme/app_theme.dart';
 import 'package:saark_erp_mobile/features/crm/data/crm_repository.dart';
 
@@ -54,6 +55,16 @@ class _CrmFollowUpsPageState extends ConsumerState<CrmFollowUpsPage>
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              context.go('/crm/dashboard');
+            }
+          },
+        ),
         title: const Text('Follow-ups & Next Actions'),
         backgroundColor: AppTheme.darkSurface,
         bottom: TabBar(
@@ -176,9 +187,9 @@ class _CrmFollowUpsPageState extends ConsumerState<CrmFollowUpsPage>
               ],
             ),
             const SizedBox(height: 8),
-            Text(entityName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            Text(entityName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 4),
-            Text('Action: $action', style: const TextStyle(fontSize: 13, color: AppTheme.primary, fontWeight: FontWeight.w500)),
+            Text('Action: $action', style: const TextStyle(fontSize: 13, color: AppTheme.primary, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
             if (fu['notes'] != null && (fu['notes'] as String).isNotEmpty) ...[
               const SizedBox(height: 4),
               Text(fu['notes'], style: const TextStyle(fontSize: 12, color: Colors.grey)),

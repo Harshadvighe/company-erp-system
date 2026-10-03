@@ -383,6 +383,22 @@ class _TabletShell extends ConsumerWidget {
 
 // ─── Mobile Shell (Bottom Nav + Drawer) ──────────────────────────────────────
 
+class _MobileBottomTab {
+  final String label;
+  final IconData icon;
+  final IconData activeIcon;
+  final String route;
+  final bool isMore;
+
+  const _MobileBottomTab({
+    required this.label,
+    required this.icon,
+    required this.activeIcon,
+    this.route = '',
+    this.isMore = false,
+  });
+}
+
 class _MobileShell extends ConsumerStatefulWidget {
   final Widget child;
   final String currentRoute;
@@ -394,62 +410,155 @@ class _MobileShell extends ConsumerStatefulWidget {
 }
 
 class _MobileShellState extends ConsumerState<_MobileShell> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
     final navItems = _getAuthorizedNavItems(user);
-    final bottomNavItems = navItems.take(4).toList();
-    final selectedIndex = _getNavIndex(bottomNavItems, widget.currentRoute);
+    final isDashboard = widget.currentRoute == '/dashboard' || widget.currentRoute == '/';
+
+    // Build responsive mobile bottom destinations
+    final mobileTabs = <_MobileBottomTab>[
+      const _MobileBottomTab(
+        label: 'Dashboard',
+        icon: Icons.dashboard_outlined,
+        activeIcon: Icons.dashboard,
+        route: '/dashboard',
+      ),
+    ];
+
+    if (user?.canView('CRM') == true) {
+      mobileTabs.add(const _MobileBottomTab(
+        label: 'CRM',
+        icon: Icons.people_outline,
+        activeIcon: Icons.people,
+        route: '/crm/dashboard',
+      ));
+    } else if (user?.canView('CUSTOMERS') == true) {
+      mobileTabs.add(const _MobileBottomTab(
+        label: 'Customers',
+        icon: Icons.person_outline,
+        activeIcon: Icons.person,
+        route: '/customers',
+      ));
+    }
+
+    if (user?.canView('TASKS') == true) {
+      mobileTabs.add(const _MobileBottomTab(
+        label: 'Tasks',
+        icon: Icons.task_alt_outlined,
+        activeIcon: Icons.task_alt,
+        route: '/tasks',
+      ));
+    } else if (user?.canView('PROJECTS') == true) {
+      mobileTabs.add(const _MobileBottomTab(
+        label: 'Projects',
+        icon: Icons.folder_outlined,
+        activeIcon: Icons.folder,
+        route: '/projects',
+      ));
+    }
+
+    mobileTabs.add(const _MobileBottomTab(
+      label: 'My Work',
+      icon: Icons.home_repair_service_outlined,
+      activeIcon: Icons.home_repair_service,
+      route: '/my-work',
+    ));
+
+    mobileTabs.add(const _MobileBottomTab(
+      label: 'More',
+      icon: Icons.grid_view_outlined,
+      activeIcon: Icons.grid_view_rounded,
+      isMore: true,
+    ));
+
+    // Determine active index for mobile bottom navigation
+    int selectedIndex = -1;
+    for (int i = 0; i < mobileTabs.length; i++) {
+      if (mobileTabs[i].isMore) continue;
+      final r = mobileTabs[i].route;
+      if (r == '/dashboard' && isDashboard) {
+        selectedIndex = i;
+        break;
+      }
+      if (r != '/dashboard' && widget.currentRoute.startsWith(r)) {
+        selectedIndex = i;
+        break;
+      }
+    }
+
+    // Check if on sub-CRM routes like /crm/pipeline, /crm/follow-ups, /crm/leads, /crm/enquiries
+    if (selectedIndex == -1 && widget.currentRoute.startsWith('/crm')) {
+      final crmIdx = mobileTabs.indexWhere((t) => t.route == '/crm/dashboard');
+      if (crmIdx != -1) selectedIndex = crmIdx;
+    }
+
+    // Default to the "More" tab if current page is from the drawer (e.g. /vendors, /inventory, etc.)
+    if (selectedIndex == -1) {
+      final moreIdx = mobileTabs.indexWhere((t) => t.isMore);
+      selectedIndex = moreIdx != -1 ? moreIdx : 0;
+    }
 
     return Scaffold(
-      appBar: AppBar(
-        leading: Builder(
-          builder: (ctx) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(ctx).openDrawer(),
-          ),
-        ),
-        title: const Row(
-          children: [
-            Icon(Icons.water_drop_rounded, color: AppTheme.primary, size: 20),
-            SizedBox(width: 8),
-            Text('SAARK', style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 1.5, color: AppTheme.primary)),
-          ],
-        ),
-        actions: [
-          IconButton(icon: const Icon(Icons.search), onPressed: () {}),
-          IconButton(icon: const Icon(Icons.notifications_outlined), onPressed: () {}),
-          PopupMenuButton(
-            icon: CircleAvatar(
-              radius: 14,
-              backgroundColor: AppTheme.primary,
-              child: Text(
-                (user?.fullName.isNotEmpty == true) ? user!.fullName[0] : 'A',
-                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+      key: _scaffoldKey,
+      appBar: isDashboard
+          ? AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: () => _scaffoldKey.currentState?.openDrawer(),
               ),
-            ),
-            itemBuilder: (_) => [
-              PopupMenuItem(
-                child: const Row(children: [Icon(Icons.logout, size: 16), SizedBox(width: 8), Text('Logout')]),
-                onTap: () async {
-                  await ref.read(authProvider.notifier).logout();
-                  if (context.mounted) context.go('/login');
-                },
+              title: const Row(
+                children: [
+                  Icon(Icons.water_drop_rounded, color: AppTheme.primary, size: 20),
+                  SizedBox(width: 8),
+                  Text('SAARK', style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 1.5, color: AppTheme.primary)),
+                ],
               ),
-            ],
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.notifications_outlined),
+                  onPressed: () {},
+                ),
+                PopupMenuButton(
+                  icon: CircleAvatar(
+                    radius: 14,
+                    backgroundColor: AppTheme.primary,
+                    child: Text(
+                      (user?.fullName.isNotEmpty == true) ? user!.fullName[0].toUpperCase() : 'A',
+                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  itemBuilder: (_) => [
+                    PopupMenuItem(
+                      child: const Row(children: [Icon(Icons.logout, size: 16), SizedBox(width: 8), Text('Logout')]),
+                      onTap: () async {
+                        await ref.read(authProvider.notifier).logout();
+                        if (context.mounted) context.go('/login');
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 8),
+              ],
+            )
+          : null,
       drawer: _buildDrawer(context, user, navItems),
       body: widget.child,
-      bottomNavigationBar: bottomNavItems.isNotEmpty
+      bottomNavigationBar: mobileTabs.isNotEmpty
           ? NavigationBar(
-              selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
-              onDestinationSelected: (i) => context.go(bottomNavItems[i].route),
+              selectedIndex: selectedIndex,
+              onDestinationSelected: (i) {
+                if (mobileTabs[i].isMore) {
+                  _scaffoldKey.currentState?.openDrawer();
+                } else {
+                  context.go(mobileTabs[i].route);
+                }
+              },
               backgroundColor: AppTheme.darkSurface,
               indicatorColor: AppTheme.primary.withValues(alpha: 0.2),
-              destinations: bottomNavItems.map((item) => NavigationDestination(
+              destinations: mobileTabs.map((item) => NavigationDestination(
                 icon: Icon(item.icon),
                 selectedIcon: Icon(item.activeIcon, color: AppTheme.primary),
                 label: item.label,

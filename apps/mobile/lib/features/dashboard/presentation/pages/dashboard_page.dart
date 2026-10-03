@@ -169,14 +169,15 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       kpis.add(const _KpiData(label: 'My Work Hub', value: 'View', icon: Icons.home_repair_service, color: AppTheme.primary, route: '/my-work'));
     }
 
+    final isPhone = MediaQuery.of(context).size.width < 600;
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 220,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
-        childAspectRatio: 1.5,
+        childAspectRatio: isPhone ? 1.25 : 1.5,
       ),
       itemCount: kpis.length,
       itemBuilder: (_, i) => _KpiCard(kpi: kpis[i]),
@@ -448,8 +449,22 @@ class _KpiCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(kpi.value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: kpi.color)),
-                  Text(kpi.label, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                  Text(
+                    kpi.value,
+                    style: TextStyle(
+                      fontSize: MediaQuery.of(context).size.width < 380 ? 20 : 24,
+                      fontWeight: FontWeight.bold,
+                      color: kpi.color,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    kpi.label,
+                    style: const TextStyle(color: Colors.grey, fontSize: 11),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
               ),
             ],

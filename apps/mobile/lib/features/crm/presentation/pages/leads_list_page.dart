@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:saark_erp_mobile/core/theme/app_theme.dart';
 import 'package:saark_erp_mobile/core/constants/app_constants.dart';
 import 'package:saark_erp_mobile/features/crm/data/crm_repository.dart';
@@ -48,6 +49,30 @@ class _LeadsListPageState extends ConsumerState<LeadsListPage>
     final dashAsync = ref.watch(crmDashboardProvider);
 
     return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              context.go('/crm/dashboard');
+            }
+          },
+        ),
+        title: const Text('Leads Management'),
+        backgroundColor: AppTheme.darkSurface,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              ref.invalidate(crmDashboardProvider);
+              ref.read(leadListProvider.notifier).loadLeads();
+            },
+            tooltip: 'Refresh Leads',
+          ),
+        ],
+      ),
       body: Column(
         children: [
           // Stats Row

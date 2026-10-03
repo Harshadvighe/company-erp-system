@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:saark_erp_mobile/core/theme/app_theme.dart';
 import 'package:saark_erp_mobile/features/crm/data/crm_repository.dart';
 
@@ -12,6 +13,16 @@ class CrmAnalyticsPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              context.go('/crm/dashboard');
+            }
+          },
+        ),
         title: const Text('CRM & Sales Intelligence'),
         backgroundColor: AppTheme.darkSurface,
         actions: [
@@ -154,32 +165,39 @@ class CrmAnalyticsPage extends ConsumerWidget {
       return const Text('No lead source data available yet', style: TextStyle(color: Colors.grey, fontSize: 13));
     }
 
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: sources.map((s) {
-        final src = s as Map<String, dynamic>;
-        final name = (src['source'] ?? 'UNKNOWN').toString().replaceAll('_', ' ');
-        final count = src['count'] ?? 0;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardWidth = constraints.maxWidth < 600
+            ? (constraints.maxWidth - 10) / 2
+            : 160.0;
+        return Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: sources.map((s) {
+            final src = s as Map<String, dynamic>;
+            final name = (src['source'] ?? 'UNKNOWN').toString().replaceAll('_', ' ');
+            final count = src['count'] ?? 0;
 
-        return Container(
-          width: 155,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: AppTheme.darkCard,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppTheme.darkBorder),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-              const SizedBox(height: 4),
-              Text('$count Leads', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-            ],
-          ),
+            return Container(
+              width: cardWidth,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.darkCard,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.darkBorder),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                  const SizedBox(height: 4),
+                  Text('$count Leads', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                ],
+              ),
+            );
+          }).toList(),
         );
-      }).toList(),
+      },
     );
   }
 

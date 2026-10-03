@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:saark_erp_mobile/core/theme/app_theme.dart';
 import 'package:saark_erp_mobile/core/constants/app_constants.dart';
 import 'package:saark_erp_mobile/features/crm/data/crm_repository.dart';
@@ -45,6 +46,29 @@ class _EnquiriesListPageState extends ConsumerState<EnquiriesListPage>
     final state = ref.watch(enquiryListProvider);
 
     return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              context.go('/crm/dashboard');
+            }
+          },
+        ),
+        title: const Text('Enquiries & RFQs'),
+        backgroundColor: AppTheme.darkSurface,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              ref.read(enquiryListProvider.notifier).loadEnquiries();
+            },
+            tooltip: 'Refresh Enquiries',
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Container(

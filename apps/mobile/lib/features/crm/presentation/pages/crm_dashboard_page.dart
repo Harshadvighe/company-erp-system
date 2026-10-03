@@ -13,6 +13,16 @@ class CrmDashboardPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              context.go('/dashboard');
+            }
+          },
+        ),
         title: const Text('Sales & CRM Dashboard'),
         backgroundColor: AppTheme.darkSurface,
         actions: [
@@ -141,21 +151,28 @@ class CrmDashboardPage extends ConsumerWidget {
         // Section: Key Performance Indicators
         const Text('Sales & Pipeline Metrics', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
         const SizedBox(height: 10),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            _kpiCard('Total Leads', '$totalLeads', Colors.blue, Icons.people_outline, () => context.go('/crm/leads')),
-            _kpiCard('New Leads', '$newLeads', Colors.indigo, Icons.fiber_new, () => context.go('/crm/leads')),
-            _kpiCard('Qualified Leads', '$qualifiedLeads', Colors.teal, Icons.verified_outlined, () => context.go('/crm/leads')),
-            _kpiCard('Customers', '$totalCustomers ($activeCustomers Active)', Colors.purple, Icons.business_outlined, () => context.go('/customers')),
-            _kpiCard('Open Enquiries', '$openEnquiries', Colors.orange, Icons.help_outline, () => context.go('/crm/enquiries')),
-            _kpiCard('Open Deals', '$openOpportunities', Colors.amber, Icons.monetization_on_outlined, () => context.go('/crm/pipeline')),
-            _kpiCard('Today Follow-ups', '$followUpsToday', Colors.blueGrey, Icons.schedule, () => context.go('/crm/follow-ups')),
-            _kpiCard('Overdue Follow-ups', '$overdueFollowUps', Colors.red, Icons.alarm_off, () => context.go('/crm/follow-ups')),
-            _kpiCard('Pipeline Value', '₹${(pipelineVal / 100000).toStringAsFixed(1)}L', AppTheme.primary, Icons.trending_up, () => context.go('/crm/pipeline')),
-            _kpiCard('Won Value', '₹${(wonVal / 100000).toStringAsFixed(1)}L', Colors.green, Icons.emoji_events_outlined, () => context.go('/crm/analytics')),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final cardWidth = constraints.maxWidth < 600
+                ? (constraints.maxWidth - 10) / 2
+                : 170.0;
+            return Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                _kpiCard('Total Leads', '$totalLeads', Colors.blue, Icons.people_outline, () => context.go('/crm/leads'), cardWidth),
+                _kpiCard('New Leads', '$newLeads', Colors.indigo, Icons.fiber_new, () => context.go('/crm/leads'), cardWidth),
+                _kpiCard('Qualified Leads', '$qualifiedLeads', Colors.teal, Icons.verified_outlined, () => context.go('/crm/leads'), cardWidth),
+                _kpiCard('Customers', '$totalCustomers ($activeCustomers Active)', Colors.purple, Icons.business_outlined, () => context.go('/customers'), cardWidth),
+                _kpiCard('Open Enquiries', '$openEnquiries', Colors.orange, Icons.help_outline, () => context.go('/crm/enquiries'), cardWidth),
+                _kpiCard('Open Deals', '$openOpportunities', Colors.amber, Icons.monetization_on_outlined, () => context.go('/crm/pipeline'), cardWidth),
+                _kpiCard('Today Follow-ups', '$followUpsToday', Colors.blueGrey, Icons.schedule, () => context.go('/crm/follow-ups'), cardWidth),
+                _kpiCard('Overdue Follow-ups', '$overdueFollowUps', Colors.red, Icons.alarm_off, () => context.go('/crm/follow-ups'), cardWidth),
+                _kpiCard('Pipeline Value', '₹${(pipelineVal / 100000).toStringAsFixed(1)}L', AppTheme.primary, Icons.trending_up, () => context.go('/crm/pipeline'), cardWidth),
+                _kpiCard('Won Value', '₹${(wonVal / 100000).toStringAsFixed(1)}L', Colors.green, Icons.emoji_events_outlined, () => context.go('/crm/analytics'), cardWidth),
+              ],
+            );
+          },
         ),
         const SizedBox(height: 24),
 
@@ -179,7 +196,7 @@ class CrmDashboardPage extends ConsumerWidget {
       onTap: () => context.go(route),
       borderRadius: BorderRadius.circular(10),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
         decoration: BoxDecoration(
           color: AppTheme.darkCard,
           borderRadius: BorderRadius.circular(10),
@@ -189,20 +206,32 @@ class CrmDashboardPage extends ConsumerWidget {
           children: [
             Icon(icon, color: color, size: 22),
             const SizedBox(height: 6),
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-            Text(subtitle, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+            Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+            ),
+            Text(
+              subtitle,
+              style: const TextStyle(fontSize: 10, color: Colors.grey),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _kpiCard(String label, String value, Color color, IconData icon, VoidCallback onTap) {
+  Widget _kpiCard(String label, String value, Color color, IconData icon, VoidCallback onTap, double width) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Container(
-        width: 165,
+        width: width,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: AppTheme.darkCard,
@@ -213,16 +242,25 @@ class CrmDashboardPage extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 4),
                 Icon(icon, size: 14, color: color),
               ],
             ),
             const SizedBox(height: 6),
             Text(
               value,
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

@@ -39,6 +39,27 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
     final isWide = MediaQuery.of(context).size.width >= 900;
 
     return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              context.go('/dashboard');
+            }
+          },
+        ),
+        title: const Text('Customer Directory'),
+        backgroundColor: AppTheme.darkSurface,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => ref.read(customerListProvider.notifier).loadCustomers(),
+            tooltip: 'Refresh',
+          ),
+        ],
+      ),
       body: Column(
         children: [
           _buildHeader(isWide),

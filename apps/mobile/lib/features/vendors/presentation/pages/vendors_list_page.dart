@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:saark_erp_mobile/core/theme/app_theme.dart';
 import 'package:saark_erp_mobile/features/vendors/data/vendors_repository.dart';
 
@@ -33,6 +34,27 @@ class _VendorsListPageState extends ConsumerState<VendorsListPage> {
     final isWide = MediaQuery.of(context).size.width >= 900;
 
     return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              context.go('/dashboard');
+            }
+          },
+        ),
+        title: const Text('Vendors Directory'),
+        backgroundColor: AppTheme.darkSurface,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => ref.read(vendorListProvider.notifier).loadVendors(),
+            tooltip: 'Refresh',
+          ),
+        ],
+      ),
       body: Column(
         children: [
           _buildHeader(),

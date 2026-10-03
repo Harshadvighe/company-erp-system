@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:saark_erp_mobile/core/theme/app_theme.dart';
 import 'package:saark_erp_mobile/features/crm/data/crm_repository.dart';
 
@@ -28,6 +29,16 @@ class _CrmPipelinePageState extends ConsumerState<CrmPipelinePage> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              context.go('/crm/dashboard');
+            }
+          },
+        ),
         title: const Text('Sales Pipeline (Kanban)'),
         backgroundColor: AppTheme.darkSurface,
         actions: [
@@ -68,18 +79,21 @@ class _CrmPipelinePageState extends ConsumerState<CrmPipelinePage> {
             children: [
               // Summary Banner
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 color: AppTheme.darkSurface,
-                child: Row(
-                  children: [
-                    _metricChip('Total Opps', '${summary['totalCount'] ?? 0}', Colors.blue),
-                    const SizedBox(width: 8),
-                    _metricChip('Pipeline', '₹${((summary['totalPipelineValue'] ?? 0) / 100000).toStringAsFixed(1)}L', Colors.amber),
-                    const SizedBox(width: 8),
-                    _metricChip('Weighted', '₹${((summary['weightedPipelineValue'] ?? 0) / 100000).toStringAsFixed(1)}L', AppTheme.primary),
-                    const SizedBox(width: 8),
-                    _metricChip('Won', '₹${((summary['wonValue'] ?? 0) / 100000).toStringAsFixed(1)}L', Colors.green),
-                  ],
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _metricChip('Total Opps', '${summary['totalCount'] ?? 0}', Colors.blue),
+                      const SizedBox(width: 8),
+                      _metricChip('Pipeline', '₹${((summary['totalPipelineValue'] ?? 0) / 100000).toStringAsFixed(1)}L', Colors.amber),
+                      const SizedBox(width: 8),
+                      _metricChip('Weighted', '₹${((summary['weightedPipelineValue'] ?? 0) / 100000).toStringAsFixed(1)}L', AppTheme.primary),
+                      const SizedBox(width: 8),
+                      _metricChip('Won', '₹${((summary['wonValue'] ?? 0) / 100000).toStringAsFixed(1)}L', Colors.green),
+                    ],
+                  ),
                 ),
               ),
               const Divider(height: 1, color: AppTheme.darkBorder),
@@ -114,22 +128,21 @@ class _CrmPipelinePageState extends ConsumerState<CrmPipelinePage> {
   }
 
   Widget _metricChip(String label, String value, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.12),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(0.3)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w500)),
-            const SizedBox(height: 2),
-            Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color)),
-          ],
-        ),
+    return Container(
+      constraints: const BoxConstraints(minWidth: 80),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 2),
+          Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color), maxLines: 1, overflow: TextOverflow.ellipsis),
+        ],
       ),
     );
   }
