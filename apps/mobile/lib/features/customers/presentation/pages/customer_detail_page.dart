@@ -127,9 +127,9 @@ class _CustomerDetailPageState extends ConsumerState<CustomerDetailPage>
             _OverviewTab(customer: customer),
             _ContactsTab(customer: customer, onRefresh: _refresh),
             _InteractionsTab(customerId: widget.customerId),
-            _PlaceholderTab(label: 'Enquiries'),
-            _PlaceholderTab(label: 'Leads'),
-            _PlaceholderTab(label: 'Panels'),
+            const _PlaceholderTab(label: 'Enquiries'),
+            const _PlaceholderTab(label: 'Leads'),
+            const _PlaceholderTab(label: 'Panels'),
           ],
         ),
       ),
@@ -151,7 +151,7 @@ class _CustomerDetailPageState extends ConsumerState<CustomerDetailPage>
         children: [
           CircleAvatar(
             radius: 32,
-            backgroundColor: AppTheme.primary.withOpacity(0.2),
+            backgroundColor: AppTheme.primary.withValues(alpha: 0.2),
             child: Text(initials, style: const TextStyle(color: AppTheme.primary, fontSize: 20, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(width: 16),
@@ -273,8 +273,8 @@ class _ContactsTab extends StatelessWidget {
             child: ListTile(
               leading: CircleAvatar(
                 backgroundColor: contact['isPrimary'] == true
-                    ? AppTheme.primary.withOpacity(0.2)
-                    : Colors.grey.withOpacity(0.2),
+                    ? AppTheme.primary.withValues(alpha: 0.2)
+                    : Colors.grey.withValues(alpha: 0.2),
                 child: Icon(
                   Icons.person,
                   color: contact['isPrimary'] == true ? AppTheme.primary : Colors.grey,
@@ -289,7 +289,7 @@ class _ContactsTab extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                       decoration: BoxDecoration(
-                        color: AppTheme.primary.withOpacity(0.2),
+                        color: AppTheme.primary.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: const Text('Primary', style: TextStyle(fontSize: 9, color: AppTheme.primary)),
@@ -387,7 +387,7 @@ class _InteractionCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppTheme.primary.withOpacity(0.15),
+                color: AppTheme.primary.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(typeIcons[type] ?? Icons.info, color: AppTheme.primary, size: 20),
@@ -478,7 +478,7 @@ class _AddInteractionSheetState extends ConsumerState<_AddInteractionSheet> {
                 const Text('Record Interaction', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 20),
                 DropdownButtonFormField<String>(
-                  value: _type,
+                  initialValue: _type,
                   decoration: const InputDecoration(labelText: 'Interaction Type'),
                   items: ['CALL', 'EMAIL', 'WHATSAPP', 'MEETING', 'VISIT', 'DEMO', 'FOLLOWUP']
                       .map((t) => DropdownMenuItem(value: t, child: Text(t)))
@@ -624,9 +624,9 @@ class _Badge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
     );

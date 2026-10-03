@@ -485,7 +485,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   onPressed: () {
                     controller.text = '${AppConstants.defaultPublicUrl}/api/v1';
                   },
-                  child: const Text('Cloudflare (4G/5G)'),
+                  child: const Text('Tailscale (Permanent 4G/5G)'),
                 ),
                 OutlinedButton(
                   style: OutlinedButton.styleFrom(
@@ -493,7 +493,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     textStyle: const TextStyle(fontSize: 11),
                   ),
                   onPressed: () {
-                    controller.text = 'http://192.168.1.101:3000/api/v1';
+                    controller.text = '${AppConstants.localWifiUrl}/api/v1';
                   },
                   child: const Text('Local Wi-Fi'),
                 ),

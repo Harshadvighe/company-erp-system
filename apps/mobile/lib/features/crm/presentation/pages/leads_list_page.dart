@@ -301,9 +301,9 @@ class _StatusDropdown extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: DropdownButton<String>(
         value: status,
@@ -341,7 +341,7 @@ class _PriorityBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
       decoration: BoxDecoration(
-        color: (color as Color).withOpacity(0.15),
+        color: (color as Color).withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(priority, style: TextStyle(fontSize: 9, color: color, fontWeight: FontWeight.bold)),
@@ -361,14 +361,14 @@ class _StatChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Column(
         children: [
           Text(value, style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.bold)),
-          Text(label, style: TextStyle(color: color.withOpacity(0.7), fontSize: 10)),
+          Text(label, style: TextStyle(color: color.withValues(alpha: 0.7), fontSize: 10)),
         ],
       ),
     );
@@ -381,7 +381,7 @@ class _LeadFormSheet extends ConsumerStatefulWidget {
   final Map<String, dynamic>? lead;
   final VoidCallback onSuccess;
 
-  const _LeadFormSheet({this.lead, required this.onSuccess});
+  const _LeadFormSheet({required this.onSuccess}) : lead = null;
 
   @override
   ConsumerState<_LeadFormSheet> createState() => _LeadFormSheetState();
@@ -433,14 +433,14 @@ class _LeadFormSheetState extends ConsumerState<_LeadFormSheet> {
                   Expanded(child: _field(_assignedCtrl, 'Assigned To')),
                 ]),
                 DropdownButtonFormField<String>(
-                  value: _source,
+                  initialValue: _source,
                   decoration: const InputDecoration(labelText: 'Source'),
                   items: AppConstants.leadSources.map((s) => DropdownMenuItem(value: s, child: Text(s.replaceAll('_', ' ')))).toList(),
                   onChanged: (v) => setState(() => _source = v!),
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: _priority,
+                  initialValue: _priority,
                   decoration: const InputDecoration(labelText: 'Priority'),
                   items: AppConstants.priorities.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
                   onChanged: (v) => setState(() => _priority = v!),

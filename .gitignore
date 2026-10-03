@@ -41,3 +41,8 @@ Thumbs.db
 cloudflared.exe
 *.exe
 
+# Temporary tunnel runtime files
+tunnel_output.log
+phone_url.txt
+phone_access.html
+

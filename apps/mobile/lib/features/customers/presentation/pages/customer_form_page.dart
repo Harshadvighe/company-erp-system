@@ -189,11 +189,11 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
                   padding: const EdgeInsets.all(12),
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: AppTheme.error.withOpacity(0.1),
+                    color: AppTheme.error.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.error.withOpacity(0.3)),
+                    border: Border.all(color: AppTheme.error.withValues(alpha: 0.3)),
                   ),
-                  child: Text(_errorMessage!, style: TextStyle(color: AppTheme.error, fontSize: 13)),
+                  child: Text(_errorMessage!, style: const TextStyle(color: AppTheme.error, fontSize: 13)),
                 ),
 
               _sectionTitle('Company Information'),
@@ -303,7 +303,7 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: DropdownButtonFormField<String>(
-        value: value,
+        initialValue: value,
         decoration: InputDecoration(labelText: label),
         items: options.map((o) => DropdownMenuItem(value: o, child: Text(o.replaceAll('_', ' ')))).toList(),
         onChanged: onChanged,

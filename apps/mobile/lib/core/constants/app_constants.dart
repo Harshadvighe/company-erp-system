@@ -1,8 +1,9 @@
 import 'package:flutter/foundation.dart';
 
 class AppConstants {
-  // Public Cloudflare Tunnel URL - Works on 4G/5G mobile data & Wi-Fi anywhere
-  static const String defaultPublicUrl = 'https://amongst-mysql-curve-chains.trycloudflare.com';
+  // Permanent Tailscale URL - Works globally on 4G/5G mobile data & Wi-Fi anywhere
+  static const String defaultPublicUrl = 'http://100.66.50.111:3000';
+  static const String localWifiUrl = 'http://192.168.1.104:3000';
   static String? customServerUrl;
 
   // API - Dynamically routes whether on Web or Mobile
@@ -18,7 +19,7 @@ class AppConstants {
       final host = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
       return 'http://$host:3000/api/v1';
     }
-    // Mobile Physical Device default to public tunnel (works globally without Wi-Fi)
+    // Mobile Physical Device default to permanent Tailscale URL (works globally without Wi-Fi)
     return '$defaultPublicUrl/api/v1';
   }
 

@@ -252,9 +252,9 @@ class _Badge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
     );
@@ -301,7 +301,7 @@ class _EnquiryFormSheetState extends ConsumerState<_EnquiryFormSheet> {
                 const SizedBox(height: 16),
                 // Customer Search
                 DropdownButtonFormField<String>(
-                  value: _customerId,
+                  initialValue: _customerId,
                   decoration: const InputDecoration(labelText: 'Customer *'),
                   isExpanded: true,
                   items: [
@@ -321,7 +321,7 @@ class _EnquiryFormSheetState extends ConsumerState<_EnquiryFormSheet> {
                 _field(_reqCtrl, 'Requirement Details', maxLines: 2),
                 _field(_assignedCtrl, 'Assigned To'),
                 DropdownButtonFormField<String>(
-                  value: _priority,
+                  initialValue: _priority,
                   decoration: const InputDecoration(labelText: 'Priority'),
                   items: AppConstants.priorities.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
                   onChanged: (v) => setState(() => _priority = v!),

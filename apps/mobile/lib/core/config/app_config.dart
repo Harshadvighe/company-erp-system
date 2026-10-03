@@ -1,6 +1,9 @@
+import 'package:saark_erp_mobile/core/constants/app_constants.dart';
+
 class AppConfig {
   static const String appName = 'Saark Exploration ERP';
   static const String companyName = 'Saark Exploration Private Limited';
-  static const String apiBaseUrl = 'http://localhost:3000/api/v1';
+  static String get apiBaseUrl => AppConstants.baseUrl;
   static const String defaultFinancialYear = '2026-27';
 }
+

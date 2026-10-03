@@ -1,8 +1,2 @@
 @echo off
-title Saark ERP - Backend Server
-echo ====================================================
-echo Starting Saark Exploration ERP Backend (Port 3000)...
-echo ====================================================
-cd /d "%~dp0\apps\backend"
-node dist/src/main.js
-pause
+call "%~dp01_START_BACKEND_SERVER.bat"

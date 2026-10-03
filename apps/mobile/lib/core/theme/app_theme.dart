@@ -30,13 +30,11 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
-      colorScheme: ColorScheme.dark(
+      colorScheme: const ColorScheme.dark(
         primary: primary,
         onPrimary: Colors.white,
         surface: darkSurface,
         onSurface: darkText,
-        background: darkBackground,
-        onBackground: darkText,
         error: error,
       ),
       scaffoldBackgroundColor: darkBackground,
@@ -96,7 +94,7 @@ class AppTheme {
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: darkSurface,
-        indicatorColor: primary.withOpacity(0.2),
+        indicatorColor: primary.withValues(alpha: 0.2),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return const TextStyle(color: primary, fontSize: 11, fontWeight: FontWeight.w600);
@@ -139,13 +137,11 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
-      colorScheme: ColorScheme.light(
+      colorScheme: const ColorScheme.light(
         primary: primary,
         onPrimary: Colors.white,
         surface: lightSurface,
         onSurface: lightText,
-        background: lightBackground,
-        onBackground: lightText,
         error: error,
       ),
       scaffoldBackgroundColor: lightBackground,
@@ -205,7 +201,7 @@ class AppTheme {
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: lightSurface,
-        indicatorColor: primary.withOpacity(0.15),
+        indicatorColor: primary.withValues(alpha: 0.15),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return const TextStyle(color: primary, fontSize: 11, fontWeight: FontWeight.w600);

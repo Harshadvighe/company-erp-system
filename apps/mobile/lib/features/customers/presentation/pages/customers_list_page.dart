@@ -150,7 +150,7 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
                     DataCell(Row(children: [
                       CircleAvatar(
                         radius: 14,
-                        backgroundColor: AppTheme.primary.withOpacity(0.2),
+                        backgroundColor: AppTheme.primary.withValues(alpha: 0.2),
                         child: Text(c.initials, style: const TextStyle(fontSize: 10, color: AppTheme.primary, fontWeight: FontWeight.bold)),
                       ),
                       const SizedBox(width: 8),
@@ -198,7 +198,7 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
           child: ListTile(
             onTap: () => context.go('/customers/${c.id}'),
             leading: CircleAvatar(
-              backgroundColor: AppTheme.primary.withOpacity(0.2),
+              backgroundColor: AppTheme.primary.withValues(alpha: 0.2),
               child: Text(c.initials, style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold, fontSize: 14)),
             ),
             title: Text(c.companyName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
@@ -284,9 +284,9 @@ class _TypeBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
         type.replaceAll('_', ' '),
@@ -306,7 +306,7 @@ class _StatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(

@@ -172,7 +172,7 @@ class _ProductsListPageState extends ConsumerState<ProductsListPage>
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: AppTheme.primary.withOpacity(0.15),
+                color: AppTheme.primary.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(Icons.category, color: AppTheme.primary, size: 20),
@@ -297,7 +297,7 @@ class _ProductFormSheetState extends ConsumerState<_ProductFormSheet> {
                 _field(_skuCtrl, 'SKU *', required: true),
                 _field(_nameCtrl, 'Product Name *', required: true),
                 DropdownButtonFormField<String>(
-                  value: _productType,
+                  initialValue: _productType,
                   decoration: const InputDecoration(labelText: 'Product Type'),
                   items: AppConstants.productTypes
                       .map((t) => DropdownMenuItem(value: t, child: Text(t.replaceAll('_', ' '))))
@@ -309,7 +309,7 @@ class _ProductFormSheetState extends ConsumerState<_ProductFormSheet> {
                   loading: () => const SizedBox.shrink(),
                   error: (_, __) => const SizedBox.shrink(),
                   data: (cats) => DropdownButtonFormField<String>(
-                    value: _categoryId,
+                    initialValue: _categoryId,
                     decoration: const InputDecoration(labelText: 'Category'),
                     items: [
                       const DropdownMenuItem(value: null, child: Text('None')),
@@ -414,7 +414,7 @@ class _StatusBadge extends StatelessWidget {
     final color = status == 'ACTIVE' ? AppTheme.success : Colors.grey;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: BorderRadius.circular(4)),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
       child: Text(status, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
     );
   }

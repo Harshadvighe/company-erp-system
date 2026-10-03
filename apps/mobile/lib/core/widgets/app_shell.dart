@@ -27,9 +27,9 @@ class _AppShellState extends ConsumerState<AppShell> {
     final isDesktop = size.width >= 1024;
     final isTablet = size.width >= 600 && size.width < 1024;
 
-    if (isDesktop) return _DesktopShell(child: widget.child, currentRoute: widget.currentRoute);
-    if (isTablet) return _TabletShell(child: widget.child, currentRoute: widget.currentRoute);
-    return _MobileShell(child: widget.child, currentRoute: widget.currentRoute);
+    if (isDesktop) return _DesktopShell(currentRoute: widget.currentRoute, child: widget.child);
+    if (isTablet) return _TabletShell(currentRoute: widget.currentRoute, child: widget.child);
+    return _MobileShell(currentRoute: widget.currentRoute, child: widget.child);
   }
 }
 
@@ -295,7 +295,7 @@ class _MobileShellState extends ConsumerState<_MobileShell> {
         selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
         onDestinationSelected: (i) => context.go(_bottomNavItems[i].route),
         backgroundColor: AppTheme.darkSurface,
-        indicatorColor: AppTheme.primary.withOpacity(0.2),
+        indicatorColor: AppTheme.primary.withValues(alpha: 0.2),
         destinations: _bottomNavItems.map((item) => NavigationDestination(
           icon: Icon(item.icon),
           selectedIcon: Icon(item.activeIcon, color: AppTheme.primary),
@@ -404,9 +404,9 @@ class _SidebarItem extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: isActive ? AppTheme.primary.withOpacity(0.15) : Colors.transparent,
+          color: isActive ? AppTheme.primary.withValues(alpha: 0.15) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
-          border: isActive ? Border.all(color: AppTheme.primary.withOpacity(0.3)) : null,
+          border: isActive ? Border.all(color: AppTheme.primary.withValues(alpha: 0.3)) : null,
         ),
         child: Row(
           children: [

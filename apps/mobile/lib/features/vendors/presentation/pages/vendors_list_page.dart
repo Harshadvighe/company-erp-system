@@ -135,7 +135,7 @@ class _VendorsListPageState extends ConsumerState<VendorsListPage> {
         return Card(
           child: ListTile(
             leading: CircleAvatar(
-              backgroundColor: Colors.purple.withOpacity(0.2),
+              backgroundColor: Colors.purple.withValues(alpha: 0.2),
               child: Text(initials, style: const TextStyle(color: Colors.purple, fontWeight: FontWeight.bold, fontSize: 13)),
             ),
             title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
@@ -246,7 +246,7 @@ class _VendorFormSheetState extends ConsumerState<_VendorFormSheet> {
                   Expanded(child: _field(_stateCtrl, 'State')),
                 ]),
                 DropdownButtonFormField<String>(
-                  value: _paymentTerms,
+                  initialValue: _paymentTerms,
                   decoration: const InputDecoration(labelText: 'Payment Terms'),
                   items: ['NET_7', 'NET_15', 'NET_30', 'NET_45', 'NET_60', 'ADVANCE', 'IMMEDIATE']
                       .map((t) => DropdownMenuItem(value: t, child: Text(t.replaceAll('_', ' '))))
@@ -339,7 +339,7 @@ class _StatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(status, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
