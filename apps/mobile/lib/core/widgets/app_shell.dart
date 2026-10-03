@@ -94,7 +94,19 @@ List<_NavItem> _getAuthorizedNavItems(AuthUser? user) {
       label: 'CRM',
       icon: Icons.people_outline,
       activeIcon: Icons.people,
-      route: '/crm/leads',
+      route: '/crm/dashboard',
+    ));
+    items.add(const _NavItem(
+      label: 'Pipeline',
+      icon: Icons.view_kanban_outlined,
+      activeIcon: Icons.view_kanban,
+      route: '/crm/pipeline',
+    ));
+    items.add(const _NavItem(
+      label: 'Follow-ups',
+      icon: Icons.event_repeat_outlined,
+      activeIcon: Icons.event_repeat,
+      route: '/crm/follow-ups',
     ));
   }
 

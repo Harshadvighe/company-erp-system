@@ -9,6 +9,7 @@ class AppTheme {
   // Dark Theme Colors
   static const Color darkBackground = Color(0xFF0F1115);
   static const Color darkSurface = Color(0xFF181B21);
+  static const Color darkCard = Color(0xFF1E222A);
   static const Color darkText = Colors.white;
   static const Color darkTextSecondary = Color(0xFFA0AAB4);
   static const Color darkBorder = Color(0xFF2C313C);

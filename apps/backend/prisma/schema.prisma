@@ -174,62 +174,80 @@ model PaymentMode {
 // -------------------------------------------------------------
 
 model Customer {
-  id               String   @id @default(uuid())
-  customerCode     String   @unique // CUS-2026-00001
-  companyName      String
-  gstin            String?
-  pan              String?
-  customerType     String   @default("END_CUSTOMER") // DEALER, DISTRIBUTOR, END_CUSTOMER, OEM, GOVT
-  customerCategory String   @default("STANDARD")
-  contactPerson    String
-  designation      String?
-  email            String
-  phone            String
-  alternatePhone   String?
-  website          String?
-  address          String
-  country          String   @default("India")
-  state            String
-  district         String
-  city             String
-  pincode          String
-  ownerName        String?
-  staffCount       Int      @default(0)
-  turnover         String?
-  industry         String?
-  source           String?  @default("DIRECT")
-  customerRating   Float    @default(5.0)
-  status           String   @default("ACTIVE")
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id                   String   @id @default(uuid())
+  customerCode         String   @unique // CUS-2026-00001
+  companyName          String
+  legalName            String?
+  gstin                String?
+  pan                  String?
+  customerType         String   @default("END_CUSTOMER") // DEALER, DISTRIBUTOR, END_CUSTOMER, OEM, GOVT, PROSPECT, PARTNER
+  customerCategory     String   @default("STANDARD")
+  customerSegment      String?  @default("VFD_PANEL") // VFD_PANEL, DEWATERING, BOOSTER_PUMP, STP, BMS, FIRE_PANEL
+  contactPerson        String
+  designation          String?
+  email                String
+  phone                String
+  alternatePhone       String?
+  website              String?
+  address              String
+  country              String   @default("India")
+  state                String
+  district             String
+  city                 String
+  pincode              String
+  ownerName            String?
+  staffCount           Int      @default(0)
+  turnover             String?
+  industry             String?
+  source               String?  @default("DIRECT")
+  customerRating       Float    @default(5.0)
+  creditLimit          Float    @default(0)
+  paymentTerms         String?  @default("NET_30")
+  potentialValue       Float    @default(0)
+  status               String   @default("ACTIVE") // ACTIVE, INACTIVE, DORMANT, BLOCKED, DELETED
+  assignedStaffId      String?
+  salesManagerStaffId  String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
-  contacts     CustomerContact[]
-  interactions CustomerInteraction[]
-  valuations   CustomerValuation?
-  leads        Lead[]
-  enquiries    Enquiry[]
-  panelSpecs   PanelSpecification[]
-  projects     Project[]
+  assignedStaff        Staff?   @relation("CustomerAssignee", fields: [assignedStaffId], references: [id])
+  salesManagerStaff    Staff?   @relation("CustomerManager", fields: [salesManagerStaffId], references: [id])
+  contacts             CustomerContact[]
+  interactions         CustomerInteraction[]
+  valuations           CustomerValuation?
+  leads                Lead[]
+  enquiries            Enquiry[]
+  opportunities        Opportunity[]
+  activities           CrmActivity[]
+  followUps            CrmFollowUp[]
+  documents            CustomerDocument[]
+  media                CustomerMedia[]
+  panelSpecs           PanelSpecification[]
+  projects             Project[]
 
   @@map("customers")
 }
 
 model CustomerContact {
-  id           String   @id @default(uuid())
-  customerId   String
-  name         String
-  designation  String?
-  department   String?
-  phone        String?
-  mobile       String
-  email        String?
-  whatsapp     String?
-  isPrimary    Boolean  @default(false)
-  notes        String?
-  createdAt    DateTime @default(now())
+  id                     String   @id @default(uuid())
+  customerId             String
+  name                   String
+  designation            String?
+  department             String?
+  phone                  String?
+  mobile                 String
+  email                  String?
+  whatsapp               String?
+  isPrimary              Boolean  @default(false)
+  isDecisionMaker        Boolean  @default(false)
+  preferredCommunication String   @default("CALL") // CALL, WHATSAPP, EMAIL
+  notes                  String?
+  createdAt              DateTime @default(now())
 
-  customer     Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  interactions CustomerInteraction[]
+  customer               Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  interactions           CustomerInteraction[]
+  activities             CrmActivity[]
+  calls                  CrmCall[]
 
   @@map("customer_contacts")
 }
@@ -265,6 +283,8 @@ model CustomerValuation {
   ratingScore        Float    @default(5.0)
   valuablePercentage Float    @default(50.0)
   activityCount      Int      @default(0)
+  engagementScore    Float    @default(50.0)
+  lifetimeValue      Float    @default(0)
   dealerName         String?
   distributorName    String?
   updatedAt          DateTime @updatedAt
@@ -378,54 +398,247 @@ model Product {
 }
 
 // -------------------------------------------------------------
-// 5. CRM (LEADS & ENQUIRIES)
+// 5. CRM (LEADS, ENQUIRIES, OPPORTUNITIES & ACTIVITIES)
 // -------------------------------------------------------------
 
 model Lead {
-  id             String   @id @default(uuid())
-  leadNumber     String   @unique // LEAD-2026-00001
-  companyName    String
-  contactPerson  String
-  phone          String
-  email          String?
-  source         String?  @default("EXHIBITION")
-  productInterest String?
-  requirement    String?
-  estimatedValue Float    @default(0)
-  assignedTo     String?
-  priority       String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
-  status         String   @default("NEW") // NEW, CONTACTED, QUALIFIED, PROPOSAL, NEGOTIATION, WON, LOST
-  customerId     String?
-  nextFollowUp   DateTime?
-  remarks        String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                     String   @id @default(uuid())
+  leadNumber             String   @unique // LEAD-2026-00001
+  companyName            String
+  contactPerson          String
+  phone                  String
+  email                  String?
+  source                 String?  @default("EXHIBITION")
+  leadType               String?  @default("END_CUSTOMER")
+  productInterest        String?
+  requirement            String?
+  estimatedValue         Float    @default(0)
+  assignedTo             String?
+  assignedStaffId        String?
+  salesManagerStaffId    String?
+  priority               String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  status                 String   @default("NEW") // NEW, CONTACTED, QUALIFIED, OPPORTUNITY, WON, LOST, DISQUALIFIED
+  qualificationStatus    String   @default("PENDING") // PENDING, QUALIFIED, DISQUALIFIED
+  bantBudget             Float?
+  bantAuthority          String?
+  bantNeed               String?
+  bantTimeline           String?
+  disqualificationReason String?
+  customerId             String?
+  nextFollowUp           DateTime?
+  expectedClosureDate    DateTime?
+  remarks                String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
-  customer Customer? @relation(fields: [customerId], references: [id])
+  customer               Customer?     @relation(fields: [customerId], references: [id])
+  assignedStaff          Staff?        @relation("LeadAssignee", fields: [assignedStaffId], references: [id])
+  salesManagerStaff      Staff?        @relation("LeadManager", fields: [salesManagerStaffId], references: [id])
+  opportunities          Opportunity[]
+  activities             CrmActivity[]
 
   @@map("leads")
 }
 
 model Enquiry {
-  id            String   @id @default(uuid())
-  enquiryNumber String   @unique // ENQ-2026-00001
-  customerId    String
-  enquiryDate   DateTime @default(now())
+  id              String   @id @default(uuid())
+  enquiryNumber   String   @unique // ENQ-2026-00001
+  customerId      String
+  enquiryDate     DateTime @default(now())
   productInterest String
-  quantity      Int      @default(1)
-  requirement   String?
-  expectedValue Float    @default(0)
-  assignedTo    String?
-  priority      String   @default("MEDIUM")
-  status        String   @default("PENDING") // PENDING, QUOTED, CLOSED_WON, CLOSED_LOST
-  followUpDate  DateTime?
-  remarks       String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  quantity        Int      @default(1)
+  requirement     String?
+  expectedValue   Float    @default(0)
+  assignedTo      String?
+  assignedStaffId String?
+  priority        String   @default("MEDIUM")
+  status          String   @default("PENDING") // PENDING, QUOTED, CLOSED_WON, CLOSED_LOST
+  followUpDate    DateTime?
+  remarks         String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  customer Customer @relation(fields: [customerId], references: [id])
+  customer        Customer      @relation(fields: [customerId], references: [id])
+  assignedStaff   Staff?        @relation("EnquiryAssignee", fields: [assignedStaffId], references: [id])
+  opportunities   Opportunity[]
 
   @@map("enquiries")
+}
+
+model Opportunity {
+  id                  String   @id @default(uuid())
+  opportunityNumber   String   @unique // OPP-2026-00001
+  title               String
+  customerId          String
+  contactId           String?
+  leadId              String?
+  enquiryId           String?
+  assignedStaffId     String
+  salesManagerStaffId String?
+  stage               String   @default("QUALIFICATION") // QUALIFICATION, REQUIREMENT, TECHNICAL_EVALUATION, QUOTATION_SENT, NEGOTIATION, CLOSED_WON, CLOSED_LOST
+  probability         Int      @default(10) // 10, 25, 40, 60, 80, 100, 0
+  estimatedValue      Float    @default(0)
+  weightedValue       Float    @default(0)
+  expectedCloseDate   DateTime?
+  priority            String   @default("MEDIUM")
+  lostReason          String?
+  lostRemarks         String?
+  competitor          String?
+  poNumber            String?
+  poDate              DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  customer            Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  assignedStaff       Staff         @relation("OppAssignee", fields: [assignedStaffId], references: [id])
+  salesManagerStaff   Staff?        @relation("OppManager", fields: [salesManagerStaffId], references: [id])
+  lead                Lead?         @relation(fields: [leadId], references: [id])
+  enquiry             Enquiry?      @relation(fields: [enquiryId], references: [id])
+  activities          CrmActivity[]
+  followUps           CrmFollowUp[]
+
+  @@map("opportunities")
+}
+
+model CrmActivity {
+  id             String   @id @default(uuid())
+  activityType   String   // CALL, MEETING, SITE_VISIT, DEMO, EMAIL, WHATSAPP, QUOTATION_SENT, STATUS_CHANGE, NOTE
+  customerId     String?
+  contactId      String?
+  leadId         String?
+  opportunityId  String?
+  staffId        String
+  subject        String
+  description    String?
+  outcome        String?
+  nextActionDate DateTime?
+  createdAt      DateTime @default(now())
+
+  customer       Customer?        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  contact        CustomerContact? @relation(fields: [contactId], references: [id])
+  lead           Lead?            @relation(fields: [leadId], references: [id])
+  opportunity    Opportunity?     @relation(fields: [opportunityId], references: [id])
+  staff          Staff            @relation(fields: [staffId], references: [id])
+  call           CrmCall?
+  meeting        CrmMeeting?
+  siteVisit      CrmSiteVisit?
+
+  @@map("crm_activities")
+}
+
+model CrmCall {
+  id           String   @id @default(uuid())
+  activityId   String   @unique
+  contactId    String?
+  callType     String   @default("OUTBOUND") // INBOUND, OUTBOUND
+  durationSec  Int      @default(0)
+  callOutcome  String   @default("CONNECTED") // CONNECTED, BUSY, NO_ANSWER, WRONG_NUMBER, CALL_BACK, INTERESTED, NOT_INTERESTED
+  recordingUrl String?
+
+  activity     CrmActivity      @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  contact      CustomerContact? @relation(fields: [contactId], references: [id])
+
+  @@map("crm_calls")
+}
+
+model CrmMeeting {
+  id          String    @id @default(uuid())
+  activityId  String    @unique
+  meetingType String    @default("OFFLINE") // OFFLINE, ONLINE_TEAMS, ONLINE_ZOOM, CLIENT_OFFICE
+  location    String?
+  startTime   DateTime
+  endTime     DateTime?
+  agenda      String?
+  outcome     String?
+
+  activity    CrmActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@map("crm_meetings")
+}
+
+model CrmSiteVisit {
+  id              String   @id @default(uuid())
+  activityId      String   @unique
+  location        String
+  siteCondition   String?
+  voltageReading  String?
+  pumpRatingHp    Float?
+  panelDimensions String?
+  inspectionNotes String?
+  photoUrls       String? // JSON string array of photo URLs
+
+  activity        CrmActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@map("crm_site_visits")
+}
+
+model CrmFollowUp {
+  id              String    @id @default(uuid())
+  title           String
+  customerId      String?
+  opportunityId   String?
+  leadId          String?
+  assignedStaffId String
+  scheduledDate   DateTime
+  status          String    @default("PENDING") // PENDING, COMPLETED, OVERDUE, CANCELLED
+  priority        String    @default("MEDIUM")
+  notes           String?
+  completedDate   DateTime?
+  createdAt       DateTime  @default(now())
+
+  customer        Customer?    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  opportunity     Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  assignedStaff   Staff        @relation(fields: [assignedStaffId], references: [id])
+
+  @@map("crm_follow_ups")
+}
+
+model CustomerDocument {
+  id                String   @id @default(uuid())
+  customerId        String
+  documentType      String   // GST_CERTIFICATE, PAN_CARD, PO_COPY, CAD_DRAWING, SLD, CONTRACT, OTHER
+  title             String
+  fileUrl           String
+  fileName          String
+  fileSize          Int      @default(0)
+  mimeType          String?
+  uploadedByStaffId String
+  createdAt         DateTime @default(now())
+
+  customer          Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  staff             Staff    @relation(fields: [uploadedByStaffId], references: [id])
+
+  @@map("customer_documents")
+}
+
+model CustomerMedia {
+  id                String   @id @default(uuid())
+  customerId        String
+  mediaType         String   // PHOTO_SITE, PHOTO_PANEL, PHOTO_OFFICE, AUDIO_CALL, AUDIO_NOTE
+  title             String?
+  fileUrl           String
+  durationSec       Int?     // For audio recordings
+  uploadedByStaffId String
+  createdAt         DateTime @default(now())
+
+  customer          Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  staff             Staff    @relation(fields: [uploadedByStaffId], references: [id])
+
+  @@map("customer_media")
+}
+
+model CrmSavedFilter {
+  id         String   @id @default(uuid())
+  name       String
+  staffId    String
+  entityType String   // CUSTOMER, LEAD, OPPORTUNITY, FOLLOW_UP
+  filterJson String   // JSON string of active filter criteria
+  isShared   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  staff      Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@map("crm_saved_filters")
 }
 
 // -------------------------------------------------------------
@@ -1107,6 +1320,19 @@ model Staff {
   assignedByTasks    Task[]       @relation("TaskAssigner")
   taskComments       TaskComment[]
   taskActivities     TaskActivity[]
+
+  assignedCustomers  Customer[]   @relation("CustomerAssignee")
+  managedCustomers   Customer[]   @relation("CustomerManager")
+  assignedLeads      Lead[]       @relation("LeadAssignee")
+  managedLeads       Lead[]       @relation("LeadManager")
+  assignedEnquiries  Enquiry[]    @relation("EnquiryAssignee")
+  assignedOpps       Opportunity[] @relation("OppAssignee")
+  managedOpps        Opportunity[] @relation("OppManager")
+  crmActivities      CrmActivity[]
+  crmFollowUps       CrmFollowUp[]
+  customerDocuments  CustomerDocument[]
+  customerMedia      CustomerMedia[]
+  savedFilters       CrmSavedFilter[]
 
   @@map("staff")
 }

@@ -112,10 +112,10 @@ class _CustomerDetailPageState extends ConsumerState<CustomerDetailPage>
                 tabs: const [
                   Tab(text: 'Overview'),
                   Tab(text: 'Contacts'),
-                  Tab(text: 'Interactions'),
+                  Tab(text: 'Timeline (360)'),
+                  Tab(text: 'Opportunities'),
                   Tab(text: 'Enquiries'),
-                  Tab(text: 'Leads'),
-                  Tab(text: 'Panels'),
+                  Tab(text: 'Panels & Specs'),
                 ],
               ),
             ),
@@ -126,10 +126,10 @@ class _CustomerDetailPageState extends ConsumerState<CustomerDetailPage>
           children: [
             _OverviewTab(customer: customer),
             _ContactsTab(customer: customer, onRefresh: _refresh),
-            _InteractionsTab(customerId: widget.customerId),
-            const _PlaceholderTab(label: 'Enquiries'),
-            const _PlaceholderTab(label: 'Leads'),
-            const _PlaceholderTab(label: 'Panels'),
+            _TimelineTab(customerId: widget.customerId),
+            _OpportunitiesTab(customer: customer),
+            _EnquiriesTab(customer: customer),
+            _PanelsTab(customer: customer),
           ],
         ),
       ),
@@ -423,22 +423,334 @@ class _InteractionCard extends StatelessWidget {
   }
 }
 
-class _PlaceholderTab extends StatelessWidget {
-  final String label;
-  const _PlaceholderTab({required this.label});
+class _TimelineTab extends ConsumerWidget {
+  final String customerId;
+  const _TimelineTab({required this.customerId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final timelineAsync = ref.watch(customerTimelineProvider(customerId));
+
+    return timelineAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text(e.toString(), style: const TextStyle(color: Colors.grey))),
+      data: (events) {
+        if (events.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.history_toggle_off, size: 48, color: Colors.grey.shade600),
+                const SizedBox(height: 12),
+                const Text('No timeline activity recorded yet', style: TextStyle(color: Colors.grey)),
+              ],
+            ),
+          );
+        }
+
+        return ListView.separated(
+          padding: const EdgeInsets.all(16),
+          itemCount: events.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            final ev = events[index] as Map<String, dynamic>;
+            final type = ev['type'] as String? ?? 'EVENT';
+            final title = ev['title'] as String? ?? 'Activity';
+            final desc = ev['description'] as String? ?? '';
+            final dateStr = ev['date'] as String? ?? '';
+            final formattedDate = dateStr.isNotEmpty ? dateStr.split('T')[0] : '';
+            final status = ev['status'] as String? ?? '';
+
+            IconData icon = Icons.circle_outlined;
+            Color iconColor = AppTheme.primary;
+
+            if (type == 'LEAD') {
+              icon = Icons.flag_outlined;
+              iconColor = Colors.blue;
+            } else if (type == 'ENQUIRY') {
+              icon = Icons.question_answer_outlined;
+              iconColor = Colors.orange;
+            } else if (type == 'OPPORTUNITY') {
+              icon = Icons.monetization_on_outlined;
+              iconColor = Colors.green;
+            } else if (type == 'CALL') {
+              icon = Icons.phone;
+              iconColor = Colors.purple;
+            } else if (type == 'MEETING') {
+              icon = Icons.groups_outlined;
+              iconColor = Colors.indigo;
+            } else if (type == 'SITE_VISIT') {
+              icon = Icons.location_on_outlined;
+              iconColor = Colors.teal;
+            }
+
+            return Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.darkCard,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.darkBorder),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: iconColor.withOpacity(0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, size: 18, color: iconColor),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(type, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: iconColor)),
+                            Text(formattedDate, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        if (desc.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(desc, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                        ],
+                        if (status.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(status, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600)),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _OpportunitiesTab extends StatelessWidget {
+  final Map<String, dynamic> customer;
+  const _OpportunitiesTab({required this.customer});
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.construction, size: 48, color: Colors.grey),
-          const SizedBox(height: 12),
-          Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-          const Text('Coming in Phase 2', style: TextStyle(color: Colors.grey, fontSize: 12)),
-        ],
-      ),
+    final opps = (customer['opportunities'] as List? ?? []);
+
+    if (opps.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.monetization_on_outlined, size: 48, color: Colors.grey.shade600),
+            const SizedBox(height: 12),
+            const Text('No opportunities logged for this customer', style: TextStyle(color: Colors.grey)),
+          ],
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: opps.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        final opp = opps[index] as Map<String, dynamic>;
+        final val = (opp['estimatedValue'] ?? 0) as num;
+        final prob = opp['probability'] ?? 0;
+        final stage = opp['stage'] ?? 'NEW';
+
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppTheme.darkCard,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppTheme.darkBorder),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(opp['opportunityNumber'] ?? 'DEAL', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(stage, style: const TextStyle(fontSize: 10, color: AppTheme.primary, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(opp['productInterest'] ?? 'Engineered Panel System', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              const SizedBox(height: 4),
+              Text(opp['requirement'] ?? '', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('₹${val.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.green)),
+                  Text('$prob% Probability', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _EnquiriesTab extends StatelessWidget {
+  final Map<String, dynamic> customer;
+  const _EnquiriesTab({required this.customer});
+
+  @override
+  Widget build(BuildContext context) {
+    final enquiries = (customer['enquiries'] as List? ?? []);
+
+    if (enquiries.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.question_answer_outlined, size: 48, color: Colors.grey.shade600),
+            const SizedBox(height: 12),
+            const Text('No enquiries recorded for this customer', style: TextStyle(color: Colors.grey)),
+          ],
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: enquiries.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        final enq = enquiries[index] as Map<String, dynamic>;
+        final qty = enq['quantity'] ?? 1;
+        final val = (enq['expectedValue'] ?? 0) as num;
+        final status = enq['status'] ?? 'PENDING';
+
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppTheme.darkCard,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppTheme.darkBorder),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(enq['enquiryNumber'] ?? 'ENQ', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(status, style: const TextStyle(fontSize: 10, color: Colors.blue, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(enq['productInterest'] ?? 'Panel Requirement', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              const SizedBox(height: 4),
+              Text(enq['requirement'] ?? '', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Qty: $qty unit(s)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                  Text('₹${val.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primary)),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _PanelsTab extends StatelessWidget {
+  final Map<String, dynamic> customer;
+  const _PanelsTab({required this.customer});
+
+  @override
+  Widget build(BuildContext context) {
+    final panels = (customer['panelSpecifications'] as List? ?? []);
+
+    if (panels.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.precision_manufacturing_outlined, size: 48, color: Colors.grey.shade600),
+            const SizedBox(height: 12),
+            const Text('No panel specifications associated', style: TextStyle(color: Colors.grey)),
+          ],
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: panels.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        final p = panels[index] as Map<String, dynamic>;
+        final code = p['panelCode'] ?? '';
+        final type = p['panelType'] ?? 'PANEL';
+        final hp = p['pumpHp'] ?? 0;
+        final price = (p['finalPrice'] ?? 0) as num;
+
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppTheme.darkCard,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppTheme.darkBorder),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(code, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                  Text(p['status'] ?? 'ACTIVE', style: const TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text('$type ($hp HP)', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              const SizedBox(height: 6),
+              Text('Price: ₹${price.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primary, fontSize: 13)),
+            ],
+          ),
+        );
+      },
     );
   }
 }

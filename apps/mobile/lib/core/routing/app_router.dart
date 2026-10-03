@@ -12,6 +12,10 @@ import 'package:saark_erp_mobile/features/vendors/presentation/pages/vendors_lis
 import 'package:saark_erp_mobile/features/products/presentation/pages/products_list_page.dart';
 import 'package:saark_erp_mobile/features/crm/presentation/pages/leads_list_page.dart';
 import 'package:saark_erp_mobile/features/crm/presentation/pages/enquiries_list_page.dart';
+import 'package:saark_erp_mobile/features/crm/presentation/pages/crm_dashboard_page.dart';
+import 'package:saark_erp_mobile/features/crm/presentation/pages/crm_pipeline_page.dart';
+import 'package:saark_erp_mobile/features/crm/presentation/pages/crm_follow_ups_page.dart';
+import 'package:saark_erp_mobile/features/crm/presentation/pages/crm_analytics_page.dart';
 import 'package:saark_erp_mobile/features/production/presentation/pages/panel_specs_list_page.dart';
 import 'package:saark_erp_mobile/features/production/presentation/pages/panel_spec_detail_page.dart';
 import 'package:saark_erp_mobile/features/production/presentation/pages/panel_spec_form_page.dart';
@@ -150,6 +154,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
           // ─── CRM ─────────────────────────────────────────────────
           GoRoute(
+            path: '/crm/dashboard',
+            name: 'crm-dashboard',
+            builder: (context, state) => const CrmDashboardPage(),
+          ),
+          GoRoute(
             path: '/crm/leads',
             name: 'crm-leads',
             builder: (context, state) => const LeadsListPage(),
@@ -158,6 +167,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: '/crm/enquiries',
             name: 'crm-enquiries',
             builder: (context, state) => const EnquiriesListPage(),
+          ),
+          GoRoute(
+            path: '/crm/pipeline',
+            name: 'crm-pipeline',
+            builder: (context, state) => const CrmPipelinePage(),
+          ),
+          GoRoute(
+            path: '/crm/follow-ups',
+            name: 'crm-follow-ups',
+            builder: (context, state) => const CrmFollowUpsPage(),
+          ),
+          GoRoute(
+            path: '/crm/analytics',
+            name: 'crm-analytics',
+            builder: (context, state) => const CrmAnalyticsPage(),
           ),
 
           // ─── Phase 2 Modules (placeholder pages) ─────────────────

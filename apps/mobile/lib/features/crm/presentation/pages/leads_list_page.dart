@@ -120,10 +120,167 @@ class _LeadsListPageState extends ConsumerState<LeadsListPage>
                             itemBuilder: (_, i) => _LeadCard(
                               lead: state.leads[i],
                               onStatusChange: (status) => ref.read(leadListProvider.notifier).updateStatus(state.leads[i]['id'] as String, status),
+                              onQualify: () => _showQualifyDialog(state.leads[i]),
+                              onConvert: () => _showConvertDialog(state.leads[i]),
                             ),
                           ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showQualifyDialog(Map<String, dynamic> lead) {
+    bool budget = lead['bantBudget'] ?? false;
+    bool authority = lead['bantAuthority'] ?? false;
+    bool need = lead['bantNeed'] ?? false;
+    bool timeline = lead['bantTimeline'] ?? false;
+    String status = lead['qualificationStatus'] ?? 'QUALIFIED';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          title: Text('BANT Qualification: ${lead['companyName']}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CheckboxListTile(
+                title: const Text('Budget Confirmed'),
+                subtitle: const Text('Client has allocated industrial budget'),
+                value: budget,
+                onChanged: (v) => setDlgState(() => budget = v ?? false),
+              ),
+              CheckboxListTile(
+                title: const Text('Authority Identified'),
+                subtitle: const Text('Engaged with Decision Maker'),
+                value: authority,
+                onChanged: (v) => setDlgState(() => authority = v ?? false),
+              ),
+              CheckboxListTile(
+                title: const Text('Need Established'),
+                subtitle: const Text('Technical requirement / panel spec matched'),
+                value: need,
+                onChanged: (v) => setDlgState(() => need = v ?? false),
+              ),
+              CheckboxListTile(
+                title: const Text('Timeline Defined'),
+                subtitle: const Text('Clear procurement/delivery timeframe'),
+                value: timeline,
+                onChanged: (v) => setDlgState(() => timeline = v ?? false),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: status,
+                decoration: const InputDecoration(labelText: 'Qualification Result'),
+                items: const [
+                  DropdownMenuItem(value: 'QUALIFIED', child: Text('QUALIFIED')),
+                  DropdownMenuItem(value: 'PENDING', child: Text('PENDING')),
+                  DropdownMenuItem(value: 'DISQUALIFIED', child: Text('DISQUALIFIED')),
+                ],
+                onChanged: (v) => setDlgState(() => status = v!),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                try {
+                  final repo = ref.read(crmRepositoryProvider);
+                  await repo.qualifyLead(lead['id'], {
+                    'qualificationStatus': status,
+                    'bantBudget': budget,
+                    'bantAuthority': authority,
+                    'bantNeed': need,
+                    'bantTimeline': timeline,
+                  });
+                  ref.read(leadListProvider.notifier).loadLeads();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Lead $status successfully'), backgroundColor: AppTheme.success),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(e.toString()), backgroundColor: AppTheme.error),
+                    );
+                  }
+                }
+              },
+              child: const Text('Save Qualification'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showConvertDialog(Map<String, dynamic> lead) {
+    bool createOpp = true;
+    final compName = lead['companyName'] ?? '';
+    final contact = lead['contactPerson'] ?? '';
+    final prod = lead['productInterest'] ?? 'Engineered Panel System';
+    final estVal = (lead['estimatedValue'] ?? 0) as num;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          title: Text('Convert Lead: $compName'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('This atomic action will create:'),
+              const SizedBox(height: 6),
+              const Text('• Customer Master Profile', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text('• Primary Contact Profile', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Create Initial Sales Opportunity / Deal'),
+                value: createOpp,
+                onChanged: (v) => setDlgState(() => createOpp = v ?? true),
+              ),
+              if (createOpp) ...[
+                const SizedBox(height: 4),
+                Text('Product: $prod', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                Text('Value: ₹${estVal.toStringAsFixed(0)}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                try {
+                  final repo = ref.read(crmRepositoryProvider);
+                  await repo.convertLead(lead['id'], {
+                    'createOpportunity': createOpp,
+                    'customerType': 'PROSPECT',
+                  });
+                  ref.read(leadListProvider.notifier).loadLeads();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Lead converted to Customer & Deal!'), backgroundColor: AppTheme.success),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(e.toString()), backgroundColor: AppTheme.error),
+                    );
+                  }
+                }
+              },
+              child: const Text('Confirm Conversion'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -197,8 +354,15 @@ class _LeadsListPageState extends ConsumerState<LeadsListPage>
 class _LeadCard extends StatelessWidget {
   final Map<String, dynamic> lead;
   final ValueChanged<String> onStatusChange;
+  final VoidCallback? onQualify;
+  final VoidCallback? onConvert;
 
-  const _LeadCard({required this.lead, required this.onStatusChange});
+  const _LeadCard({
+    required this.lead,
+    required this.onStatusChange,
+    this.onQualify,
+    this.onConvert,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -272,6 +436,35 @@ class _LeadCard extends StatelessWidget {
                 ],
               ]),
             ],
+            const SizedBox(height: 8),
+            const Divider(height: 1, color: AppTheme.darkBorder),
+            const SizedBox(height: 6),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: onQualify,
+                  icon: const Icon(Icons.verified_outlined, size: 13, color: Colors.blue),
+                  label: const Text('BANT Qualify', style: TextStyle(fontSize: 11, color: Colors.blue)),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    visualDensity: VisualDensity.compact,
+                    side: const BorderSide(color: Colors.blue, width: 0.5),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: onConvert,
+                  icon: const Icon(Icons.transform, size: 13, color: Colors.white),
+                  label: const Text('Convert', style: TextStyle(fontSize: 11, color: Colors.white)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primary,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),

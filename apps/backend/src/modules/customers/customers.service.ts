@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
 import { AuditService } from '../../core/audit/audit.service';
 
@@ -305,6 +305,210 @@ export class CustomersService {
       where,
       include: { contact: true },
       orderBy: { interactionDate: 'desc' },
+    });
+  }
+
+  // ─── DUPLICATE DETECTION ──────────────────────────────────────────────────
+  async checkDuplicate(dto: { gstin?: string; phone?: string; email?: string; companyName?: string }) {
+    const orConditions: any[] = [];
+
+    if (dto.gstin && dto.gstin.trim().length > 3) {
+      orConditions.push({ gstin: dto.gstin.trim() });
+    }
+    if (dto.phone && dto.phone.trim().length > 5) {
+      orConditions.push({ phone: dto.phone.trim() });
+    }
+    if (dto.email && dto.email.trim().length > 5) {
+      orConditions.push({ email: dto.email.trim() });
+    }
+    if (dto.companyName && dto.companyName.trim().length > 2) {
+      orConditions.push({ companyName: { contains: dto.companyName.trim() } });
+    }
+
+    if (orConditions.length === 0) {
+      return { hasDuplicate: false, matches: [] };
+    }
+
+    const matches = await this.prisma.customer.findMany({
+      where: { OR: orConditions, status: { not: 'DELETED' } },
+      select: {
+        id: true,
+        companyName: true,
+        customerCode: true,
+        gstin: true,
+        phone: true,
+        email: true,
+        city: true,
+      },
+      take: 5,
+    });
+
+    return {
+      hasDuplicate: matches.length > 0,
+      matches,
+    };
+  }
+
+  // ─── CUSTOMER 360 CHRONOLOGICAL TIMELINE ──────────────────────────────────
+  async getTimeline(customerId: string) {
+    const customer = await this.prisma.customer.findUnique({
+      where: { id: customerId },
+      include: {
+        interactions: { include: { contact: true } },
+        activities: { include: { staff: true, call: true, meeting: true, siteVisit: true } },
+        opportunities: { select: { id: true, title: true, stage: true, estimatedValue: true, createdAt: true, updatedAt: true } },
+        leads: { select: { id: true, leadNumber: true, status: true, source: true, createdAt: true } },
+        enquiries: { select: { id: true, enquiryNumber: true, productInterest: true, status: true, createdAt: true } },
+      },
+    });
+
+    if (!customer) throw new NotFoundException('Customer not found');
+
+    const timelineEvents: Array<{
+      id: string;
+      type: string;
+      title: string;
+      description?: string;
+      actor: string;
+      timestamp: Date;
+      metadata?: any;
+    }> = [];
+
+    // 1. Interactions
+    customer.interactions.forEach((i) => {
+      timelineEvents.push({
+        id: i.id,
+        type: i.interactionType || 'INTERACTION',
+        title: `${i.interactionType || 'Interaction'}: ${i.subject}`,
+        description: i.description,
+        actor: i.recordedBy || 'Sales Executive',
+        timestamp: i.interactionDate,
+        metadata: { outcome: i.outcome, nextFollowUp: i.nextFollowUp },
+      });
+    });
+
+    // 2. CRM Activities (Calls, Meetings, Site Visits)
+    customer.activities.forEach((a) => {
+      let desc = a.description || '';
+      if (a.call) {
+        desc = `Call Outcome: ${a.call.callOutcome} (${Math.round(a.call.durationSec / 60)} mins) — ${desc}`;
+      } else if (a.meeting) {
+        desc = `Meeting: ${a.meeting.meetingType} at ${a.meeting.location || 'Client Office'} — ${desc}`;
+      } else if (a.siteVisit) {
+        desc = `Site Inspection: ${a.siteVisit.location} (Voltage: ${a.siteVisit.voltageReading || 'N/A'}, HP: ${a.siteVisit.pumpRatingHp || 'N/A'}) — ${desc}`;
+      }
+
+      timelineEvents.push({
+        id: a.id,
+        type: a.activityType,
+        title: a.subject,
+        description: desc,
+        actor: a.staff?.fullName || 'Staff',
+        timestamp: a.createdAt,
+        metadata: { outcome: a.outcome, nextActionDate: a.nextActionDate },
+      });
+    });
+
+    // 3. Opportunities
+    customer.opportunities.forEach((o) => {
+      timelineEvents.push({
+        id: o.id,
+        type: 'OPPORTUNITY',
+        title: `Opportunity: ${o.title} (₹${(o.estimatedValue || 0).toLocaleString()})`,
+        description: `Stage: ${o.stage}`,
+        actor: 'Sales Pipeline',
+        timestamp: o.updatedAt,
+      });
+    });
+
+    // 4. Enquiries
+    customer.enquiries.forEach((e) => {
+      timelineEvents.push({
+        id: e.id,
+        type: 'ENQUIRY',
+        title: `Enquiry ${e.enquiryNumber}: ${e.productInterest}`,
+        description: `Status: ${e.status}`,
+        actor: 'Customer Inquiry',
+        timestamp: e.createdAt,
+      });
+    });
+
+    // Sort descending by timestamp
+    timelineEvents.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    return timelineEvents;
+  }
+
+  // ─── CUSTOMER MERGE (SUPER ADMIN ONLY) ────────────────────────────────────
+  async mergeCustomers(sourceId: string, targetId: string, user?: any) {
+    if (sourceId === targetId) {
+      throw new BadRequestException('Source and target customer cannot be the same');
+    }
+
+    const [source, target] = await Promise.all([
+      this.prisma.customer.findUnique({ where: { id: sourceId } }),
+      this.prisma.customer.findUnique({ where: { id: targetId } }),
+    ]);
+
+    if (!source || !target) {
+      throw new NotFoundException('Both source and target customers must exist');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // Re-parent Contacts
+      await tx.customerContact.updateMany({
+        where: { customerId: sourceId },
+        data: { customerId: targetId, isPrimary: false },
+      });
+
+      // Re-parent Opportunities
+      await tx.opportunity.updateMany({
+        where: { customerId: sourceId },
+        data: { customerId: targetId },
+      });
+
+      // Re-parent Leads
+      await tx.lead.updateMany({
+        where: { customerId: sourceId },
+        data: { customerId: targetId },
+      });
+
+      // Re-parent Enquiries
+      await tx.enquiry.updateMany({
+        where: { customerId: sourceId },
+        data: { customerId: targetId },
+      });
+
+      // Re-parent Activities & Interactions
+      await tx.crmActivity.updateMany({
+        where: { customerId: sourceId },
+        data: { customerId: targetId },
+      });
+      await tx.customerInteraction.updateMany({
+        where: { customerId: sourceId },
+        data: { customerId: targetId },
+      });
+
+      // Mark source as MERGED
+      await tx.customer.update({
+        where: { id: sourceId },
+        data: { status: 'MERGED' },
+      });
+
+      await this.auditService.log({
+        userId: user?.id,
+        userEmail: user?.email,
+        action: 'MERGE',
+        module: 'CUSTOMERS',
+        entityType: 'Customer',
+        entityId: targetId,
+        details: `Merged duplicate Customer ${source.companyName} (${source.customerCode}) into Master ${target.companyName} (${target.customerCode})`,
+      });
+
+      return {
+        message: 'Customer merged successfully',
+        masterCustomer: target,
+      };
     });
   }
 }

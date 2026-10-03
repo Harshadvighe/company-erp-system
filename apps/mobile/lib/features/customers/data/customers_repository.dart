@@ -263,3 +263,13 @@ final customerDetailProvider =
   final result = await repo.getCustomer(id);
   return result['data'] as Map<String, dynamic>? ?? result;
 });
+
+final customerTimelineProvider =
+    FutureProvider.family<List<dynamic>, String>((ref, id) async {
+  final repo = ref.watch(customersRepositoryProvider);
+  final response = await repo._dio.get('/customers/$id/timeline');
+  final data = response.data;
+  if (data is Map) return data['data'] as List? ?? [];
+  return data as List? ?? [];
+});
+
