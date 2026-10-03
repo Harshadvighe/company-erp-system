@@ -114,14 +114,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> _restoreSession() async {
     try {
+      final token = await AppStorage.read(AppConstants.accessTokenKey);
       final profile = await AppStorage.read(AppConstants.userProfileKey);
-      if (profile != null) {
+      if (token != null && token.trim().isNotEmpty && profile != null && profile.trim().isNotEmpty) {
         try {
           final json = jsonDecode(profile) as Map<String, dynamic>;
           state = AuthState(user: AuthUser.fromJson(json));
         } catch (_) {
           await logout();
         }
+      } else {
+        await logout();
       }
     } catch (_) {
       state = const AuthState();

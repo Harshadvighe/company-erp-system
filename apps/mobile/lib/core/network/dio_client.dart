@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saark_erp_mobile/core/constants/app_constants.dart';
 import 'package:saark_erp_mobile/core/storage/app_storage.dart';
+import 'package:saark_erp_mobile/core/auth/auth_provider.dart';
 
 final dioProvider = Provider<Dio>((ref) {
   final dio = Dio(BaseOptions(
@@ -39,16 +40,20 @@ class AuthInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     if (err.response?.statusCode == 401) {
-      // Session expired — clear tokens
-      await AppStorage.delete(AppConstants.accessTokenKey);
-      await AppStorage.delete(AppConstants.refreshTokenKey);
+      // Session expired or invalid — clear storage and reset auth state to force login
+      try {
+        await ref.read(authProvider.notifier).logout();
+      } catch (_) {}
     }
     handler.next(err);
   }
 }
 
 /// Parses Dio errors into user-friendly messages
-String parseDioError(DioException e) {
+String parseDioError(dynamic e) {
+  if (e is! DioException) {
+    return e?.toString() ?? 'An unexpected error occurred.';
+  }
   if (e.type == DioExceptionType.connectionTimeout ||
       e.type == DioExceptionType.receiveTimeout) {
     return 'Connection timed out. Please check your network.';

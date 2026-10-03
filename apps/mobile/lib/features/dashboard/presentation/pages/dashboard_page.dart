@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:saark_erp_mobile/core/theme/app_theme.dart';
 import 'package:saark_erp_mobile/core/auth/auth_provider.dart';
+import 'package:saark_erp_mobile/core/network/dio_client.dart';
 import 'package:saark_erp_mobile/features/customers/data/customers_repository.dart';
 import 'package:saark_erp_mobile/features/crm/data/crm_repository.dart';
 
@@ -51,7 +52,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               // KPI Stats
               dashAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => _buildErrorBanner(e.toString(), () => ref.invalidate(_dashboardDataProvider)),
+                error: (e, _) => _buildErrorBanner(parseDioError(e), () => ref.invalidate(_dashboardDataProvider)),
                 data: (d) => _buildKpiGrid(context, d, customerState, user),
               ),
               const SizedBox(height: 24),
@@ -360,6 +361,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   }
 
   Widget _buildErrorBanner(String message, VoidCallback onRetry) {
+    final isAuthError = message.toLowerCase().contains('session expired') ||
+        message.toLowerCase().contains('log in') ||
+        message.toLowerCase().contains('401');
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -371,8 +376,16 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         children: [
           const Icon(Icons.error_outline, color: AppTheme.error),
           const SizedBox(width: 12),
-          Expanded(child: Text(message, style: const TextStyle(color: Colors.grey, fontSize: 12))),
-          TextButton(onPressed: onRetry, child: const Text('Retry')),
+          Expanded(child: Text(message, style: const TextStyle(color: Colors.white70, fontSize: 13))),
+          if (isAuthError)
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
+              onPressed: () => ref.read(authProvider.notifier).logout(),
+              icon: const Icon(Icons.login, size: 14),
+              label: const Text('Log In Again'),
+            )
+          else
+            TextButton(onPressed: onRetry, child: const Text('Retry')),
         ],
       ),
     );
