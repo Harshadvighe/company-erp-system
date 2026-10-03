@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:saark_erp_mobile/core/theme/app_theme.dart';
 import 'package:saark_erp_mobile/core/network/dio_client.dart';
 import 'package:saark_erp_mobile/core/constants/app_constants.dart';
+import 'package:saark_erp_mobile/core/storage/app_storage.dart';
 import 'package:saark_erp_mobile/features/authentication/data/auth_repository.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
@@ -27,6 +28,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     super.initState();
     _emailController.text = 'admin';
     _passwordController.text = 'Saark@2026';
+    _loadSavedServerUrl();
+  }
+
+  void _loadSavedServerUrl() async {
+    final saved = await AppStorage.read('custom_server_url');
+    if (saved != null && saved.isNotEmpty && mounted) {
+      setState(() {
+        AppConstants.customServerUrl = saved;
+      });
+    }
   }
 
   @override
@@ -59,15 +70,23 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       }
     } on Exception catch (e) {
       String message = 'Login failed. Please check your credentials.';
-      if (e.toString().contains('DioException')) {
-        // Handled by parseDioError
-        message = parseDioError(e as dynamic);
+      final errStr = e.toString().toLowerCase();
+      if (errStr.contains('dioexception') || errStr.contains('socketexception') || errStr.contains('connection refused') || errStr.contains('timed out')) {
+        message = 'Cannot connect to Server ($baseUrlHost).\nCheck your Wi-Fi or tap "Server" below to change connection.';
       } else {
         message = e.toString().replaceAll('Exception: ', '');
       }
       setState(() => _errorMessage = message);
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  String get baseUrlHost {
+    try {
+      return Uri.tryParse(AppConstants.baseUrl)?.host ?? AppConstants.baseUrl;
+    } catch (_) {
+      return AppConstants.baseUrl;
     }
   }
 
@@ -507,14 +526,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               final newUrl = controller.text.trim();
               if (newUrl.isNotEmpty) {
-                setState(() {
-                  AppConstants.customServerUrl = newUrl;
-                });
+                await AppStorage.write('custom_server_url', newUrl);
+                if (mounted) {
+                  setState(() {
+                    AppConstants.customServerUrl = newUrl;
+                  });
+                }
               }
-              Navigator.pop(ctx);
+              if (ctx.mounted) Navigator.pop(ctx);
             },
             child: const Text('Save'),
           ),

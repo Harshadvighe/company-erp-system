@@ -19,8 +19,8 @@ class AppConstants {
       final host = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
       return 'http://$host:3000/api/v1';
     }
-    // Mobile Physical Device default to permanent Tailscale URL (works globally without Wi-Fi)
-    return '$defaultPublicUrl/api/v1';
+    // Mobile Physical Device default to Local Wi-Fi (can be switched to Tailscale or Tunnel in Login UI)
+    return '$localWifiUrl/api/v1';
   }
 
   // Storage Keys
