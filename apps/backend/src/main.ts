@@ -47,6 +47,9 @@ async function bootstrap() {
   const fs = require('fs');
 
   const webCandidates = [
+    path.resolve(process.cwd(), 'public'),
+    path.resolve(__dirname, '../public'),
+    path.resolve(__dirname, '../../public'),
     path.resolve(process.cwd(), '../mobile/build/web'),
     path.resolve(process.cwd(), 'apps/mobile/build/web'),
     path.resolve(__dirname, '../../../../apps/mobile/build/web'),

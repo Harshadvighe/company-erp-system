@@ -23,6 +23,9 @@ if %errorlevel% neq 0 (
     pause
     exit /b %errorlevel%
 )
+if exist "%~dp0apps\mobile\build\web" (
+    xcopy "%~dp0apps\mobile\build\web" "%~dp0apps\backend\public\" /E /I /Y >nul
+)
 
 echo.
 echo [3/3] Compiling Android APK (Flutter APK)...
