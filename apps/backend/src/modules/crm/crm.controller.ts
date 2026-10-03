@@ -78,6 +78,7 @@ export class CrmController {
     return this.crmService.getOpportunities(query, req.user);
   }
 
+  @Get('pipeline')
   @Get('opportunities/pipeline')
   @RequirePermissions('CRM:VIEW')
   @ApiOperation({ summary: 'Get opportunities grouped by Kanban stage' })
