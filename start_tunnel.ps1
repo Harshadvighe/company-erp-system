@@ -25,13 +25,14 @@ if (Test-Path $logFile) { Remove-Item $logFile -Force }
 $cloudflaredExe = "$scriptDir\cloudflared.exe"
 $tunnelProc = Start-Process -FilePath $cloudflaredExe -ArgumentList "tunnel --url http://localhost:3000 --protocol http2" -RedirectStandardError $logFile -PassThru -NoNewWindow
 
-# 3. Wait and extract the public trycloudflare URL
+# 3. Wait and extract the public trycloudflare URL and wait for connection registration
 Write-Host "[3/3] Generating Direct 4G/5G Phone Link..." -ForegroundColor Green
 $foundUrl = $null
-$maxRetries = 30
+$isRegistered = $false
+$maxRetries = 45
 $retryCount = 0
 
-while (-not $foundUrl -and $retryCount -lt $maxRetries) {
+while ((-not $foundUrl -or -not $isRegistered) -and $retryCount -lt $maxRetries) {
     Start-Sleep -Seconds 1
     $retryCount++
     if (Test-Path $logFile) {
@@ -42,16 +43,24 @@ while (-not $foundUrl -and $retryCount -lt $maxRetries) {
             $reader.Close()
             $stream.Close()
             
-            if ($content -match "(https://[a-zA-Z0-9-]+\.trycloudflare\.com)") {
+            if (-not $foundUrl -and $content -match "(https://[a-zA-Z0-9-]+\.trycloudflare\.com)") {
                 $foundUrl = $matches[1]
-                break
+                Write-Host "     > Link generated: $foundUrl" -ForegroundColor Cyan
+                Write-Host "     > Connecting to Cloudflare edge network..." -ForegroundColor Gray
+            }
+            if ($content -match "Registered tunnel connection") {
+                $isRegistered = $true
             }
         } catch {}
     }
 }
 
-Clear-Host
 if ($foundUrl) {
+    if ($isRegistered) {
+        Write-Host "     > Connected! Settling edge DNS (3s)..." -ForegroundColor Green
+        Start-Sleep -Seconds 3
+    }
+
     # 1. Save URL to text file
     $urlFile = "$scriptDir\phone_url.txt"
     Set-Content -Path $urlFile -Value $foundUrl -Force
