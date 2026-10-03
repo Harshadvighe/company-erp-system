@@ -1,17 +1,11 @@
 import 'package:flutter/foundation.dart';
 
 class AppConstants {
-  // Production Render Cloud URL - Works 24/7 on 4G/5G mobile data & Wi-Fi anywhere
+  // Production Render Cloud URL - Hosted 24/7
   static const String defaultPublicUrl = 'https://saark-erp-backend.onrender.com';
-  static const String localWifiUrl = 'http://192.168.1.104:3000';
-  static String? customServerUrl;
 
-  // API - Dynamically routes whether on Web or Mobile
+  // API - Automatically routes on Web and Mobile
   static String get baseUrl {
-    if (customServerUrl != null && customServerUrl!.isNotEmpty) {
-      final clean = customServerUrl!.trim().replaceAll(RegExp(r'/+$'), '');
-      return clean.endsWith('/api/v1') ? clean : '$clean/api/v1';
-    }
     if (kIsWeb) {
       if (Uri.base.scheme == 'https' || Uri.base.port == 3000) {
         return '${Uri.base.origin}/api/v1';
@@ -19,7 +13,7 @@ class AppConstants {
       final host = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
       return 'http://$host:3000/api/v1';
     }
-    // Mobile Physical Device default to 24/7 Render Cloud URL (No manual URL needed!)
+    // Mobile app connects directly to Render Cloud URL
     return '$defaultPublicUrl/api/v1';
   }
 

@@ -28,16 +28,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     super.initState();
     _emailController.text = 'admin';
     _passwordController.text = 'Saark@2026';
-    _loadSavedServerUrl();
-  }
-
-  void _loadSavedServerUrl() async {
-    final saved = await AppStorage.read('custom_server_url');
-    if (saved != null && saved.isNotEmpty && mounted) {
-      setState(() {
-        AppConstants.customServerUrl = saved;
-      });
-    }
   }
 
   @override
@@ -422,30 +412,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           ),
                   ),
                 ),
-                const SizedBox(height: 16),
-                Center(
-                  child: InkWell(
-                    onTap: _showServerConfigDialog,
-                    borderRadius: BorderRadius.circular(6),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.cloud_done_rounded, size: 14, color: AppTheme.primary),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Server: ${Uri.tryParse(AppConstants.baseUrl)?.host ?? AppConstants.baseUrl}',
-                            style: const TextStyle(fontSize: 12, color: Colors.grey),
-                          ),
-                          const SizedBox(width: 4),
-                          const Icon(Icons.edit_outlined, size: 12, color: Colors.grey),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
                 const Center(
                   child: Text(
                     '© 2026 Saark Exploration Private Limited',
@@ -456,91 +423,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  void _showServerConfigDialog() {
-    final controller = TextEditingController(text: AppConstants.baseUrl);
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.darkSurface,
-        title: const Row(
-          children: [
-            Icon(Icons.dns_rounded, color: AppTheme.primary, size: 20),
-            SizedBox(width: 8),
-            Text('Server Connection', style: TextStyle(fontSize: 16)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Configure backend API address (works on 4G/5G mobile data or Wi-Fi):',
-              style: TextStyle(fontSize: 12, color: AppTheme.darkTextSecondary),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              style: const TextStyle(fontSize: 13),
-              decoration: const InputDecoration(
-                labelText: 'API Base URL',
-                hintText: 'https://...',
-                isDense: true,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: [
-                OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    textStyle: const TextStyle(fontSize: 11),
-                  ),
-                  onPressed: () {
-                    controller.text = '${AppConstants.defaultPublicUrl}/api/v1';
-                  },
-                  child: const Text('Cloud 24/7 (Render)'),
-                ),
-                OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    textStyle: const TextStyle(fontSize: 11),
-                  ),
-                  onPressed: () {
-                    controller.text = '${AppConstants.localWifiUrl}/api/v1';
-                  },
-                  child: const Text('Local Wi-Fi'),
-                ),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final newUrl = controller.text.trim();
-              if (newUrl.isNotEmpty) {
-                await AppStorage.write('custom_server_url', newUrl);
-                if (mounted) {
-                  setState(() {
-                    AppConstants.customServerUrl = newUrl;
-                  });
-                }
-              }
-              if (ctx.mounted) Navigator.pop(ctx);
-            },
-            child: const Text('Save'),
-          ),
-        ],
       ),
     );
   }
