@@ -60,7 +60,7 @@ async function bootstrap() {
 
     // Client-side SPA routing fallback for Flutter Web
     app.use((req: any, res: any, next: any) => {
-      if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.startsWith('/swagger')) {
+      if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.startsWith('/swagger') && !req.path.startsWith('/download')) {
         const indexPath = path.join(webDir, 'index.html');
         if (fs.existsSync(indexPath)) {
           return res.sendFile(indexPath);
@@ -69,6 +69,23 @@ async function bootstrap() {
       next();
     });
   }
+
+  // Direct APK download route for mobile phones
+  app.use('/download/apk', (req: any, res: any) => {
+    const apkCandidates = [
+      path.resolve(process.cwd(), '../mobile/build/app/outputs/flutter-apk/app-debug.apk'),
+      path.resolve(process.cwd(), 'apps/mobile/build/app/outputs/flutter-apk/app-debug.apk'),
+      path.resolve(process.cwd(), '../../Saark_ERP.apk'),
+      path.resolve(process.cwd(), 'Saark_ERP.apk'),
+      'd:/saark/New folder (2)/Saark_ERP.apk',
+      'd:/saark/New folder (2)/apps/mobile/build/app/outputs/flutter-apk/app-debug.apk',
+    ];
+    const apkPath = apkCandidates.find((f: string) => fs.existsSync(f));
+    if (apkPath) {
+      return res.download(apkPath, 'Saark_ERP.apk');
+    }
+    res.status(404).send('APK file not found. Please build it first using update_phone_apk.bat or BUILD_UPDATE_ALL.bat');
+  });
 
   const port = process.env.PORT || 3000;
   await app.listen(port, '0.0.0.0');
