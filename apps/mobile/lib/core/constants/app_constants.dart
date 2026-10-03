@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 
 class AppConstants {
-  // Permanent Tailscale URL - Works globally on 4G/5G mobile data & Wi-Fi anywhere
-  static const String defaultPublicUrl = 'http://100.66.50.111:3000';
+  // Production Render Cloud URL - Works 24/7 on 4G/5G mobile data & Wi-Fi anywhere
+  static const String defaultPublicUrl = 'https://saark-erp-backend.onrender.com';
   static const String localWifiUrl = 'http://192.168.1.104:3000';
   static String? customServerUrl;
 
@@ -19,8 +19,8 @@ class AppConstants {
       final host = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
       return 'http://$host:3000/api/v1';
     }
-    // Mobile Physical Device default to Local Wi-Fi (can be switched to Tailscale or Tunnel in Login UI)
-    return '$localWifiUrl/api/v1';
+    // Mobile Physical Device default to 24/7 Render Cloud URL (No manual URL needed!)
+    return '$defaultPublicUrl/api/v1';
   }
 
   // Storage Keys

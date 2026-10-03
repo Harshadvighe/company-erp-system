@@ -504,7 +504,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   onPressed: () {
                     controller.text = '${AppConstants.defaultPublicUrl}/api/v1';
                   },
-                  child: const Text('Tailscale (Permanent 4G/5G)'),
+                  child: const Text('Cloud 24/7 (Render)'),
                 ),
                 OutlinedButton(
                   style: OutlinedButton.styleFrom(
