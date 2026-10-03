@@ -11,7 +11,7 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $port3000Active = Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue
 if (-not $port3000Active) {
     Write-Host "[1/3] Starting Backend Server on Port 3000..." -ForegroundColor Green
-    Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$scriptDir\start_backend.bat`"" -WindowStyle Minimized
+    Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$scriptDir\1_START_BACKEND_SERVER.bat`"" -WindowStyle Minimized
     Start-Sleep -Seconds 4
 } else {
     Write-Host "[1/3] Backend Server is already running on Port 3000." -ForegroundColor Green
