@@ -59,180 +59,35 @@ if ($foundUrl) {
     # 2. Copy URL to clipboard
     try { Set-Clipboard -Value $foundUrl } catch {}
 
-    # 3. Create interactive HTML page with QR code for smartphone camera scanning
+    # 3. Generate QR Code HTML from template
+    $templateFile = "$scriptDir\phone_access_template.html"
     $htmlFile = "$scriptDir\phone_access.html"
-    $encodedUrl = [System.Uri]::EscapeDataString($foundUrl)
-    $qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=$encodedUrl"
-    
-    $htmlContent = @"
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>Saark ERP - Smartphone 4G/5G Access</title>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      background: #0b1329;
-      color: #f8fafc;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      margin: 0;
-      padding: 20px;
-      text-align: center;
+    if (Test-Path $templateFile) {
+        $encodedUrl = [System.Uri]::EscapeDataString($foundUrl)
+        $qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=$encodedUrl"
+        $html = (Get-Content $templateFile -Raw) -replace '__URL__', $foundUrl -replace '__QR__', $qrUrl
+        Set-Content -Path $htmlFile -Value $html -Force
+        Start-Process $htmlFile
     }
-    .card {
-      background: #1e293b;
-      padding: 35px;
-      border-radius: 20px;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
-      max-width: 520px;
-      width: 100%;
-      border: 1px solid #334155;
-    }
-    h1 {
-      color: #38bdf8;
-      margin-top: 0;
-      font-size: 24px;
-      font-weight: 700;
-    }
-    p {
-      color: #cbd5e1;
-      font-size: 15px;
-      margin: 10px 0 20px 0;
-    }
-    .qr-box {
-      margin: 15px 0 25px 0;
-      background: #ffffff;
-      padding: 16px;
-      border-radius: 16px;
-      display: inline-block;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    }
-    .qr-box img {
-      display: block;
-      width: 220px;
-      height: 220px;
-    }
-    .url-title {
-      font-size: 13px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: #94a3b8;
-      font-weight: 600;
-      margin-bottom: 6px;
-    }
-    .url-box {
-      word-break: break-all;
-      font-size: 16px;
-      background: #0f172a;
-      padding: 14px 16px;
-      border-radius: 10px;
-      color: #4ade80;
-      font-weight: 600;
-      margin-bottom: 20px;
-      border: 1px solid #1e293b;
-      user-select: all;
-    }
-    .btn-row {
-      display: flex;
-      gap: 12px;
-      justify-content: center;
-      flex-wrap: wrap;
-    }
-    .btn {
-      background: #0284c7;
-      color: white;
-      border: none;
-      padding: 12px 24px;
-      border-radius: 10px;
-      cursor: pointer;
-      font-size: 15px;
-      font-weight: 600;
-      text-decoration: none;
-      transition: background 0.2s;
-    }
-    .btn:hover {
-      background: #0369a1;
-    }
-    .btn-copy {
-      background: #334155;
-    }
-    .btn-copy:hover {
-      background: #475569;
-    }
-    .badge {
-      display: inline-block;
-      background: #16a34a;
-      color: #ffffff;
-      font-size: 12px;
-      font-weight: 700;
-      padding: 4px 12px;
-      border-radius: 20px;
-      margin-bottom: 12px;
-      letter-spacing: 0.5px;
-    }
-    .hint {
-      color: #64748b;
-      font-size: 13px;
-      margin-top: 25px;
-      line-height: 1.5;
-    }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="badge">● ONLINE &amp; ACTIVE</div>
-    <h1>Saark ERP - 4G/5G Access</h1>
-    <p>Scan this QR code with your <b>iPhone or Android Camera</b>:</p>
-    
-    <div class="qr-box">
-      <img src="$qrUrl" alt="Scan QR Code" />
-    </div>
 
-    <div class="url-title">Direct Smartphone URL:</div>
-    <div class="url-box" id="erpUrl">$foundUrl</div>
-
-    <div class="btn-row">
-      <a href="$foundUrl" target="_blank" class="btn">Open ERP Website</a>
-      <button class="btn btn-copy" onclick="navigator.clipboard.writeText('$foundUrl'); alert('Copied to clipboard!');">Copy Link</button>
-    </div>
-
-    <div class="hint">
-      Works on any device (iOS / Android / Laptop) over 4G, 5G, or Wi-Fi.<br>
-      Please keep the tunnel window open on your PC while using the system.
-    </div>
-  </div>
-</body>
-</html>
-"@
-    Set-Content -Path $htmlFile -Value $htmlContent -Force
-
-    # Automatically launch the QR code & URL page in browser
-    Start-Process $htmlFile
-
-    # Display clear banner in the console
+    # 4. Display clear banner in the console
     Write-Host "======================================================================" -ForegroundColor Green
     Write-Host "                    SAARK ERP - 4G/5G LINK READY!                     " -ForegroundColor Yellow
     Write-Host "======================================================================" -ForegroundColor Green
     Write-Host ""
-    Write-Host "  📱 DIRECT 4G / 5G SMARTPHONE URL:" -ForegroundColor Cyan
-    Write-Host "  👉  $foundUrl" -ForegroundColor Yellow
+    Write-Host "  [PHONE 4G/5G URL]  " -ForegroundColor Cyan -NoNewline
+    Write-Host "👉  $foundUrl" -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "  📶 LOCAL WI-FI URL:" -ForegroundColor Cyan
-    Write-Host "  👉  http://192.168.1.104:3000" -ForegroundColor White
+    Write-Host "  [LOCAL WI-FI URL]  " -ForegroundColor Cyan -NoNewline
+    Write-Host "👉  http://192.168.1.104:3000" -ForegroundColor White
     Write-Host ""
-    Write-Host "  💻 LOCAL PC URL:" -ForegroundColor Cyan
-    Write-Host "  👉  http://localhost:3000" -ForegroundColor White
+    Write-Host "  [LOCAL PC URL]     " -ForegroundColor Cyan -NoNewline
+    Write-Host "👉  http://localhost:3000" -ForegroundColor White
     Write-Host ""
     Write-Host "======================================================================" -ForegroundColor Green
-    Write-Host "  * An access screen with QR Code has been opened in your browser!    *" -ForegroundColor Cyan
-    Write-Host "  * URL has been copied to your clipboard & saved in 'phone_url.txt' *" -ForegroundColor Magenta
-    Write-Host "  * Keep this window OPEN while using the ERP on your phone.         *" -ForegroundColor Gray
+    Write-Host "  * Scan the QR code that opened in your browser with your phone camera! *" -ForegroundColor Cyan
+    Write-Host "  * URL has been copied to your clipboard & saved in 'phone_url.txt'    *" -ForegroundColor Magenta
+    Write-Host "  * Keep this window OPEN while using the ERP.                          *" -ForegroundColor Gray
     Write-Host "======================================================================" -ForegroundColor Green
     Write-Host ""
     Write-Host "Press Ctrl+C to stop the tunnel." -ForegroundColor DarkGray
