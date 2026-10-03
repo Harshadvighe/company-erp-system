@@ -14,20 +14,26 @@
 
 ## 2. Permission Matrix Breakdown
 
-| Permission Module | Action | Super Admin | Sales Mgr | Sales Exec | Purchase Mgr | Store Mgr | Prod Mgr | Accountant |
-|---|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **ADMIN** | VIEW/EDIT | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **CUSTOMERS** | VIEW | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **CUSTOMERS** | CREATE/EDIT | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **CUSTOMERS** | DELETE | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **CRM / LEADS** | VIEW/CREATE | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **CRM / LEADS** | APPROVE | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **PANEL MFG** | DESIGN/BOM | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
-| **PURCHASE** | VIEW/CREATE | ✅ | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
-| **PURCHASE** | APPROVE | ✅ | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ |
-| **INVENTORY** | STOCK ISSUE | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ❌ |
-| **ACCOUNTS** | INVOICE/POST | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| **DOCUMENTS** | UPLOAD/VIEW | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Permission Module | Action | Super Admin | Sales Mgr | Sales Exec | Purchase Mgr | Store Mgr | Prod Mgr | Accountant | HR Mgr |
+|---|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **ADMIN** | VIEW/EDIT | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **CUSTOMERS** | VIEW | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **CUSTOMERS** | CREATE/EDIT | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **CUSTOMERS** | DELETE | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **CRM / LEADS** | VIEW/CREATE | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **CRM / LEADS** | APPROVE | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **PANEL MFG** | DESIGN/BOM | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ | ❌ |
+| **PURCHASE** | VIEW/CREATE | ✅ | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ | ❌ |
+| **PURCHASE** | APPROVE | ✅ | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **INVENTORY** | STOCK ISSUE | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ |
+| **ACCOUNTS** | INVOICE/POST | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| **DOCUMENTS** | UPLOAD/VIEW | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **HR / DIRECTORY**| VIEW/MANAGE | ✅ | ❌ | ❌ | ❌ | ❌ | Team | ❌ | ✅ |
+| **HR / MUSTER**   | FORM 25 REG | ✅ | ❌ | ❌ | ❌ | ❌ | Floor | ❌ | ✅ |
+| **HR / BAY ALLOC**| ROSTER BAYS | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | View |
+| **HR / OVERTIME** | LOG/APPROVE | ✅ | ❌ | ❌ | ❌ | ❌ | Log/Approve | ❌ | Finalize |
+| **HR / SAFETY**   | EHS LOG/AUDIT| ✅ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| **HR / PAYROLL**  | RUN/DISBURSE| ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | Reports | ✅ |
 
 ---
 

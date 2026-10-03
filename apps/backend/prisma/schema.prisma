@@ -120,6 +120,7 @@ model Department {
   users     User[]
   staff     Staff[]
   tasks     Task[]
+  employees Employee[]
   createdAt DateTime @default(now())
 
   @@map("departments")
@@ -1227,5 +1228,180 @@ model TaskActivity {
   staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
 
   @@map("task_activities")
+}
+
+// -------------------------------------------------------------
+// HUMAN RESOURCES & INDUSTRIAL WORKFORCE MANAGEMENT
+// -------------------------------------------------------------
+
+model ShiftMaster {
+  id             String   @id @default(uuid())
+  code           String   @unique // SHIFT_G, SHIFT_A, SHIFT_B, SHIFT_N
+  name           String   // General Day Shift, Morning Assembly, Afternoon Shift, Night Testing Shift
+  startTime      String   // "08:30"
+  endTime        String   // "17:00"
+  graceMinutes   Int      @default(15)
+  shiftAllowance Float    @default(0) // Indian Factories Act: Night/hardship allowance e.g. 150 INR
+  departmentName String?  @default("Shopfloor & Plant")
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  @@map("shift_masters")
+}
+
+model Employee {
+  id                  String   @id @default(uuid())
+  employeeCode        String   @unique // EMP-2026-001
+  userId              String?  @unique
+  firstName           String
+  lastName            String
+  email               String   @unique
+  phone               String
+  designation         String
+  departmentId        String?
+  employmentType      String   @default("FULL_TIME") // FULL_TIME, PART_TIME, CONTRACT, INTERN
+  workerCategory      String   @default("SHOPFLOOR_TECH") // STAFF_OFFICE, SHOPFLOOR_TECH, CONTRACT_LABOR, APPRENTICE
+  skillLevel          String?  @default("LEVEL_2_WIREMAN") // LEVEL_1_TRAINEE, LEVEL_2_WIREMAN, LEVEL_3_BUSBAR_SPECIALIST, LEVEL_4_TESTING_EXPERT, STAFF_ENGINEER
+  assignedBay         String?  @default("BAY_4_WIRING") // BAY_1_FABRICATION, BAY_2_BUSBAR, BAY_3_MOUNTING, BAY_4_WIRING, BAY_5_FAT_TESTING, BAY_6_DISPATCH
+  shiftCode           String   @default("SHIFT_G")
+  electricalLicenseNo String?  // e.g. "MH-PWD-WIREMAN-8492"
+  contractorAgency    String?  // e.g. "Apex Industrial Solutions" (for contract labor)
+  ppeKitIssued        Boolean  @default(true)
+  lastSafetyTraining  DateTime?
+  joiningDate         DateTime @default(now())
+  status              String   @default("ACTIVE") // ACTIVE, ON_LEAVE, PROBATION, RESIGNED
+  salaryCtc           Float    @default(0)
+  bankAccountNo       String?
+  bankIfsc            String?
+  panNo               String?
+  aadhaarNo           String?
+  emergencyPhone      String?
+  bloodGroup          String?
+  address             String?
+  avatarUrl           String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  department             Department?              @relation(fields: [departmentId], references: [id])
+  attendances            Attendance[]
+  leaveRequests          LeaveRequest[]
+  payrollRecords         PayrollRecord[]
+  workstationAllocations WorkstationAllocation[]
+
+  @@map("employees")
+}
+
+model Attendance {
+  id               String    @id @default(uuid())
+  employeeId       String
+  punchDate        DateTime
+  punchIn          DateTime?
+  punchOut         DateTime?
+  workHours        Float     @default(0)
+  status           String    @default("PRESENT") // PRESENT, ABSENT, HALF_DAY, LATE, ON_LEAVE, HOLIDAY
+  shiftCode        String    @default("SHIFT_G")
+  overtimeHours    Float     @default(0)
+  overtimeApproved Boolean   @default(false)
+  assignedBay      String?
+  ppeCompliant     Boolean   @default(true)
+  checkInNote      String?
+  checkOutNote     String?
+  location         String?   @default("MIDC Industrial Unit")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  employee         Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, punchDate])
+  @@map("attendances")
+}
+
+model WorkstationAllocation {
+  id             String   @id @default(uuid())
+  allocationDate DateTime @default(now())
+  employeeId     String
+  bayCode        String   // BAY_1_FABRICATION, BAY_2_BUSBAR, BAY_3_MOUNTING, BAY_4_WIRING, BAY_5_FAT_TESTING, BAY_6_DISPATCH
+  panelCode      String?  // Links to panel job e.g. PANEL-2026-0001
+  shiftCode      String   @default("SHIFT_G")
+  targetHours    Float    @default(8.0)
+  actualHours    Float    @default(8.0)
+  status         String   @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED, REALLOCATED
+  supervisorNote String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("workstation_allocations")
+}
+
+model LeaveRequest {
+  id           String   @id @default(uuid())
+  leaveCode    String   @unique // LV-2026-0001
+  employeeId   String
+  leaveType    String   // CASUAL, SICK, EARNED, UNPAID, MATERNITY, PATERNITY
+  startDate    DateTime
+  endDate      DateTime
+  daysCount    Float    @default(1)
+  reason       String
+  status       String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  approvedBy   String?
+  decisionNote String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("leave_requests")
+}
+
+model PayrollRecord {
+  id                  String    @id @default(uuid())
+  slipNumber          String    @unique // PAY-2026-10-001
+  employeeId          String
+  month               String    // October 2026
+  year                Int       @default(2026)
+  monthNumber         Int       @default(10)
+  workingDays         Int       @default(26)
+  presentDays         Float     @default(26)
+  basicSalary         Float     @default(0)
+  hraAllowance        Float     @default(0)
+  specialAllowance    Float     @default(0)
+  overtimeHours       Float     @default(0)
+  overtimePay         Float     @default(0)
+  shiftAllowance      Float     @default(0)
+  productionIncentive Float     @default(0)
+  grossPay            Float     @default(0)
+  pfDeduction         Float     @default(0)
+  taxDeduction        Float     @default(0)
+  esiDeduction        Float     @default(0)
+  totalDeductions     Float     @default(0)
+  netPay              Float     @default(0)
+  paymentStatus       String    @default("PAID") // PENDING, PROCESSING, PAID
+  paymentDate         DateTime?
+  paymentMode         String    @default("NEFT/RTGS")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  employee            Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("payroll_records")
+}
+
+model SafetyIncident {
+  id           String   @id @default(uuid())
+  incidentCode String   @unique // INC-2026-001
+  reportDate   DateTime @default(now())
+  incidentType String   // NEAR_MISS, ELECTRICAL_ARC_FLASH, PPE_NON_COMPLIANCE, MINOR_CUT
+  severity     String   @default("LOW") // LOW, MEDIUM, HIGH, CRITICAL
+  locationBay  String   // BAY_2_BUSBAR, BAY_5_FAT_TESTING, etc.
+  employeeId   String?
+  description  String
+  actionTaken  String?
+  status       String   @default("RESOLVED") // REPORTED, UNDER_INVESTIGATION, RESOLVED
+  reportedBy   String?
+  createdAt    DateTime @default(now())
+
+  @@map("safety_incidents")
 }
 

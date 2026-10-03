@@ -23,6 +23,10 @@ class AppShell extends ConsumerStatefulWidget {
 class _AppShellState extends ConsumerState<AppShell> {
   @override
   Widget build(BuildContext context) {
+    if (widget.currentRoute.startsWith('/hr')) {
+      return widget.child;
+    }
+
     final size = MediaQuery.of(context).size;
     final isDesktop = size.width >= 1024;
     final isTablet = size.width >= 600 && size.width < 1024;
@@ -172,6 +176,15 @@ List<_NavItem> _getAuthorizedNavItems(AuthUser? user) {
       icon: Icons.bar_chart_outlined,
       activeIcon: Icons.bar_chart,
       route: '/reports',
+    ));
+  }
+
+  if (user.canView('HR') || user.isAdmin) {
+    items.add(const _NavItem(
+      label: 'Human Resources',
+      icon: Icons.people_alt_outlined,
+      activeIcon: Icons.people_alt,
+      route: '/hr',
     ));
   }
 

@@ -26,6 +26,7 @@
 | **MOD-09** | Accounts & Finance | Chart of Accounts, Journal Entries, Receivables/Payable tracking, Cash Flow summaries | Accountant, Finance Head |
 | **MOD-10** | Document Storage | Central Document Repository, File Uploads, Entity Tags, Access Control | All Staff |
 | **MOD-11** | Audit & Security | Operations Audit Trail, JWT Refresh Tokens, Fine-Grained PBAC Enforcer | Admin, Auditor |
+| **MOD-12** | Human Resources & Workforce | Employee Directory, Skill Matrix, Shifts, Form 25 Muster Roll, Bay Rostering, Overtime (Sec 59), EHS Safety, Payroll | HR Mgr, Production Mgr, All Staff |
 
 ---
 

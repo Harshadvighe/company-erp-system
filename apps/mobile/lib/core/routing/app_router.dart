@@ -21,6 +21,7 @@ import 'package:saark_erp_mobile/features/tasks/presentation/pages/tasks_list_pa
 import 'package:saark_erp_mobile/features/projects/presentation/pages/projects_list_page.dart';
 import 'package:saark_erp_mobile/features/projects/presentation/pages/project_detail_page.dart';
 import 'package:saark_erp_mobile/features/staff/presentation/pages/staff_directory_page.dart';
+import 'package:saark_erp_mobile/features/hr/presentation/pages/hr_dashboard_page.dart';
 
 class RouterNotifier extends ChangeNotifier {
   final Ref _ref;
@@ -198,7 +199,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 PanelSpecDetailPage(specId: state.pathParameters['id']!),
           ),
           GoRoute(path: '/accounts', builder: (_, __) => _comingSoon('Accounts — Phase 2')),
-          GoRoute(path: '/hr/employees', builder: (_, __) => _comingSoon('HR — Phase 2')),
+          GoRoute(
+            path: '/hr',
+            name: 'hr-dashboard',
+            builder: (context, state) => const HrDashboardPage(),
+          ),
+          GoRoute(
+            path: '/hr/employees',
+            name: 'hr-employees',
+            builder: (context, state) => const HrDashboardPage(),
+          ),
           GoRoute(path: '/reports', builder: (_, __) => _comingSoon('Reports — Phase 2')),
           GoRoute(path: '/admin', builder: (_, __) => _comingSoon('Administration — Phase 2')),
         ],

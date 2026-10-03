@@ -43,3 +43,12 @@ The ERP database follows strict enterprise normalization standards with universa
 - **documents**: `id`, `documentCode`, `entityType`, `entityId`, `documentType`, `fileName`, `fileSize`, `mimeType`, `storagePath`, `uploadedBy`
 - **audit_logs**: `id`, `userId`, `action`, `module`, `entityType`, `entityId`, `oldValuesJson`, `newValuesJson`, `ipAddress`, `timestamp`
 - **notifications**: `id`, `userId`, `title`, `message`, `module`, `entityId`, `isRead`, `createdAt`
+
+### 2.5 Human Resources & Industrial Workforce
+- **shift_masters**: `id`, `code`, `name`, `startTime`, `endTime`, `graceMinutes`, `shiftAllowance`, `departmentName`, `isActive`
+- **employees**: `id`, `employeeCode`, `userId`, `firstName`, `lastName`, `email`, `phone`, `designation`, `departmentId`, `employmentType`, `workerCategory`, `skillLevel`, `assignedBay`, `shiftCode`, `electricalLicenseNo`, `contractorAgency`, `ppeKitIssued`, `lastSafetyTraining`, `joiningDate`, `status`, `salaryCtc`, `bankAccountNo`, `bankIfsc`, `panNo`, `aadhaarNo`, `emergencyPhone`, `bloodGroup`, `address`
+- **attendances**: `id`, `employeeId`, `punchDate`, `punchIn`, `punchOut`, `workHours`, `status`, `shiftCode`, `overtimeHours`, `overtimeApproved`, `assignedBay`, `ppeCompliant`, `location`
+- **workstation_allocations**: `id`, `allocationDate`, `employeeId`, `bayCode`, `panelCode`, `shiftCode`, `targetHours`, `actualHours`, `status`, `supervisorNote`
+- **leave_requests**: `id`, `leaveCode`, `employeeId`, `leaveType`, `startDate`, `endDate`, `daysCount`, `reason`, `status`, `approvedBy`, `decisionNote`
+- **payroll_records**: `id`, `slipNumber`, `employeeId`, `month`, `year`, `monthNumber`, `workingDays`, `presentDays`, `basicSalary`, `hraAllowance`, `specialAllowance`, `overtimeHours`, `overtimePay`, `shiftAllowance`, `productionIncentive`, `grossPay`, `pfDeduction`, `esiDeduction`, `taxDeduction`, `totalDeductions`, `netPay`, `paymentStatus`
+- **safety_incidents**: `id`, `incidentCode`, `reportDate`, `incidentType`, `severity`, `locationBay`, `employeeId`, `description`, `actionTaken`, `status`, `reportedBy`
