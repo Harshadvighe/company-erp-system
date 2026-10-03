@@ -52,36 +52,47 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               dashAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (e, _) => _buildErrorBanner(e.toString(), () => ref.invalidate(_dashboardDataProvider)),
-                data: (d) => _buildKpiGrid(context, d, customerState),
+                data: (d) => _buildKpiGrid(context, d, customerState, user),
               ),
               const SizedBox(height: 24),
 
               // Quick Actions
-              _buildQuickActions(context),
+              _buildQuickActions(context, user),
               const SizedBox(height: 24),
 
-              // Recent Activity + Follow-ups
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  if (constraints.maxWidth > 700) {
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              // Recent Activity + Follow-ups (Zero Extra UI: only if authorized)
+              if (user?.canView('CUSTOMERS') == true || user?.canView('CRM') == true) ...[
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final canCustomers = user?.canView('CUSTOMERS') == true;
+                    final canCRM = user?.canView('CRM') == true;
+
+                    if (constraints.maxWidth > 700) {
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (canCustomers)
+                            Expanded(child: _buildRecentCustomers(context, customerState)),
+                          if (canCustomers && canCRM)
+                            const SizedBox(width: 16),
+                          if (canCRM)
+                            Expanded(child: _buildFollowUps(ref)),
+                        ],
+                      );
+                    }
+                    return Column(
                       children: [
-                        Expanded(child: _buildRecentCustomers(context, customerState)),
-                        const SizedBox(width: 16),
-                        Expanded(child: _buildFollowUps(ref)),
+                        if (canCustomers)
+                          _buildRecentCustomers(context, customerState),
+                        if (canCustomers && canCRM)
+                          const SizedBox(height: 16),
+                        if (canCRM)
+                          _buildFollowUps(ref),
                       ],
                     );
-                  }
-                  return Column(
-                    children: [
-                      _buildRecentCustomers(context, customerState),
-                      const SizedBox(height: 16),
-                      _buildFollowUps(ref),
-                    ],
-                  );
-                },
-              ),
+                  },
+                ),
+              ],
             ],
           ),
         ),
@@ -133,15 +144,29 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     );
   }
 
-  Widget _buildKpiGrid(BuildContext context, Map<String, dynamic> d, CustomerListState cs) {
-    final kpis = [
-      _KpiData(label: 'Customers', value: '${cs.total}', icon: Icons.people, color: const Color(0xFF3B82F6), route: '/customers'),
-      _KpiData(label: 'Open Enquiries', value: '${d['openEnquiries'] ?? 0}', icon: Icons.inbox, color: const Color(0xFFF59E0B), route: '/crm/enquiries'),
-      _KpiData(label: 'Total Leads', value: '${d['totalLeads'] ?? 0}', icon: Icons.trending_up, color: AppTheme.primary, route: '/crm/leads'),
-      _KpiData(label: 'Won Leads', value: '${d['wonLeads'] ?? 0}', icon: Icons.check_circle, color: AppTheme.success, route: '/crm/leads'),
-      _KpiData(label: 'Follow-ups Due', value: '${d['pendingFollowUps'] ?? 0}', icon: Icons.schedule, color: AppTheme.error, route: '/crm/leads'),
-      _KpiData(label: 'Conversion %', value: '${d['conversionRate'] ?? 0}%', icon: Icons.percent, color: const Color(0xFF8B5CF6), route: '/crm/leads'),
-    ];
+  Widget _buildKpiGrid(BuildContext context, Map<String, dynamic> d, CustomerListState cs, AuthUser? user) {
+    final kpis = <_KpiData>[];
+
+    if (user?.canView('CUSTOMERS') == true) {
+      kpis.add(_KpiData(label: 'Customers', value: '${cs.total}', icon: Icons.people, color: const Color(0xFF3B82F6), route: '/customers'));
+    }
+    if (user?.canView('CRM') == true) {
+      kpis.add(_KpiData(label: 'Open Enquiries', value: '${d['openEnquiries'] ?? 0}', icon: Icons.inbox, color: const Color(0xFFF59E0B), route: '/crm/enquiries'));
+      kpis.add(_KpiData(label: 'Total Leads', value: '${d['totalLeads'] ?? 0}', icon: Icons.trending_up, color: AppTheme.primary, route: '/crm/leads'));
+      kpis.add(_KpiData(label: 'Won Leads', value: '${d['wonLeads'] ?? 0}', icon: Icons.check_circle, color: AppTheme.success, route: '/crm/leads'));
+      kpis.add(_KpiData(label: 'Follow-ups Due', value: '${d['pendingFollowUps'] ?? 0}', icon: Icons.schedule, color: AppTheme.error, route: '/crm/leads'));
+      kpis.add(_KpiData(label: 'Conversion %', value: '${d['conversionRate'] ?? 0}%', icon: Icons.percent, color: const Color(0xFF8B5CF6), route: '/crm/leads'));
+    }
+    if (user?.canView('PROJECTS') == true) {
+      kpis.add(const _KpiData(label: 'Active Projects', value: 'Live', icon: Icons.folder, color: Color(0xFF0EA5E9), route: '/projects'));
+    }
+    if (user?.canView('TASKS') == true) {
+      kpis.add(const _KpiData(label: 'My Tasks', value: 'Active', icon: Icons.task_alt, color: Color(0xFF10B981), route: '/my-work'));
+    }
+
+    if (kpis.isEmpty) {
+      kpis.add(const _KpiData(label: 'My Work Hub', value: 'View', icon: Icons.home_repair_service, color: AppTheme.primary, route: '/my-work'));
+    }
 
     return GridView.builder(
       shrinkWrap: true,
@@ -157,7 +182,80 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     );
   }
 
-  Widget _buildQuickActions(BuildContext context) {
+  Widget _buildQuickActions(BuildContext context, AuthUser? user) {
+    if (user == null) return const SizedBox.shrink();
+
+    final actions = <Widget>[];
+
+    actions.add(_QuickAction(
+      label: 'My Work',
+      icon: Icons.home_repair_service_outlined,
+      onTap: () => context.go('/my-work'),
+    ));
+
+    if (user.canView('TASKS')) {
+      actions.add(_QuickAction(
+        label: 'Task Board',
+        icon: Icons.task_alt,
+        onTap: () => context.go('/tasks'),
+      ));
+    }
+
+    if (user.canView('PROJECTS')) {
+      actions.add(_QuickAction(
+        label: 'Projects',
+        icon: Icons.folder_outlined,
+        onTap: () => context.go('/projects'),
+      ));
+    }
+
+    if (user.canCreate('CUSTOMERS')) {
+      actions.add(_QuickAction(
+        label: 'New Customer',
+        icon: Icons.person_add,
+        onTap: () => context.go('/customers/new'),
+      ));
+    }
+
+    if (user.canCreate('CRM')) {
+      actions.add(_QuickAction(
+        label: 'New Lead',
+        icon: Icons.add_chart,
+        onTap: () => context.go('/crm/leads'),
+      ));
+      actions.add(_QuickAction(
+        label: 'New Enquiry',
+        icon: Icons.inbox_outlined,
+        onTap: () => context.go('/crm/enquiries'),
+      ));
+    }
+
+    if (user.canCreate('PURCHASE')) {
+      actions.add(_QuickAction(
+        label: 'Purchase Orders',
+        icon: Icons.shopping_bag_outlined,
+        onTap: () => context.go('/purchase/orders'),
+      ));
+    }
+
+    if (user.canCreate('VENDORS')) {
+      actions.add(_QuickAction(
+        label: 'New Vendor',
+        icon: Icons.store_outlined,
+        onTap: () => context.go('/vendors'),
+      ));
+    }
+
+    if (user.canView('STAFF')) {
+      actions.add(_QuickAction(
+        label: 'Staff Directory',
+        icon: Icons.badge_outlined,
+        onTap: () => context.go('/staff'),
+      ));
+    }
+
+    if (actions.isEmpty) return const SizedBox.shrink();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -166,13 +264,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         Wrap(
           spacing: 10,
           runSpacing: 10,
-          children: [
-            _QuickAction(label: 'New Customer', icon: Icons.person_add, onTap: () => context.go('/customers/new')),
-            _QuickAction(label: 'New Lead', icon: Icons.add_chart, onTap: () => context.go('/crm/leads')),
-            _QuickAction(label: 'New Enquiry', icon: Icons.inbox_outlined, onTap: () => context.go('/crm/enquiries')),
-            _QuickAction(label: 'New Vendor', icon: Icons.store_outlined, onTap: () => context.go('/vendors')),
-            _QuickAction(label: 'Products', icon: Icons.category_outlined, onTap: () => context.go('/products')),
-          ],
+          children: actions,
         ),
       ],
     );

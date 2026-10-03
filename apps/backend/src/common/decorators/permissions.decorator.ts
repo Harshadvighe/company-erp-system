@@ -1,4 +1,10 @@
 import { SetMetadata } from '@nestjs/common';
 
 export const PERMISSIONS_KEY = 'permissions';
-export const RequirePermission = (permission: string) => SetMetadata(PERMISSIONS_KEY, permission);
+
+export const RequirePermissions = (...permissions: string[]) =>
+  SetMetadata(PERMISSIONS_KEY, permissions);
+
+// Backward-compatible alias
+export const RequirePermission = (...permissions: string[]) =>
+  SetMetadata(PERMISSIONS_KEY, permissions);

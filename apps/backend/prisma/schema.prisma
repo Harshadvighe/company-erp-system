@@ -31,6 +31,7 @@ model User {
   userRoles    UserRole[]
   auditLogs    AuditLog[]
   notifications Notification[]
+  staff        Staff?
 
   @@map("users")
 }
@@ -117,9 +118,22 @@ model Department {
   name      String   @unique
   code      String   @unique
   users     User[]
+  staff     Staff[]
+  tasks     Task[]
   createdAt DateTime @default(now())
 
   @@map("departments")
+}
+
+model Designation {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  code        String   @unique
+  description String?
+  staff       Staff[]
+  createdAt   DateTime @default(now())
+
+  @@map("designations")
 }
 
 model FinancialYear {
@@ -194,6 +208,7 @@ model Customer {
   leads        Lead[]
   enquiries    Enquiry[]
   panelSpecs   PanelSpecification[]
+  projects     Project[]
 
   @@map("customers")
 }
@@ -1055,3 +1070,162 @@ model AuditLog {
 
   @@map("audit_logs")
 }
+
+// -------------------------------------------------------------
+// 9. STAFF, PROJECTS & TASK MANAGEMENT
+// -------------------------------------------------------------
+
+model Staff {
+  id                 String       @id @default(uuid())
+  employeeId         String       @unique // EMP001
+  fullName           String
+  email              String       @unique
+  mobile             String?
+  profilePhoto       String?
+  departmentId       String
+  designationId      String
+  reportingManagerId String?
+  userId             String?      @unique
+  status             String       @default("ACTIVE") // ACTIVE, INACTIVE, SUSPENDED
+  joiningDate        DateTime?
+  location           String?
+  notes              String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  department         Department   @relation(fields: [departmentId], references: [id])
+  designation        Designation  @relation(fields: [designationId], references: [id])
+  reportingManager   Staff?       @relation("StaffHierarchy", fields: [reportingManagerId], references: [id])
+  subordinates       Staff[]      @relation("StaffHierarchy")
+  user               User?        @relation(fields: [userId], references: [id])
+
+  managedProjects    Project[]    @relation("ProjectManager")
+  projectMemberships ProjectMember[]
+  assignedTasks      Task[]       @relation("TaskAssignee")
+  createdTasks       Task[]       @relation("TaskCreator")
+  assignedByTasks    Task[]       @relation("TaskAssigner")
+  taskComments       TaskComment[]
+  taskActivities     TaskActivity[]
+
+  @@map("staff")
+}
+
+model Project {
+  id                    String          @id @default(uuid())
+  projectNumber         String          @unique // PRJ-2026-001
+  name                  String
+  description           String?
+  customerId            String?
+  projectType           String          @default("Customer Project")
+  projectManagerStaffId String
+  startDate             DateTime?
+  endDate               DateTime?
+  priority              String          @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  budget                Float           @default(0)
+  status                String          @default("PLANNING") // PLANNING, ACTIVE, ON_HOLD, COMPLETED, CANCELLED
+  health                String          @default("ON_TRACK") // ON_TRACK, AT_RISK, CRITICAL
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  customer              Customer?       @relation(fields: [customerId], references: [id])
+  projectManager        Staff           @relation("ProjectManager", fields: [projectManagerStaffId], references: [id])
+  members               ProjectMember[]
+  milestones            Milestone[]
+  tasks                 Task[]
+
+  @@map("projects")
+}
+
+model ProjectMember {
+  id                String    @id @default(uuid())
+  projectId         String
+  staffId           String
+  projectRole       String    @default("Team Member")
+  allocationPercent Int       @default(100)
+  startDate         DateTime?
+  endDate           DateTime?
+  createdAt         DateTime  @default(now())
+
+  project           Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  staff             Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, staffId])
+  @@map("project_members")
+}
+
+model Milestone {
+  id          String    @id @default(uuid())
+  projectId   String
+  title       String
+  description String?
+  dueDate     DateTime?
+  status      String    @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, DELAYED
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks       Task[]
+
+  @@map("milestones")
+}
+
+model Task {
+  id                 String         @id @default(uuid())
+  taskNumber         String         @unique // TSK-2026-001
+  title              String
+  description        String?
+  projectId          String?
+  milestoneId        String?
+  departmentId       String?
+  assigneeStaffId    String?
+  createdByStaffId   String
+  assignedByStaffId  String?
+  priority           String         @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  status             String         @default("CREATED") // CREATED, ASSIGNED, ACCEPTED, IN_PROGRESS, REVIEW, RETURNED, COMPLETED, CANCELLED
+  dueDate            DateTime?
+  estimatedHours     Float          @default(0)
+  actualHours        Float          @default(0)
+  progress           Int            @default(0) // 0 to 100
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  project            Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  milestone          Milestone?     @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  department         Department?    @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  assignee           Staff?         @relation("TaskAssignee", fields: [assigneeStaffId], references: [id], onDelete: SetNull)
+  creator            Staff          @relation("TaskCreator", fields: [createdByStaffId], references: [id])
+  assigner           Staff?         @relation("TaskAssigner", fields: [assignedByStaffId], references: [id], onDelete: SetNull)
+  comments           TaskComment[]
+  activities         TaskActivity[]
+
+  @@map("tasks")
+}
+
+model TaskComment {
+  id        String   @id @default(uuid())
+  taskId    String
+  staffId   String
+  comment   String
+  createdAt DateTime @default(now())
+
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@map("task_comments")
+}
+
+model TaskActivity {
+  id        String   @id @default(uuid())
+  taskId    String
+  staffId   String
+  action    String   // STATUS_CHANGE, ASSIGNED, PROGRESS_UPDATE, COMMENTED
+  oldValue  String?
+  newValue  String?
+  createdAt DateTime @default(now())
+
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@map("task_activities")
+}
+

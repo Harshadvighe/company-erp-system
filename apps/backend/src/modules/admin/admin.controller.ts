@@ -53,6 +53,32 @@ export class AdminController {
     return this.adminService.deleteDepartment(id);
   }
 
+  // ─── DESIGNATIONS ──────────────────────────────────────────────────────────
+
+  @Get('designations')
+  @ApiOperation({ summary: 'List all designations' })
+  getDesignations() {
+    return this.adminService.getDesignations();
+  }
+
+  @Post('designations')
+  @ApiOperation({ summary: 'Create designation' })
+  createDesignation(@Body() dto: { name: string; code: string; description?: string }) {
+    return this.adminService.createDesignation(dto);
+  }
+
+  @Put('designations/:id')
+  @ApiOperation({ summary: 'Update designation' })
+  updateDesignation(@Param('id') id: string, @Body() dto: any) {
+    return this.adminService.updateDesignation(id, dto);
+  }
+
+  @Delete('designations/:id')
+  @ApiOperation({ summary: 'Delete designation (only if no staff assigned)' })
+  deleteDesignation(@Param('id') id: string) {
+    return this.adminService.deleteDesignation(id);
+  }
+
   // ─── FINANCIAL YEARS ──────────────────────────────────────────────────────
 
   @Get('financial-years')

@@ -32,98 +32,342 @@ async function main() {
   });
   console.log('✅ Company Seeded:', company.name);
 
-  // 2. Departments
-  const deptAdmin = await prisma.department.upsert({
-    where: { code: 'ADMIN' },
-    update: {},
-    create: { name: 'Administration & IT', code: 'ADMIN' },
-  });
-  const deptSales = await prisma.department.upsert({
-    where: { code: 'SALES' },
-    update: {},
-    create: { name: 'Sales & Business Development', code: 'SALES' },
-  });
-  const deptPurchase = await prisma.department.upsert({
-    where: { code: 'PURCHASE' },
-    update: {},
-    create: { name: 'Procurement & Vendor Mgmt', code: 'PURCHASE' },
-  });
-  const deptStore = await prisma.department.upsert({
-    where: { code: 'STORE' },
-    update: {},
-    create: { name: 'Store & Warehouse Operations', code: 'STORE' },
-  });
-  const deptEngineering = await prisma.department.upsert({
-    where: { code: 'ENG' },
-    update: {},
-    create: { name: 'Panel Manufacturing & R&D', code: 'ENG' },
-  });
-  const deptFinance = await prisma.department.upsert({
-    where: { code: 'FINANCE' },
-    update: {},
-    create: { name: 'Accounts & Finance', code: 'FINANCE' },
-  });
+  // 2. Departments (13 Master Departments)
+  const departmentsData = [
+    { name: 'Executive / Leadership', code: 'EXECUTIVE' },
+    { name: 'Sales & Marketing', code: 'SALES' },
+    { name: 'Purchase / Procurement', code: 'PURCHASE' },
+    { name: 'R&D / Engineering', code: 'RND' },
+    { name: 'Production', code: 'PRODUCTION' },
+    { name: 'Panel Department', code: 'PANEL' },
+    { name: 'Quality', code: 'QUALITY' },
+    { name: 'Accounts & Finance', code: 'FINANCE' },
+    { name: 'Stores / Warehouse', code: 'STORE' },
+    { name: 'Projects', code: 'PROJECTS' },
+    { name: 'IT', code: 'IT' },
+    { name: 'Customer Service', code: 'CUSTOMER_SERVICE' },
+    { name: 'Administration', code: 'ADMIN' },
+  ];
+
+  const deptMap: Record<string, any> = {};
+  for (const dept of departmentsData) {
+    deptMap[dept.code] = await prisma.department.upsert({
+      where: { code: dept.code },
+      update: { name: dept.name },
+      create: dept,
+    });
+  }
+  const deptAdmin = deptMap['ADMIN'];
+  const deptSales = deptMap['SALES'];
+  const deptPurchase = deptMap['PURCHASE'];
+  const deptEngineering = deptMap['RND'] || deptMap['PRODUCTION'];
+  console.log('✅ 13 Master Departments Seeded!');
+
+  // 2.1 Designations Master
+  const designationsData = [
+    { name: 'Managing Director', code: 'MD', description: 'Executive Leadership' },
+    { name: 'Project Manager', code: 'PM', description: 'Leads project planning & execution' },
+    { name: 'Sales Executive', code: 'SALES_EXEC', description: 'Handles client relations & pipeline' },
+    { name: 'Purchase Executive', code: 'PURCHASE_EXEC', description: 'Vendor coordination & POs' },
+    { name: 'Engineer', code: 'LEAD_ENG', description: 'Design & technical engineering' },
+    { name: 'Production Engineer', code: 'PROD_ENG', description: 'Assembly, wiring & shop floor' },
+    { name: 'QC Engineer', code: 'QC_ENG', description: 'Quality assurance & testing' },
+    { name: 'Accountant', code: 'ACCOUNTANT', description: 'Financial books & invoicing' },
+    { name: 'Technician', code: 'TECHNICIAN', description: 'Field and panel maintenance' },
+    { name: 'Employee', code: 'EMPLOYEE', description: 'General operational staff' },
+  ];
+
+  const desigMap: Record<string, any> = {};
+  for (const desig of designationsData) {
+    desigMap[desig.code] = await prisma.designation.upsert({
+      where: { code: desig.code },
+      update: { name: desig.name },
+      create: desig,
+    });
+  }
+  console.log('✅ Designations Master Seeded!');
 
   // 3. Roles
-  const roleAdmin = await prisma.role.upsert({
-    where: { code: 'ROLE_ADMIN' },
-    update: {},
-    create: { name: 'Super Administrator', code: 'ROLE_ADMIN', description: 'Full System Control', isSystem: true },
-  });
-  const roleSalesMgr = await prisma.role.upsert({
-    where: { code: 'ROLE_SALES_MGR' },
-    update: {},
-    create: { name: 'Sales Manager', code: 'ROLE_SALES_MGR', description: 'Manages Sales Pipeline & Quotations' },
-  });
-  const roleSalesExec = await prisma.role.upsert({
-    where: { code: 'ROLE_SALES_EXEC' },
-    update: {},
-    create: { name: 'Sales Executive', code: 'ROLE_SALES_EXEC', description: 'Handles Leads, Enquiries & Interactions' },
-  });
-  const rolePurchaseMgr = await prisma.role.upsert({
-    where: { code: 'ROLE_PURCHASE_MGR' },
-    update: {},
-    create: { name: 'Purchase Manager', code: 'ROLE_PURCHASE_MGR', description: 'Handles Vendors, RFQs & POs' },
-  });
-  const roleStoreMgr = await prisma.role.upsert({
-    where: { code: 'ROLE_STORE_MGR' },
-    update: {},
-    create: { name: 'Store Manager', code: 'ROLE_STORE_MGR', description: 'Manages Stock Ledger & Goods Issue' },
-  });
-  const roleProductionMgr = await prisma.role.upsert({
-    where: { code: 'ROLE_PRODUCTION_MGR' },
-    update: {},
-    create: { name: 'Production Engineer', code: 'ROLE_PRODUCTION_MGR', description: 'Panel Specs & Panel BOM Design' },
-  });
-  const roleAccountant = await prisma.role.upsert({
-    where: { code: 'ROLE_ACCOUNTANT' },
-    update: {},
-    create: { name: 'Accountant', code: 'ROLE_ACCOUNTANT', description: 'Invoicing & Receivables/Payables' },
-  });
+  const rolesData = [
+    { name: 'Super Administrator', code: 'ROLE_ADMIN', description: 'Full System Control', isSystem: true },
+    { name: 'Project Manager', code: 'ROLE_PROJECT_MGR', description: 'Manages Projects, Tasks & Teams' },
+    { name: 'Sales Manager', code: 'ROLE_SALES_MGR', description: 'Manages Sales Pipeline & Quotations' },
+    { name: 'Sales Executive', code: 'ROLE_SALES_EXEC', description: 'Handles Leads, Enquiries & Interactions' },
+    { name: 'Purchase Manager', code: 'ROLE_PURCHASE_MGR', description: 'Handles Vendors, RFQs & POs' },
+    { name: 'Store Manager', code: 'ROLE_STORE_MGR', description: 'Manages Stock Ledger & Goods Issue' },
+    { name: 'Production Engineer', code: 'ROLE_PRODUCTION_MGR', description: 'Panel Specs & Panel BOM Design' },
+    { name: 'QC Engineer', code: 'ROLE_QC_ENG', description: 'Quality inspection & signoff' },
+    { name: 'Accountant', code: 'ROLE_ACCOUNTANT', description: 'Invoicing & Receivables/Payables' },
+    { name: 'Employee', code: 'ROLE_EMPLOYEE', description: 'Standard Employee with My Work access' },
+  ];
 
-  // 4. Users
+  const roleMap: Record<string, any> = {};
+  for (const r of rolesData) {
+    roleMap[r.code] = await prisma.role.upsert({
+      where: { code: r.code },
+      update: { name: r.name, description: r.description },
+      create: r,
+    });
+  }
+  const roleAdmin = roleMap['ROLE_ADMIN'];
+  const roleSalesMgr = roleMap['ROLE_SALES_MGR'];
+  const roleSalesExec = roleMap['ROLE_SALES_EXEC'];
+  const rolePurchaseMgr = roleMap['ROLE_PURCHASE_MGR'];
+  const roleProductionMgr = roleMap['ROLE_PRODUCTION_MGR'];
+
+  // 3.1 Permissions Master
+  const modules = [
+    'MY_WORK', 'STAFF', 'ORGANIZATION', 'USERS', 'ROLES',
+    'CUSTOMERS', 'CRM', 'SALES', 'PURCHASE', 'VENDORS',
+    'INVENTORY', 'PRODUCTION', 'PROJECTS', 'PROJECT_TEAM',
+    'PROJECT_BUDGET', 'TASKS', 'REPORTS', 'AUDIT'
+  ];
+  const actions = ['VIEW', 'CREATE', 'EDIT', 'DELETE', 'APPROVE', 'ASSIGN', 'REVIEW', 'EXPORT', 'PRINT'];
+
+  const permMap: Record<string, any> = {};
+  for (const m of modules) {
+    for (const a of actions) {
+      const key = `${m}:${a}`;
+      permMap[key] = await prisma.permission.upsert({
+        where: { module_action: { module: m, action: a } },
+        update: {},
+        create: { module: m, action: a, description: `${a} permission for ${m}` },
+      });
+    }
+  }
+
+  // Helper to link permissions
+  const assignRolePerms = async (roleCode: string, perms: string[]) => {
+    const role = roleMap[roleCode];
+    if (!role) return;
+    for (const p of perms) {
+      const perm = permMap[p];
+      if (perm) {
+        await prisma.rolePermission.upsert({
+          where: { roleId_permissionId: { roleId: role.id, permissionId: perm.id } },
+          update: {},
+          create: { roleId: role.id, permissionId: perm.id },
+        });
+      }
+    }
+  };
+
+  // ADMIN: Gets all permissions
+  await assignRolePerms('ROLE_ADMIN', Object.keys(permMap));
+
+  // PROJECT MANAGER
+  await assignRolePerms('ROLE_PROJECT_MGR', [
+    'MY_WORK:VIEW',
+    'STAFF:VIEW',
+    'PROJECTS:VIEW', 'PROJECTS:CREATE', 'PROJECTS:EDIT', 'PROJECTS:EXPORT',
+    'PROJECT_TEAM:VIEW', 'PROJECT_TEAM:ASSIGN',
+    'PROJECT_BUDGET:VIEW', 'PROJECT_BUDGET:EDIT',
+    'TASKS:VIEW', 'TASKS:CREATE', 'TASKS:EDIT', 'TASKS:ASSIGN', 'TASKS:REVIEW', 'TASKS:COMPLETE', 'TASKS:EXPORT',
+    'CUSTOMERS:VIEW',
+    'REPORTS:VIEW', 'REPORTS:EXPORT',
+  ]);
+
+  // SALES EXECUTIVE
+  await assignRolePerms('ROLE_SALES_EXEC', [
+    'MY_WORK:VIEW',
+    'STAFF:VIEW',
+    'CUSTOMERS:VIEW', 'CUSTOMERS:CREATE', 'CUSTOMERS:EDIT',
+    'CRM:VIEW', 'CRM:CREATE', 'CRM:EDIT',
+    'SALES:VIEW', 'SALES:CREATE',
+    'TASKS:VIEW', 'TASKS:EDIT',
+  ]);
+
+  // PURCHASE MANAGER
+  await assignRolePerms('ROLE_PURCHASE_MGR', [
+    'MY_WORK:VIEW',
+    'STAFF:VIEW',
+    'PURCHASE:VIEW', 'PURCHASE:CREATE', 'PURCHASE:EDIT', 'PURCHASE:APPROVE', 'PURCHASE:EXPORT', 'PURCHASE:PRINT',
+    'VENDORS:VIEW', 'VENDORS:CREATE', 'VENDORS:EDIT',
+    'INVENTORY:VIEW', 'INVENTORY:CREATE', 'INVENTORY:EDIT',
+    'TASKS:VIEW', 'TASKS:EDIT',
+  ]);
+
+  // PRODUCTION ENGINEER
+  await assignRolePerms('ROLE_PRODUCTION_MGR', [
+    'MY_WORK:VIEW',
+    'STAFF:VIEW',
+    'PRODUCTION:VIEW', 'PRODUCTION:CREATE', 'PRODUCTION:EDIT', 'PRODUCTION:APPROVE',
+    'INVENTORY:VIEW',
+    'PROJECTS:VIEW',
+    'TASKS:VIEW', 'TASKS:EDIT',
+  ]);
+
+  // QC ENGINEER
+  await assignRolePerms('ROLE_QC_ENG', [
+    'MY_WORK:VIEW',
+    'STAFF:VIEW',
+    'PRODUCTION:VIEW', 'PRODUCTION:APPROVE',
+    'TASKS:VIEW', 'TASKS:EDIT',
+  ]);
+
+  // EMPLOYEE
+  await assignRolePerms('ROLE_EMPLOYEE', [
+    'MY_WORK:VIEW',
+    'STAFF:VIEW',
+    'TASKS:VIEW', 'TASKS:EDIT',
+    'PROJECTS:VIEW',
+  ]);
+
+  console.log('✅ Permissions and Role-Permissions Matrix Seeded!');
+
+  // 4. Test Users & Linked Staff Profiles
   const defaultPasswordHash = await bcrypt.hash('Saark@2026', 10);
 
-  const adminUser = await prisma.user.upsert({
-    where: { email: 'admin@saark.in' },
-    update: {},
-    create: {
-      username: 'admin',
+  const testAccounts = [
+    {
+      empId: 'EMP001',
+      name: 'Vikram Sharma',
       email: 'admin@saark.in',
-      passwordHash: defaultPasswordHash,
-      fullName: 'Vikram Sharma',
-      designation: 'Managing Director',
-      departmentId: deptAdmin.id,
+      username: 'admin',
+      deptCode: 'EXECUTIVE',
+      desigCode: 'MD',
+      roleCode: 'ROLE_ADMIN',
       phone: '+91 98200 00001',
+      location: 'Mumbai Head Office',
     },
-  });
-  await prisma.userRole.upsert({
-    where: { userId_roleId: { userId: adminUser.id, roleId: roleAdmin.id } },
-    update: {},
-    create: { userId: adminUser.id, roleId: roleAdmin.id },
-  });
+    {
+      empId: 'EMP002',
+      name: 'Rahul Patil',
+      email: 'pm@saark.in',
+      username: 'rahul.pm',
+      deptCode: 'PROJECTS',
+      desigCode: 'PM',
+      roleCode: 'ROLE_PROJECT_MGR',
+      phone: '+91 98200 00002',
+      location: 'Pune Works',
+    },
+    {
+      empId: 'EMP003',
+      name: 'Amit Joshi',
+      email: 'sales@saark.in',
+      username: 'amit.sales',
+      deptCode: 'SALES',
+      desigCode: 'SALES_EXEC',
+      roleCode: 'ROLE_SALES_EXEC',
+      phone: '+91 98200 00003',
+      location: 'Mumbai Head Office',
+    },
+    {
+      empId: 'EMP004',
+      name: 'Sneha More',
+      email: 'sneha@saark.in',
+      username: 'sneha.eng',
+      deptCode: 'RND',
+      desigCode: 'LEAD_ENG',
+      roleCode: 'ROLE_EMPLOYEE',
+      phone: '+91 98200 00004',
+      location: 'R&D Center, Pune',
+    },
+    {
+      empId: 'EMP005',
+      name: 'Pooja Patil',
+      email: 'purchase@saark.in',
+      username: 'purchasemgr',
+      deptCode: 'PURCHASE',
+      desigCode: 'PURCHASE_EXEC',
+      roleCode: 'ROLE_PURCHASE_MGR',
+      phone: '+91 98200 00005',
+      location: 'Mumbai Head Office',
+    },
+    {
+      empId: 'EMP006',
+      name: 'Rohit Shinde',
+      email: 'rohit@saark.in',
+      username: 'rohit.prod',
+      deptCode: 'PRODUCTION',
+      desigCode: 'PROD_ENG',
+      roleCode: 'ROLE_PRODUCTION_MGR',
+      phone: '+91 98200 00006',
+      location: 'MIDC Plant',
+    },
+    {
+      empId: 'EMP007',
+      name: 'Neha Pawar',
+      email: 'neha@saark.in',
+      username: 'neha.qc',
+      deptCode: 'QUALITY',
+      desigCode: 'QC_ENG',
+      roleCode: 'ROLE_QC_ENG',
+      phone: '+91 98200 00007',
+      location: 'MIDC Plant',
+    },
+  ];
 
-  const salesMgrUser = await prisma.user.upsert({
+  const staffMap: Record<string, any> = {};
+  let adminUser: any = null;
+  let salesMgrUser: any = null;
+  let salesExecUser: any = null;
+
+  for (const acc of testAccounts) {
+    const dept = deptMap[acc.deptCode];
+    const desig = desigMap[acc.desigCode];
+    const role = roleMap[acc.roleCode];
+
+    const user = await prisma.user.upsert({
+      where: { email: acc.email },
+      update: { fullName: acc.name, designation: desig?.name, departmentId: dept?.id },
+      create: {
+        username: acc.username,
+        email: acc.email,
+        passwordHash: defaultPasswordHash,
+        fullName: acc.name,
+        designation: desig?.name,
+        departmentId: dept?.id,
+        phone: acc.phone,
+        status: 'ACTIVE',
+      },
+    });
+
+    if (acc.email === 'admin@saark.in') adminUser = user;
+    if (acc.email === 'sales@saark.in') {
+      salesMgrUser = user;
+      salesExecUser = user;
+    }
+
+    if (role) {
+      await prisma.userRole.upsert({
+        where: { userId_roleId: { userId: user.id, roleId: role.id } },
+        update: {},
+        create: { userId: user.id, roleId: role.id },
+      });
+    }
+
+    const staff = await prisma.staff.upsert({
+      where: { employeeId: acc.empId },
+      update: {
+        fullName: acc.name,
+        email: acc.email,
+        mobile: acc.phone,
+        departmentId: dept.id,
+        designationId: desig.id,
+        userId: user.id,
+        location: acc.location,
+        status: 'ACTIVE',
+      },
+      create: {
+        employeeId: acc.empId,
+        fullName: acc.name,
+        email: acc.email,
+        mobile: acc.phone,
+        departmentId: dept.id,
+        designationId: desig.id,
+        userId: user.id,
+        location: acc.location,
+        status: 'ACTIVE',
+        joiningDate: new Date('2023-01-15'),
+      },
+    });
+
+    staffMap[acc.empId] = staff;
+  }
+
+  // Also preserve legacy sales.mgr and engineer users for compatibility
+  const legacySales = await prisma.user.upsert({
     where: { email: 'sales.mgr@saark.in' },
     update: {},
     create: {
@@ -137,50 +381,12 @@ async function main() {
     },
   });
   await prisma.userRole.upsert({
-    where: { userId_roleId: { userId: salesMgrUser.id, roleId: roleSalesMgr.id } },
+    where: { userId_roleId: { userId: legacySales.id, roleId: roleSalesMgr.id } },
     update: {},
-    create: { userId: salesMgrUser.id, roleId: roleSalesMgr.id },
+    create: { userId: legacySales.id, roleId: roleSalesMgr.id },
   });
 
-  const salesExecUser = await prisma.user.upsert({
-    where: { email: 'sales.exec@saark.in' },
-    update: {},
-    create: {
-      username: 'salesexec',
-      email: 'sales.exec@saark.in',
-      passwordHash: defaultPasswordHash,
-      fullName: 'Priya Nair',
-      designation: 'Senior Sales Executive',
-      departmentId: deptSales.id,
-      phone: '+91 98200 00003',
-    },
-  });
-  await prisma.userRole.upsert({
-    where: { userId_roleId: { userId: salesExecUser.id, roleId: roleSalesExec.id } },
-    update: {},
-    create: { userId: salesExecUser.id, roleId: roleSalesExec.id },
-  });
-
-  const purchaseMgrUser = await prisma.user.upsert({
-    where: { email: 'purchase@saark.in' },
-    update: {},
-    create: {
-      username: 'purchasemgr',
-      email: 'purchase@saark.in',
-      passwordHash: defaultPasswordHash,
-      fullName: 'Amit Patel',
-      designation: 'Procurement Manager',
-      departmentId: deptPurchase.id,
-      phone: '+91 98200 00004',
-    },
-  });
-  await prisma.userRole.upsert({
-    where: { userId_roleId: { userId: purchaseMgrUser.id, roleId: rolePurchaseMgr.id } },
-    update: {},
-    create: { userId: purchaseMgrUser.id, roleId: rolePurchaseMgr.id },
-  });
-
-  const engineerUser = await prisma.user.upsert({
+  const legacyEngineer = await prisma.user.upsert({
     where: { email: 'engineer@saark.in' },
     update: {},
     create: {
@@ -194,12 +400,12 @@ async function main() {
     },
   });
   await prisma.userRole.upsert({
-    where: { userId_roleId: { userId: engineerUser.id, roleId: roleProductionMgr.id } },
+    where: { userId_roleId: { userId: legacyEngineer.id, roleId: roleProductionMgr.id } },
     update: {},
-    create: { userId: engineerUser.id, roleId: roleProductionMgr.id },
+    create: { userId: legacyEngineer.id, roleId: roleProductionMgr.id },
   });
 
-  console.log('✅ Users & Roles Seeded!');
+  console.log('✅ Users, Roles & Staff Profiles Seeded!');
 
   // 5. Financial Years
   await prisma.financialYear.upsert({
@@ -612,6 +818,145 @@ async function main() {
       entityId: 'ENQ-2026-00001',
     },
   });
+
+  // 17. Seed Initial Project & Tasks
+  const pmStaff = staffMap['EMP002'];
+  const snehaStaff = staffMap['EMP004'];
+  const nehaStaff = staffMap['EMP007'];
+  const poojaStaff = staffMap['EMP005'];
+
+  if (pmStaff) {
+    const sampleProject = await prisma.project.upsert({
+      where: { projectNumber: 'PRJ-2026-001' },
+      update: {},
+      create: {
+        projectNumber: 'PRJ-2026-001',
+        name: 'VFD & PLC Automation Panel (Water Treatment Plant)',
+        description: 'Complete fabrication, wiring, PLC programming, and FAT testing for 3-tier VFD automation control panel.',
+        projectType: 'Panel Manufacturing',
+        projectManagerStaffId: pmStaff.id,
+        customerId: customer1?.id || null,
+        priority: 'HIGH',
+        budget: 750000,
+        status: 'ACTIVE',
+        health: 'ON_TRACK',
+        startDate: new Date('2026-04-01'),
+        endDate: new Date('2026-06-30'),
+      },
+    });
+
+    if (snehaStaff) {
+      await prisma.projectMember.upsert({
+        where: { projectId_staffId: { projectId: sampleProject.id, staffId: snehaStaff.id } },
+        update: {},
+        create: { projectId: sampleProject.id, staffId: snehaStaff.id, projectRole: 'Lead Engineer', allocationPercent: 75 },
+      });
+    }
+    if (nehaStaff) {
+      await prisma.projectMember.upsert({
+        where: { projectId_staffId: { projectId: sampleProject.id, staffId: nehaStaff.id } },
+        update: {},
+        create: { projectId: sampleProject.id, staffId: nehaStaff.id, projectRole: 'QC Engineer', allocationPercent: 50 },
+      });
+    }
+
+    const m1 = await prisma.milestone.create({
+      data: {
+        projectId: sampleProject.id,
+        title: 'Single Line Diagram & GA Approval',
+        dueDate: new Date('2026-04-20'),
+        status: 'COMPLETED',
+      },
+    });
+    const m2 = await prisma.milestone.create({
+      data: {
+        projectId: sampleProject.id,
+        title: 'Component Procurement & Enclosure Fabrication',
+        dueDate: new Date('2026-05-15'),
+        status: 'IN_PROGRESS',
+      },
+    });
+    const m3 = await prisma.milestone.create({
+      data: {
+        projectId: sampleProject.id,
+        title: 'Wiring, Internal Testing & Factory Acceptance (FAT)',
+        dueDate: new Date('2026-06-15'),
+        status: 'PENDING',
+      },
+    });
+
+    if (snehaStaff) {
+      await prisma.task.upsert({
+        where: { taskNumber: 'TSK-2026-001' },
+        update: {},
+        create: {
+          taskNumber: 'TSK-2026-001',
+          title: 'Validate I/O Wiring Schematic with Schneider PLC',
+          description: 'Review terminal block assignments, 24V DC auxiliary loops, and verify safety interlocks.',
+          projectId: sampleProject.id,
+          milestoneId: m2.id,
+          departmentId: deptMap['RND']?.id,
+          assigneeStaffId: snehaStaff.id,
+          createdByStaffId: pmStaff.id,
+          assignedByStaffId: pmStaff.id,
+          priority: 'HIGH',
+          status: 'IN_PROGRESS',
+          dueDate: new Date('2026-05-10'),
+          estimatedHours: 16,
+          actualHours: 8,
+          progress: 50,
+        },
+      });
+    }
+
+    if (poojaStaff) {
+      await prisma.task.upsert({
+        where: { taskNumber: 'TSK-2026-002' },
+        update: {},
+        create: {
+          taskNumber: 'TSK-2026-002',
+          title: 'Expedite 45kW ABB VFD Drive Inward',
+          description: 'Follow up with authorized distributor for express dispatch and gate pass.',
+          projectId: sampleProject.id,
+          milestoneId: m2.id,
+          departmentId: deptMap['PURCHASE']?.id,
+          assigneeStaffId: poojaStaff.id,
+          createdByStaffId: pmStaff.id,
+          assignedByStaffId: pmStaff.id,
+          priority: 'CRITICAL',
+          status: 'ACCEPTED',
+          dueDate: new Date('2026-05-08'),
+          estimatedHours: 6,
+          actualHours: 1,
+          progress: 25,
+        },
+      });
+    }
+
+    if (nehaStaff) {
+      await prisma.task.upsert({
+        where: { taskNumber: 'TSK-2026-003' },
+        update: {},
+        create: {
+          taskNumber: 'TSK-2026-003',
+          title: 'Prepare Pre-FAT Quality Inspection Checklist',
+          description: 'Draft insulation resistance, high-voltage withstand, and busbar torque verification protocol.',
+          projectId: sampleProject.id,
+          milestoneId: m3.id,
+          departmentId: deptMap['QUALITY']?.id,
+          assigneeStaffId: nehaStaff.id,
+          createdByStaffId: pmStaff.id,
+          assignedByStaffId: pmStaff.id,
+          priority: 'MEDIUM',
+          status: 'ASSIGNED',
+          dueDate: new Date('2026-05-25'),
+          estimatedHours: 12,
+          actualHours: 0,
+          progress: 0,
+        },
+      });
+    }
+  }
 
   console.log('🎉 Seeding completed successfully!');
 }

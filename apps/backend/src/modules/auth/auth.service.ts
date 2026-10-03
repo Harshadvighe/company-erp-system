@@ -20,6 +20,7 @@ export class AuthService {
       },
       include: {
         department: true,
+        staff: true,
         userRoles: {
           include: {
             role: {
@@ -78,6 +79,8 @@ export class AuthService {
         phone: user.phone,
         designation: user.designation,
         department: user.department?.name,
+        staffId: user.staff?.id,
+        employeeId: user.staff?.employeeId,
         roles,
         permissions: Array.from(permissions),
       },
@@ -94,6 +97,7 @@ export class AuthService {
       where: { id: userId },
       include: {
         department: true,
+        staff: true,
         userRoles: {
           include: {
             role: {
@@ -128,6 +132,8 @@ export class AuthService {
       phone: user.phone,
       designation: user.designation,
       department: user.department?.name,
+      staffId: user.staff?.id,
+      employeeId: user.staff?.employeeId,
       roles,
       permissions: Array.from(permissions),
     };

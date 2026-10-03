@@ -13,6 +13,8 @@ class AuthUser {
   final String? phone;
   final String? designation;
   final String? department;
+  final String? staffId;
+  final String? employeeId;
   final List<String> roles;
   final List<String> permissions;
 
@@ -24,6 +26,8 @@ class AuthUser {
     this.phone,
     this.designation,
     this.department,
+    this.staffId,
+    this.employeeId,
     required this.roles,
     required this.permissions,
   });
@@ -37,6 +41,8 @@ class AuthUser {
       phone: json['phone'],
       designation: json['designation'],
       department: json['department'],
+      staffId: json['staffId'],
+      employeeId: json['employeeId'],
       roles: List<String>.from(json['roles'] ?? []),
       permissions: List<String>.from(json['permissions'] ?? []),
     );
@@ -50,11 +56,19 @@ class AuthUser {
         'phone': phone,
         'designation': designation,
         'department': department,
+        'staffId': staffId,
+        'employeeId': employeeId,
         'roles': roles,
         'permissions': permissions,
       };
 
-  bool get isAdmin => roles.contains('ADMIN') || roles.contains('SUPER_ADMIN');
+  bool get isAdmin =>
+      roles.contains('ADMIN') ||
+      roles.contains('SUPER_ADMIN') ||
+      roles.contains('ROLE_ADMIN');
+
+  bool get isProjectManager =>
+      isAdmin || roles.contains('ROLE_PROJECT_MGR');
 
   bool hasPermission(String module, String action) {
     if (isAdmin) return true;
@@ -66,6 +80,8 @@ class AuthUser {
   bool canEdit(String module) => hasPermission(module, 'EDIT');
   bool canDelete(String module) => hasPermission(module, 'DELETE');
   bool canApprove(String module) => hasPermission(module, 'APPROVE');
+  bool canAssign(String module) => hasPermission(module, 'ASSIGN');
+  bool canReview(String module) => hasPermission(module, 'REVIEW');
   bool canExport(String module) => hasPermission(module, 'EXPORT');
 }
 

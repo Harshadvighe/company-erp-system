@@ -18,6 +18,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       where: { id: payload.sub },
       include: {
         department: true,
+        staff: true,
         userRoles: {
           include: {
             role: {
@@ -52,6 +53,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       fullName: user.fullName,
       designation: user.designation,
       department: user.department?.name,
+      staffId: user.staff?.id,
       roles,
       permissions: Array.from(permissions),
     };

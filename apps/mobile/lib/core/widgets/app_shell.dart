@@ -49,23 +49,150 @@ class _NavItem {
   });
 }
 
-final _navItems = [
-  const _NavItem(label: 'Dashboard', icon: Icons.dashboard_outlined, activeIcon: Icons.dashboard, route: '/dashboard'),
-  const _NavItem(label: 'CRM', icon: Icons.people_outline, activeIcon: Icons.people, route: '/crm/leads'),
-  const _NavItem(label: 'Customers', icon: Icons.person_outline, activeIcon: Icons.person, route: '/customers'),
-  const _NavItem(label: 'Sales', icon: Icons.receipt_long_outlined, activeIcon: Icons.receipt_long, route: '/sales/quotations'),
-  const _NavItem(label: 'Purchase', icon: Icons.shopping_bag_outlined, activeIcon: Icons.shopping_bag, route: '/purchase/orders'),
-  const _NavItem(label: 'Inventory', icon: Icons.inventory_2_outlined, activeIcon: Icons.inventory_2, route: '/inventory'),
-  const _NavItem(label: 'Production', icon: Icons.precision_manufacturing_outlined, activeIcon: Icons.precision_manufacturing, route: '/production'),
-  const _NavItem(label: 'Projects', icon: Icons.folder_outlined, activeIcon: Icons.folder, route: '/projects'),
-  const _NavItem(label: 'Tasks', icon: Icons.task_alt_outlined, activeIcon: Icons.task_alt, route: '/tasks'),
-  const _NavItem(label: 'Accounts', icon: Icons.account_balance_outlined, activeIcon: Icons.account_balance, route: '/accounts'),
-  const _NavItem(label: 'HR', icon: Icons.badge_outlined, activeIcon: Icons.badge, route: '/hr/employees'),
-  const _NavItem(label: 'Vendors', icon: Icons.store_outlined, activeIcon: Icons.store, route: '/vendors'),
-  const _NavItem(label: 'Products', icon: Icons.category_outlined, activeIcon: Icons.category, route: '/products'),
-  const _NavItem(label: 'Reports', icon: Icons.bar_chart_outlined, activeIcon: Icons.bar_chart, route: '/reports'),
-  const _NavItem(label: 'Admin', icon: Icons.settings_outlined, activeIcon: Icons.settings, route: '/admin'),
-];
+List<_NavItem> _getAuthorizedNavItems(AuthUser? user) {
+  if (user == null) return [];
+
+  final items = <_NavItem>[
+    const _NavItem(
+      label: 'Dashboard',
+      icon: Icons.dashboard_outlined,
+      activeIcon: Icons.dashboard,
+      route: '/dashboard',
+    ),
+    const _NavItem(
+      label: 'My Work',
+      icon: Icons.home_repair_service_outlined,
+      activeIcon: Icons.home_repair_service,
+      route: '/my-work',
+    ),
+  ];
+
+  if (user.canView('TASKS')) {
+    items.add(const _NavItem(
+      label: 'Tasks',
+      icon: Icons.task_alt_outlined,
+      activeIcon: Icons.task_alt,
+      route: '/tasks',
+    ));
+  }
+
+  if (user.canView('PROJECTS')) {
+    items.add(const _NavItem(
+      label: 'Projects',
+      icon: Icons.folder_outlined,
+      activeIcon: Icons.folder,
+      route: '/projects',
+    ));
+  }
+
+  if (user.canView('CRM')) {
+    items.add(const _NavItem(
+      label: 'CRM',
+      icon: Icons.people_outline,
+      activeIcon: Icons.people,
+      route: '/crm/leads',
+    ));
+  }
+
+  if (user.canView('CUSTOMERS')) {
+    items.add(const _NavItem(
+      label: 'Customers',
+      icon: Icons.person_outline,
+      activeIcon: Icons.person,
+      route: '/customers',
+    ));
+  }
+
+  if (user.canView('SALES')) {
+    items.add(const _NavItem(
+      label: 'Sales',
+      icon: Icons.receipt_long_outlined,
+      activeIcon: Icons.receipt_long,
+      route: '/sales/quotations',
+    ));
+  }
+
+  if (user.canView('PURCHASE')) {
+    items.add(const _NavItem(
+      label: 'Purchase',
+      icon: Icons.shopping_bag_outlined,
+      activeIcon: Icons.shopping_bag,
+      route: '/purchase/orders',
+    ));
+  }
+
+  if (user.canView('INVENTORY')) {
+    items.add(const _NavItem(
+      label: 'Inventory',
+      icon: Icons.inventory_2_outlined,
+      activeIcon: Icons.inventory_2,
+      route: '/inventory',
+    ));
+  }
+
+  if (user.canView('PRODUCTION')) {
+    items.add(const _NavItem(
+      label: 'Production',
+      icon: Icons.precision_manufacturing_outlined,
+      activeIcon: Icons.precision_manufacturing,
+      route: '/production',
+    ));
+  }
+
+  if (user.canView('STAFF')) {
+    items.add(const _NavItem(
+      label: 'Staff Directory',
+      icon: Icons.badge_outlined,
+      activeIcon: Icons.badge,
+      route: '/staff',
+    ));
+  }
+
+  if (user.canView('VENDORS')) {
+    items.add(const _NavItem(
+      label: 'Vendors',
+      icon: Icons.store_outlined,
+      activeIcon: Icons.store,
+      route: '/vendors',
+    ));
+  }
+
+  if (user.canView('INVENTORY') || user.canView('PURCHASE')) {
+    items.add(const _NavItem(
+      label: 'Products',
+      icon: Icons.category_outlined,
+      activeIcon: Icons.category,
+      route: '/products',
+    ));
+  }
+
+  if (user.canView('REPORTS')) {
+    items.add(const _NavItem(
+      label: 'Reports',
+      icon: Icons.bar_chart_outlined,
+      activeIcon: Icons.bar_chart,
+      route: '/reports',
+    ));
+  }
+
+  if (user.isAdmin) {
+    items.add(const _NavItem(
+      label: 'Admin',
+      icon: Icons.settings_outlined,
+      activeIcon: Icons.settings,
+      route: '/admin',
+    ));
+  }
+
+  return items;
+}
+
+int _getNavIndex(List<_NavItem> items, String route) {
+  for (int i = 0; i < items.length; i++) {
+    if (route.startsWith(items[i].route)) return i;
+  }
+  return 0;
+}
 
 // ─── Desktop Shell ───────────────────────────────────────────────────────────
 
@@ -78,6 +205,7 @@ class _DesktopShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
+    final navItems = _getAuthorizedNavItems(user);
 
     return Scaffold(
       body: Row(
@@ -115,7 +243,7 @@ class _DesktopShell extends ConsumerWidget {
                 Expanded(
                   child: ListView(
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    children: _navItems.map((item) {
+                    children: navItems.map((item) {
                       final isActive = currentRoute.startsWith(item.route) ||
                           (item.route == '/dashboard' && currentRoute == '/dashboard');
                       return _SidebarItem(
@@ -198,19 +326,23 @@ class _TabletShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider);
+    final navItems = _getAuthorizedNavItems(user);
+    final selectedIndex = _getNavIndex(navItems, currentRoute);
+
     return Scaffold(
       body: Row(
         children: [
           NavigationRail(
             backgroundColor: AppTheme.darkSurface,
-            selectedIndex: _getSelectedIndex(currentRoute),
-            onDestinationSelected: (i) => context.go(_navItems[i].route),
+            selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
+            onDestinationSelected: (i) => context.go(navItems[i].route),
             labelType: NavigationRailLabelType.all,
             selectedIconTheme: const IconThemeData(color: AppTheme.primary),
             selectedLabelTextStyle: const TextStyle(color: AppTheme.primary, fontSize: 10),
             unselectedIconTheme: const IconThemeData(color: Colors.grey, size: 22),
             unselectedLabelTextStyle: const TextStyle(color: Colors.grey, fontSize: 10),
-            destinations: _navItems.take(8).map((item) => NavigationRailDestination(
+            destinations: navItems.take(7).map((item) => NavigationRailDestination(
               icon: Icon(item.icon),
               selectedIcon: Icon(item.activeIcon),
               label: Text(item.label),
@@ -237,17 +369,12 @@ class _MobileShell extends ConsumerStatefulWidget {
 }
 
 class _MobileShellState extends ConsumerState<_MobileShell> {
-  final _bottomNavItems = [
-    _navItems[0], // Dashboard
-    _navItems[1], // CRM
-    _navItems[3], // Sales
-    _navItems[8], // Tasks
-  ];
-
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
-    final selectedIndex = _getBottomNavIndex(widget.currentRoute);
+    final navItems = _getAuthorizedNavItems(user);
+    final bottomNavItems = navItems.take(4).toList();
+    final selectedIndex = _getNavIndex(bottomNavItems, widget.currentRoute);
 
     return Scaffold(
       appBar: AppBar(
@@ -289,23 +416,25 @@ class _MobileShellState extends ConsumerState<_MobileShell> {
           const SizedBox(width: 8),
         ],
       ),
-      drawer: _buildDrawer(context, user),
+      drawer: _buildDrawer(context, user, navItems),
       body: widget.child,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
-        onDestinationSelected: (i) => context.go(_bottomNavItems[i].route),
-        backgroundColor: AppTheme.darkSurface,
-        indicatorColor: AppTheme.primary.withValues(alpha: 0.2),
-        destinations: _bottomNavItems.map((item) => NavigationDestination(
-          icon: Icon(item.icon),
-          selectedIcon: Icon(item.activeIcon, color: AppTheme.primary),
-          label: item.label,
-        )).toList(),
-      ),
+      bottomNavigationBar: bottomNavItems.isNotEmpty
+          ? NavigationBar(
+              selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
+              onDestinationSelected: (i) => context.go(bottomNavItems[i].route),
+              backgroundColor: AppTheme.darkSurface,
+              indicatorColor: AppTheme.primary.withValues(alpha: 0.2),
+              destinations: bottomNavItems.map((item) => NavigationDestination(
+                icon: Icon(item.icon),
+                selectedIcon: Icon(item.activeIcon, color: AppTheme.primary),
+                label: item.label,
+              )).toList(),
+            )
+          : null,
     );
   }
 
-  Widget _buildDrawer(BuildContext context, AuthUser? user) {
+  Widget _buildDrawer(BuildContext context, AuthUser? user, List<_NavItem> navItems) {
     return Drawer(
       backgroundColor: AppTheme.darkSurface,
       child: SafeArea(
@@ -341,7 +470,7 @@ class _MobileShellState extends ConsumerState<_MobileShell> {
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.symmetric(vertical: 8),
-                children: _navItems.map((item) {
+                children: navItems.map((item) {
                   final isActive = widget.currentRoute.startsWith(item.route);
                   return ListTile(
                     leading: Icon(
@@ -377,13 +506,6 @@ class _MobileShellState extends ConsumerState<_MobileShell> {
         ),
       ),
     );
-  }
-
-  int _getBottomNavIndex(String route) {
-    for (int i = 0; i < _bottomNavItems.length; i++) {
-      if (route.startsWith(_bottomNavItems[i].route)) return i;
-    }
-    return 0;
   }
 }
 
@@ -571,13 +693,4 @@ class _TopHeader extends StatelessWidget {
     if (route.startsWith('/admin')) return 'Administration';
     return 'ERP';
   }
-}
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-int _getSelectedIndex(String route) {
-  for (int i = 0; i < _navItems.length; i++) {
-    if (route.startsWith(_navItems[i].route)) return i;
-  }
-  return 0;
 }

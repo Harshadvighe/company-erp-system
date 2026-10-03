@@ -48,13 +48,48 @@ export class AdminService {
   async deleteDepartment(id: string) {
     const existing = await this.prisma.department.findUnique({
       where: { id },
-      include: { _count: { select: { users: true } } },
+      include: { _count: { select: { users: true, staff: true } } },
     });
     if (!existing) throw new NotFoundException('Department not found');
-    if (existing._count.users > 0) {
-      throw new ConflictException('Cannot delete department with active users');
+    if (existing._count.users > 0 || existing._count.staff > 0) {
+      throw new ConflictException('Cannot delete department with active users or staff');
     }
     return this.prisma.department.delete({ where: { id } });
+  }
+
+  // ─── DESIGNATIONS ──────────────────────────────────────────────────────────
+
+  async getDesignations() {
+    return this.prisma.designation.findMany({
+      include: { _count: { select: { staff: true } } },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  async createDesignation(dto: { name: string; code: string; description?: string }) {
+    const exists = await this.prisma.designation.findFirst({
+      where: { OR: [{ name: dto.name }, { code: dto.code }] },
+    });
+    if (exists) throw new ConflictException('Designation with this name or code already exists');
+    return this.prisma.designation.create({ data: dto });
+  }
+
+  async updateDesignation(id: string, dto: { name?: string; code?: string; description?: string }) {
+    const existing = await this.prisma.designation.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Designation not found');
+    return this.prisma.designation.update({ where: { id }, data: dto });
+  }
+
+  async deleteDesignation(id: string) {
+    const existing = await this.prisma.designation.findUnique({
+      where: { id },
+      include: { _count: { select: { staff: true } } },
+    });
+    if (!existing) throw new NotFoundException('Designation not found');
+    if (existing._count.staff > 0) {
+      throw new ConflictException('Cannot delete designation with active staff members');
+    }
+    return this.prisma.designation.delete({ where: { id } });
   }
 
   // ─── FINANCIAL YEARS ────────────────────────────────────────────────────────
