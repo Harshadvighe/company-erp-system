@@ -1,12 +1,19 @@
 @echo off
-title Saark ERP - Build & Update Everything (Web & Mobile)
+title Saark ERP - Build and Update Everything (Web and Mobile)
 echo ========================================================
-echo Building Saark ERP Web & Mobile App with all changes...
+echo Building Saark ERP Web and Mobile App with all changes...
 echo ========================================================
 
 echo.
-echo [1/3] Compiling Backend (NestJS)...
+echo [1/3] Generating Prisma Client and Compiling Backend (NestJS)...
 cd /d "%~dp0apps\backend"
+call npx prisma generate
+if %errorlevel% neq 0 (
+    echo [ERROR] Prisma generate failed!
+    pause
+    exit /b %errorlevel%
+)
+
 call npm run build
 if %errorlevel% neq 0 (
     echo [ERROR] Backend build failed!
