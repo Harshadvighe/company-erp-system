@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { CreateLeaveDto, UpdateLeaveStatusDto } from './dto/create-leave.dto';
@@ -398,9 +398,11 @@ export class HrService {
     });
   }
 
-  async getEmployeeById(id: string) {
-    const employee = await this.prisma.employee.findUnique({
-      where: { id },
+  async getEmployeeById(idOrCode: string) {
+    const employee = await this.prisma.employee.findFirst({
+      where: {
+        OR: [{ id: idOrCode }, { employeeCode: idOrCode }],
+      },
       include: {
         department: true,
         attendances: {
@@ -422,23 +424,42 @@ export class HrService {
       },
     });
 
-    if (!employee) throw new NotFoundException('Employee record not found');
+    if (!employee) throw new NotFoundException(`Employee record '${idOrCode}' not found`);
     return employee;
   }
 
   async createEmployee(dto: CreateEmployeeDto) {
+    const normalizedEmail = dto.email.trim();
+
+    // Check for existing employee with the same email
+    const existingEmail = await this.prisma.employee.findUnique({
+      where: { email: normalizedEmail },
+    });
+    if (existingEmail) {
+      throw new ConflictException(
+        `Employee with email '${normalizedEmail}' already exists (${existingEmail.employeeCode} - ${existingEmail.firstName} ${existingEmail.lastName}). Please edit that record or use a different email.`,
+      );
+    }
+
+    // Auto-generate next employeeCode safely without colliding
     const count = await this.prisma.employee.count();
-    const nextCode = `EMP-2026-${String(count + 1).padStart(3, '0')}`;
+    let codeIndex = count + 1;
+    let nextCode = `EMP-2026-${String(codeIndex).padStart(3, '0')}`;
+    while (await this.prisma.employee.findUnique({ where: { employeeCode: nextCode } })) {
+      codeIndex++;
+      nextCode = `EMP-2026-${String(codeIndex).padStart(3, '0')}`;
+    }
 
     return this.prisma.employee.create({
       data: {
         employeeCode: nextCode,
         firstName: dto.firstName,
         lastName: dto.lastName,
-        email: dto.email,
+        email: normalizedEmail,
         phone: dto.phone,
         designation: dto.designation,
         departmentId: dto.departmentId,
+        status: dto.status || 'PENDING_APPROVAL',
         employmentType: dto.employmentType || 'FULL_TIME',
         workerCategory: dto.workerCategory || 'SHOPFLOOR_TECH',
         skillLevel: dto.skillLevel || 'LEVEL_2_WIREMAN',
@@ -460,11 +481,56 @@ export class HrService {
     });
   }
 
-  async updateEmployee(id: string, dto: Partial<CreateEmployeeDto>) {
-    await this.getEmployeeById(id);
+  async updateEmployee(idOrCode: string, dto: Partial<CreateEmployeeDto>) {
+    const existing = await this.prisma.employee.findFirst({
+      where: {
+        OR: [{ id: idOrCode }, { employeeCode: idOrCode }],
+      },
+    });
+    if (!existing) {
+      throw new NotFoundException(`Employee record '${idOrCode}' not found`);
+    }
+
+    // If email is changing, verify it is not already taken by another employee
+    if (dto.email && dto.email.trim() !== existing.email) {
+      const normalizedEmail = dto.email.trim();
+      const emailConflict = await this.prisma.employee.findUnique({
+        where: { email: normalizedEmail },
+      });
+      if (emailConflict && emailConflict.id !== existing.id) {
+        throw new ConflictException(
+          `Email '${normalizedEmail}' is already in use by employee ${emailConflict.employeeCode} (${emailConflict.firstName} ${emailConflict.lastName}).`,
+        );
+      }
+    }
+
     return this.prisma.employee.update({
-      where: { id },
-      data: dto as any,
+      where: { id: existing.id },
+      data: {
+        ...(dto.firstName !== undefined && { firstName: dto.firstName }),
+        ...(dto.lastName !== undefined && { lastName: dto.lastName }),
+        ...(dto.email !== undefined && { email: dto.email.trim() }),
+        ...(dto.phone !== undefined && { phone: dto.phone }),
+        ...(dto.designation !== undefined && { designation: dto.designation }),
+        ...(dto.departmentId !== undefined && { departmentId: dto.departmentId }),
+        ...(dto.status !== undefined && { status: dto.status }),
+        ...(dto.employmentType !== undefined && { employmentType: dto.employmentType }),
+        ...(dto.workerCategory !== undefined && { workerCategory: dto.workerCategory }),
+        ...(dto.skillLevel !== undefined && { skillLevel: dto.skillLevel }),
+        ...(dto.assignedBay !== undefined && { assignedBay: dto.assignedBay }),
+        ...(dto.shiftCode !== undefined && { shiftCode: dto.shiftCode }),
+        ...(dto.electricalLicenseNo !== undefined && { electricalLicenseNo: dto.electricalLicenseNo }),
+        ...(dto.contractorAgency !== undefined && { contractorAgency: dto.contractorAgency }),
+        ...(dto.ppeKitIssued !== undefined && { ppeKitIssued: dto.ppeKitIssued }),
+        ...(dto.salaryCtc !== undefined && { salaryCtc: dto.salaryCtc }),
+        ...(dto.bankAccountNo !== undefined && { bankAccountNo: dto.bankAccountNo }),
+        ...(dto.bankIfsc !== undefined && { bankIfsc: dto.bankIfsc }),
+        ...(dto.panNo !== undefined && { panNo: dto.panNo }),
+        ...(dto.aadhaarNo !== undefined && { aadhaarNo: dto.aadhaarNo }),
+        ...(dto.bloodGroup !== undefined && { bloodGroup: dto.bloodGroup }),
+        ...(dto.emergencyPhone !== undefined && { emergencyPhone: dto.emergencyPhone }),
+        ...(dto.address !== undefined && { address: dto.address }),
+      },
       include: { department: true },
     });
   }

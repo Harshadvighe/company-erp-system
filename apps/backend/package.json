@@ -16,7 +16,8 @@
     "seed": "ts-node prisma/seed.ts",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:cov": "jest --coverage"
+    "test:cov": "jest --coverage",
+    "test:hr-admin": "node scripts/test_hr_and_admin_suite.js"
   },
   "dependencies": {
     "@nestjs/common": "^10.3.0",
