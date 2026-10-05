@@ -54,6 +54,10 @@ flutter run -d android # Android
 ## Testing
 - Refer to `docs/11_TESTING_STRATEGY.md`
 
+## Default Logins & Test Credentials
+- Refer to [`docs/SYSTEM_LOGINS_AND_CREDENTIALS.md`](docs/SYSTEM_LOGINS_AND_CREDENTIALS.md) for all accounts, passwords, and role permissions.
+- Default password for all seed accounts: `Saark@2026`
+
 ## Folder Structure
 - `apps/mobile`: Flutter application
 - `apps/backend`: NestJS backend

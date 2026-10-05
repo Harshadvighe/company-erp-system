@@ -91,7 +91,7 @@ class _PayInvoiceDialogState extends ConsumerState<PayInvoiceDialog> {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: AppTheme.primary.withOpacity(0.15),
+                        color: AppTheme.primary.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(Icons.payment, color: AppTheme.primary, size: 24),
@@ -175,7 +175,7 @@ class _PayInvoiceDialogState extends ConsumerState<PayInvoiceDialog> {
 
                 // Payment Mode Selector
                 DropdownButtonFormField<String>(
-                  value: _paymentMode,
+                  initialValue: _paymentMode,
                   dropdownColor: AppTheme.darkSurface,
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
