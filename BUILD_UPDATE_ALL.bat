@@ -14,6 +14,13 @@ if %errorlevel% neq 0 (
     exit /b %errorlevel%
 )
 
+call npx prisma db push --skip-generate
+if %errorlevel% neq 0 (
+    echo [ERROR] Prisma db push failed!
+    pause
+    exit /b %errorlevel%
+)
+
 call npm run build
 if %errorlevel% neq 0 (
     echo [ERROR] Backend build failed!

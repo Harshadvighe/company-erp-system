@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
+import 'package:saark_erp_mobile/features/hr/data/hr_repository.dart';
+import 'package:saark_erp_mobile/features/admin/data/admin_repository.dart';
+import 'package:saark_erp_mobile/features/hr/models/hr_models.dart';
 
 /// Data class representing an Employee record matching the enterprise HR UI
 class EmployeeProfileRecord {
+  String dbId;
   String id;
   String firstName;
   String middleName;
@@ -16,8 +22,13 @@ class EmployeeProfileRecord {
   String personalEmail;
   String phone;
   String address;
+  String? departmentId;
+  String departmentName;
+  String designation;
+  String status; // 'PENDING_APPROVAL', 'ACTIVE', 'REJECTED'
 
   EmployeeProfileRecord({
+    this.dbId = '',
     required this.id,
     required this.firstName,
     required this.middleName,
@@ -32,48 +43,130 @@ class EmployeeProfileRecord {
     this.personalEmail = '',
     this.phone = '',
     this.address = '',
+    this.departmentId,
+    this.departmentName = 'General',
+    this.designation = 'Employee',
+    this.status = 'PENDING_APPROVAL',
   });
+
+  factory EmployeeProfileRecord.fromEmployee(Employee emp) {
+    return EmployeeProfileRecord(
+      dbId: emp.id,
+      id: emp.employeeCode.isNotEmpty ? emp.employeeCode : emp.id,
+      firstName: emp.firstName,
+      middleName: '',
+      fullName: emp.fullName,
+      workEmail: emp.email,
+      dateOfBirth: emp.joiningDate.toIso8601String().split('T').first,
+      gender: '',
+      maritalStatus: '',
+      nationality: 'Indian',
+      bloodGroup: emp.bloodGroup ?? '',
+      emergencyContact: emp.emergencyPhone ?? '',
+      personalEmail: '',
+      phone: emp.phone,
+      address: emp.address ?? '',
+      departmentId: emp.departmentId,
+      departmentName: emp.departmentName ?? 'Unassigned',
+      designation: emp.designation,
+      status: emp.status,
+    );
+  }
 }
 
-class EmployeeProfileView extends StatefulWidget {
+class EmployeeProfileView extends ConsumerStatefulWidget {
   const EmployeeProfileView({super.key});
 
   @override
-  State<EmployeeProfileView> createState() => _EmployeeProfileViewState();
+  ConsumerState<EmployeeProfileView> createState() => _EmployeeProfileViewState();
 }
 
-class _EmployeeProfileViewState extends State<EmployeeProfileView> {
+class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
   final _formKey = GlobalKey<FormState>();
 
   // Text Controllers initialized
-  final _empIdController = TextEditingController(text: 'SE-0101');
+  final _empIdController = TextEditingController(text: 'EMP-2026-001');
   final _firstNameController = TextEditingController();
   final _middleNameController = TextEditingController();
   final _fullNameController = TextEditingController();
   final _workEmailController = TextEditingController();
-  final _dobController = TextEditingController(text: '2026-10-02');
+  final _dobController = TextEditingController(text: '2026-10-05');
   final _emergencyContactController = TextEditingController();
   final _personalEmailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
+  final _designationController = TextEditingController(text: 'Junior Design Engineer');
 
-  // Dropdown values (empty default to match screenshot blank inputs with down arrow)
+  // Dropdown values
   String _selectedGender = '';
   String _selectedMaritalStatus = '';
-  String _selectedNationality = '';
+  String _selectedNationality = 'Indian';
   String _selectedBloodGroup = '';
+  String? _selectedDepartmentId;
+  String _tableFilter = 'ALL'; // 'ALL', 'PENDING_APPROVAL', 'ACTIVE'
+
+  // Master Data
+  List<DepartmentItem> _departments = [];
+  bool _isLoading = true;
+  bool _isSaving = false;
 
   // UI state
   bool _hideSavedRecords = false;
   String? _selectedRecordId;
 
   // Saved Records list
-  late List<EmployeeProfileRecord> _records;
+  List<EmployeeProfileRecord> _records = [];
 
   @override
   void initState() {
     super.initState();
-    _records = [];
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+    try {
+      final adminRepo = ref.read(adminRepositoryProvider);
+      final hrRepo = ref.read(hrRepositoryProvider);
+
+      final depts = await adminRepo.getDepartments();
+      final employees = await hrRepo.getEmployees();
+
+      if (mounted) {
+        setState(() {
+          _departments = depts;
+          // Set default department to R&D / Engineering if available
+          final rndDept = depts.firstWhere(
+            (d) => d.code == 'RND' || d.name.toLowerCase().contains('research') || d.name.toLowerCase().contains('r&d'),
+            orElse: () => depts.isNotEmpty ? depts.first : DepartmentItem(id: '', name: 'R&D / Engineering', code: 'RND'),
+          );
+          if (rndDept.id.isNotEmpty) {
+            _selectedDepartmentId = rndDept.id;
+          } else if (depts.isNotEmpty) {
+            _selectedDepartmentId = depts.first.id;
+          }
+
+          _records = employees.map((e) => EmployeeProfileRecord.fromEmployee(e)).toList();
+
+          // Auto calculate next employee code
+          int maxNum = 0;
+          for (final r in _records) {
+            final match = RegExp(r'(\d+)$').firstMatch(r.id);
+            if (match != null) {
+              final n = int.tryParse(match.group(1)!) ?? 0;
+              if (n > maxNum) maxNum = n;
+            }
+          }
+          if (maxNum == 0) maxNum = _records.length;
+          _empIdController.text = 'EMP-2026-${(maxNum + 1).toString().padLeft(3, '0')}';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
@@ -88,12 +181,13 @@ class _EmployeeProfileViewState extends State<EmployeeProfileView> {
     _personalEmailController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
+    _designationController.dispose();
     super.dispose();
   }
 
   void _selectRecord(EmployeeProfileRecord record) {
     setState(() {
-      _selectedRecordId = record.id;
+      _selectedRecordId = record.dbId.isNotEmpty ? record.dbId : record.id;
       _empIdController.text = record.id;
       _firstNameController.text = record.firstName;
       _middleNameController.text = record.middleName;
@@ -108,86 +202,239 @@ class _EmployeeProfileViewState extends State<EmployeeProfileView> {
       _personalEmailController.text = record.personalEmail;
       _phoneController.text = record.phone;
       _addressController.text = record.address;
+      _designationController.text = record.designation;
+      if (record.departmentId != null && _departments.any((d) => d.id == record.departmentId)) {
+        _selectedDepartmentId = record.departmentId;
+      }
     });
   }
 
   void _clearForm() {
     setState(() {
       _selectedRecordId = null;
-      int maxId = 100;
+      int maxNum = 0;
       for (final r in _records) {
-        final numPart = int.tryParse(r.id.replaceAll(RegExp(r'[^0-9]'), ''));
-        if (numPart != null && numPart > maxId) {
-          maxId = numPart;
+        final match = RegExp(r'(\d+)$').firstMatch(r.id);
+        if (match != null) {
+          final n = int.tryParse(match.group(1)!) ?? 0;
+          if (n > maxNum) maxNum = n;
         }
       }
-      _empIdController.text = 'SE-0${maxId + 1}';
+      if (maxNum == 0) maxNum = _records.length;
+      _empIdController.text = 'EMP-2026-${(maxNum + 1).toString().padLeft(3, '0')}';
       _firstNameController.clear();
       _middleNameController.clear();
       _fullNameController.clear();
       _workEmailController.clear();
-      _dobController.text = '2026-10-02';
+      _dobController.text = '2026-10-05';
       _emergencyContactController.clear();
       _personalEmailController.clear();
       _phoneController.clear();
       _addressController.clear();
+      _designationController.text = 'Junior Design Engineer';
       _selectedGender = '';
       _selectedMaritalStatus = '';
-      _selectedNationality = '';
+      _selectedNationality = 'Indian';
       _selectedBloodGroup = '';
+      if (_departments.isNotEmpty) {
+        final rndDept = _departments.firstWhere(
+          (d) => d.code == 'RND' || d.name.toLowerCase().contains('research') || d.name.toLowerCase().contains('r&d'),
+          orElse: () => _departments.first,
+        );
+        _selectedDepartmentId = rndDept.id;
+      }
     });
   }
 
-  void _saveRecord() {
-    final id = _empIdController.text.trim();
-    if (id.isEmpty) {
+  Future<void> _saveRecord() async {
+    final code = _empIdController.text.trim();
+    String firstName = _firstNameController.text.trim();
+    final middleName = _middleNameController.text.trim();
+    String fullName = _fullNameController.text.trim();
+    final workEmail = _workEmailController.text.trim();
+    final phone = _phoneController.text.trim();
+    final designation = _designationController.text.trim();
+
+    if (fullName.isEmpty && firstName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Employee ID is required')),
+        const SnackBar(content: Text('Please enter employee name'), backgroundColor: Colors.orange),
       );
       return;
     }
 
-    final newRec = EmployeeProfileRecord(
-      id: id,
-      firstName: _firstNameController.text.trim(),
-      middleName: _middleNameController.text.trim(),
-      fullName: _fullNameController.text.trim(),
-      workEmail: _workEmailController.text.trim(),
-      dateOfBirth: _dobController.text.trim(),
-      gender: _selectedGender,
-      maritalStatus: _selectedMaritalStatus,
-      nationality: _selectedNationality,
-      bloodGroup: _selectedBloodGroup,
-      emergencyContact: _emergencyContactController.text.trim(),
-      personalEmail: _personalEmailController.text.trim(),
-      phone: _phoneController.text.trim(),
-      address: _addressController.text.trim(),
-    );
+    if (workEmail.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Work email is required'), backgroundColor: Colors.orange),
+      );
+      return;
+    }
 
-    setState(() {
-      final existingIndex = _records.indexWhere((r) => r.id == id);
-      if (existingIndex >= 0) {
-        _records[existingIndex] = newRec;
-      } else {
-        _records.add(newRec);
+    // Derive names
+    if (firstName.isEmpty && fullName.isNotEmpty) {
+      final parts = fullName.split(' ');
+      firstName = parts.first;
+    }
+    String lastName = '';
+    if (fullName.isNotEmpty) {
+      final parts = fullName.split(' ');
+      if (parts.length > 1) {
+        lastName = parts.sublist(1).join(' ');
       }
-      _selectedRecordId = id;
-    });
+    }
+    if (lastName.isEmpty) {
+      lastName = middleName.isNotEmpty ? middleName : 'Staff';
+    }
+    if (fullName.isEmpty) {
+      fullName = '$firstName $middleName $lastName'.replaceAll('  ', ' ').trim();
+    }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Record $id saved successfully'),
-        backgroundColor: const Color(0xFFF26522),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    setState(() => _isSaving = true);
+
+    try {
+      final hrRepo = ref.read(hrRepositoryProvider);
+
+      final payload = {
+        'firstName': firstName,
+        'lastName': lastName,
+        'email': workEmail,
+        'phone': phone.isNotEmpty ? phone : '+91 98200 00000',
+        'designation': designation.isNotEmpty ? designation : 'Staff Member',
+        'departmentId': _selectedDepartmentId,
+        'status': 'PENDING_APPROVAL',
+        'bloodGroup': _selectedBloodGroup.isNotEmpty ? _selectedBloodGroup : null,
+        'emergencyPhone': _emergencyContactController.text.trim(),
+        'address': _addressController.text.trim(),
+      };
+
+      // Find department name
+      final deptName = _departments.firstWhere(
+        (d) => d.id == _selectedDepartmentId,
+        orElse: () => DepartmentItem(id: '', name: 'R&D / Engineering', code: 'RND'),
+      ).name;
+
+      if (_selectedRecordId != null) {
+        // UPDATE EXISTING RECORD
+        final updated = await hrRepo.updateEmployee(_selectedRecordId!, payload);
+
+        final updatedRec = EmployeeProfileRecord(
+          dbId: updated.id,
+          id: updated.employeeCode.isNotEmpty ? updated.employeeCode : code,
+          firstName: firstName,
+          middleName: middleName,
+          fullName: fullName,
+          workEmail: workEmail,
+          dateOfBirth: _dobController.text.trim(),
+          gender: _selectedGender,
+          maritalStatus: _selectedMaritalStatus,
+          nationality: _selectedNationality,
+          bloodGroup: _selectedBloodGroup,
+          emergencyContact: _emergencyContactController.text.trim(),
+          personalEmail: _personalEmailController.text.trim(),
+          phone: phone,
+          address: _addressController.text.trim(),
+          departmentId: _selectedDepartmentId,
+          departmentName: deptName,
+          designation: designation,
+          status: updated.status,
+        );
+
+        setState(() {
+          final idx = _records.indexWhere((r) => r.dbId == _selectedRecordId || r.id == _selectedRecordId);
+          if (idx != -1) {
+            _records[idx] = updatedRec;
+          }
+          _selectedRecordId = updated.id;
+          _isSaving = false;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('✅ Employee "$fullName" (${updated.employeeCode}) updated successfully!'),
+              backgroundColor: const Color(0xFF2E7D32),
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+      } else {
+        // CREATE NEW EMPLOYEE RECORD
+        final created = await hrRepo.createEmployee(payload);
+
+        final newRec = EmployeeProfileRecord(
+          dbId: created.id,
+          id: created.employeeCode,
+          firstName: firstName,
+          middleName: middleName,
+          fullName: fullName,
+          workEmail: workEmail,
+          dateOfBirth: _dobController.text.trim(),
+          gender: _selectedGender,
+          maritalStatus: _selectedMaritalStatus,
+          nationality: _selectedNationality,
+          bloodGroup: _selectedBloodGroup,
+          emergencyContact: _emergencyContactController.text.trim(),
+          personalEmail: _personalEmailController.text.trim(),
+          phone: phone,
+          address: _addressController.text.trim(),
+          departmentId: _selectedDepartmentId,
+          departmentName: deptName,
+          designation: designation,
+          status: created.status,
+        );
+
+        setState(() {
+          _records.insert(0, newRec);
+          _selectedRecordId = created.id;
+          _empIdController.text = created.employeeCode;
+          _isSaving = false;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '✅ Employee record for "$fullName" (${created.employeeCode}) saved in $deptName!\n'
+                '📨 Onboarding request submitted to Admin for username, password & role assignment.',
+              ),
+              backgroundColor: const Color(0xFFF26522),
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      setState(() => _isSaving = false);
+      String errorMsg = 'Failed to save employee: $e';
+      if (e is DioException) {
+        final serverData = e.response?.data;
+        if (serverData is Map) {
+          final msg = serverData['message'];
+          if (msg is List) {
+            errorMsg = msg.join('\n');
+          } else if (msg != null) {
+            errorMsg = msg.toString();
+          } else if (serverData['error'] != null) {
+            errorMsg = serverData['error'].toString();
+          }
+        }
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMsg),
+            backgroundColor: Colors.redAccent,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }
   }
 
   void _downloadExcel() {
     final buffer = StringBuffer();
-    buffer.writeln('Employee ID,First Name,Middle Name,Full Name,Work Email,Date of Birth');
+    buffer.writeln('Employee ID,Full Name,Department,Designation,Work Email,Phone,Status');
     for (final r in _records) {
-      buffer.writeln('"${r.id}","${r.firstName}","${r.middleName}","${r.fullName}","${r.workEmail}","${r.dateOfBirth}"');
+      buffer.writeln('"${r.id}","${r.fullName}","${r.departmentName}","${r.designation}","${r.workEmail}","${r.phone}","${r.status}"');
     }
 
     showDialog<void>(
@@ -257,7 +504,7 @@ class _EmployeeProfileViewState extends State<EmployeeProfileView> {
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: DateTime(2026, 10, 2),
+      initialDate: DateTime(2026, 10, 5),
       firstDate: DateTime(1950),
       lastDate: DateTime(2035),
       builder: (context, child) {
@@ -284,21 +531,58 @@ class _EmployeeProfileViewState extends State<EmployeeProfileView> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator(color: Color(0xFFF26522)));
+    }
+
+    final pendingCount = _records.where((r) => r.status == 'PENDING_APPROVAL').length;
+
     return Container(
       color: const Color(0xFF141517),
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ─── Header Action Bar: Title + Hide Saved Records + Download Excel ──
+          // ─── Header Action Bar: Title + Pending Notice + Buttons ──
           Row(
             children: [
               const Text(
-                'Employee Profile',
+                'Employee Profile & Onboarding',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Request workflow indicator badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: pendingCount > 0 ? const Color(0xFFF26522).withOpacity(0.18) : Colors.green.withOpacity(0.18),
+                  borderRadius: BorderRadius.circular(3),
+                  border: Border.all(
+                    color: pendingCount > 0 ? const Color(0xFFF26522).withOpacity(0.4) : Colors.green.withOpacity(0.4),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      pendingCount > 0 ? Icons.pending_actions : Icons.verified_user_outlined,
+                      size: 13,
+                      color: pendingCount > 0 ? const Color(0xFFF26522) : Colors.greenAccent,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      '$pendingCount Pending Admin Approval',
+                      style: TextStyle(
+                        color: pendingCount > 0 ? const Color(0xFFF26522) : Colors.greenAccent,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const Spacer(),
@@ -345,10 +629,12 @@ class _EmployeeProfileViewState extends State<EmployeeProfileView> {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Section 1: Add / Update Record (Header outside container)
-                      const Text(
-                        'Add / Update Record',
-                        style: TextStyle(
+                      // Section 1: Add / Update Record
+                      Text(
+                        _selectedRecordId != null
+                            ? 'Editing Employee Profile (${_empIdController.text}) — Click "Clear / New" to add a new employee'
+                            : 'Add / Update Employee Profile (Submits to Admin for Department & Account Provisioning)',
+                        style: const TextStyle(
                           color: Color(0xFFF26522),
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
@@ -375,14 +661,25 @@ class _EmployeeProfileViewState extends State<EmployeeProfileView> {
 
                       if (!_hideSavedRecords) ...[
                         const SizedBox(height: 8),
-                        // Section 2: Saved Records (Header outside container)
-                        const Text(
-                          'Saved Records',
-                          style: TextStyle(
-                            color: Color(0xFFF26522),
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        // Section 2: Saved Records & Requests
+                        Row(
+                          children: [
+                            const Text(
+                              'Saved Records & Requests Queue',
+                              style: TextStyle(
+                                color: Color(0xFFF26522),
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const Spacer(),
+                            // Status Filter Chips
+                            _buildFilterChip('ALL', 'All Records (${_records.length})'),
+                            const SizedBox(width: 6),
+                            _buildFilterChip('PENDING_APPROVAL', 'Pending Approval ($pendingCount)'),
+                            const SizedBox(width: 6),
+                            _buildFilterChip('ACTIVE', 'Approved (${_records.length - pendingCount})'),
+                          ],
                         ),
                         const SizedBox(height: 4),
                         Expanded(
@@ -406,9 +703,11 @@ class _EmployeeProfileViewState extends State<EmployeeProfileView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Text(
-                        'Add / Update Record',
-                        style: TextStyle(
+                      Text(
+                        _selectedRecordId != null
+                            ? 'Editing Employee (${_empIdController.text})'
+                            : 'Add / Update Record',
+                        style: const TextStyle(
                           color: Color(0xFFF26522),
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
@@ -426,13 +725,21 @@ class _EmployeeProfileViewState extends State<EmployeeProfileView> {
                       ),
                       if (!_hideSavedRecords) ...[
                         const SizedBox(height: 12),
-                        const Text(
-                          'Saved Records',
-                          style: TextStyle(
-                            color: Color(0xFFF26522),
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        Row(
+                          children: [
+                            const Text(
+                              'Saved Records',
+                              style: TextStyle(
+                                color: Color(0xFFF26522),
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const Spacer(),
+                            _buildFilterChip('ALL', 'All'),
+                            const SizedBox(width: 4),
+                            _buildFilterChip('PENDING_APPROVAL', 'Pending ($pendingCount)'),
+                          ],
                         ),
                         const SizedBox(height: 4),
                         Container(
@@ -456,6 +763,29 @@ class _EmployeeProfileViewState extends State<EmployeeProfileView> {
     );
   }
 
+  Widget _buildFilterChip(String value, String label) {
+    final isSelected = _tableFilter == value;
+    return InkWell(
+      onTap: () => setState(() => _tableFilter = value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFF26522) : const Color(0xFF1E2024),
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: isSelected ? const Color(0xFFF26522) : const Color(0xFF2C2E33)),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.white60,
+            fontSize: 11,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+
   // ─── 2-Column Responsive Form Content ───────────────────────────────────────
   Widget _buildFormContent({required bool isWide}) {
     return Form(
@@ -467,7 +797,14 @@ class _EmployeeProfileViewState extends State<EmployeeProfileView> {
             leftLabel: 'Employee ID:',
             leftInput: _buildTextInput(controller: _empIdController),
             rightLabel: 'First Name:',
-            rightInput: _buildTextInput(controller: _firstNameController),
+            rightInput: _buildTextInput(
+              controller: _firstNameController,
+              onChanged: (val) {
+                if (_fullNameController.text.isEmpty || _fullNameController.text.startsWith(val)) {
+                  _fullNameController.text = '$val ${_middleNameController.text}'.trim();
+                }
+              },
+            ),
             isWide: isWide,
           ),
           const SizedBox(height: 6),
@@ -482,7 +819,47 @@ class _EmployeeProfileViewState extends State<EmployeeProfileView> {
           ),
           const SizedBox(height: 6),
 
-          // Row 3: Work Email & Date of Birth
+          // Row 3: Department (Key requirement!) & Designation
+          _buildRow(
+            leftLabel: 'Department:',
+            leftInput: Container(
+              height: 28,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF141517),
+                borderRadius: BorderRadius.circular(2),
+                border: Border.all(color: const Color(0xFF2C2E33)),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _departments.any((d) => d.id == _selectedDepartmentId) ? _selectedDepartmentId : null,
+                  dropdownColor: const Color(0xFF1E2024),
+                  hint: const Text('Select Department (e.g. R&D)', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                  icon: const Icon(Icons.arrow_drop_down, color: Colors.white70, size: 20),
+                  isDense: true,
+                  isExpanded: true,
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                  items: _departments.map((d) {
+                    return DropdownMenuItem<String>(
+                      value: d.id,
+                      child: Text('${d.name} (${d.code})', style: const TextStyle(fontSize: 12)),
+                    );
+                  }).toList(),
+                  onChanged: (v) {
+                    if (v != null) {
+                      setState(() => _selectedDepartmentId = v);
+                    }
+                  },
+                ),
+              ),
+            ),
+            rightLabel: 'Designation:',
+            rightInput: _buildTextInput(controller: _designationController),
+            isWide: isWide,
+          ),
+          const SizedBox(height: 6),
+
+          // Row 4: Work Email & Date of Birth / Joining
           _buildRow(
             leftLabel: 'Work Email:',
             leftInput: _buildTextInput(controller: _workEmailController),
@@ -500,7 +877,7 @@ class _EmployeeProfileViewState extends State<EmployeeProfileView> {
           ),
           const SizedBox(height: 6),
 
-          // Row 4: Gender & Marital Status
+          // Row 5: Gender & Marital Status
           _buildRow(
             leftLabel: 'Gender:',
             leftInput: _buildDropdown(
@@ -518,7 +895,7 @@ class _EmployeeProfileViewState extends State<EmployeeProfileView> {
           ),
           const SizedBox(height: 6),
 
-          // Row 5: Nationality & Blood Group
+          // Row 6: Nationality & Blood Group
           _buildRow(
             leftLabel: 'Nationality:',
             leftInput: _buildDropdown(
@@ -536,7 +913,7 @@ class _EmployeeProfileViewState extends State<EmployeeProfileView> {
           ),
           const SizedBox(height: 6),
 
-          // Row 6: Emergency Contact & Personal Email
+          // Row 7: Emergency Contact & Personal Email
           _buildRow(
             leftLabel: 'Emergency Contact:',
             leftInput: _buildTextInput(controller: _emergencyContactController),
@@ -546,7 +923,7 @@ class _EmployeeProfileViewState extends State<EmployeeProfileView> {
           ),
           const SizedBox(height: 6),
 
-          // Row 7: Phone Number & Current Address
+          // Row 8: Phone Number & Current Address
           _buildRow(
             leftLabel: 'Phone Number:',
             leftInput: _buildTextInput(controller: _phoneController),
@@ -558,8 +935,25 @@ class _EmployeeProfileViewState extends State<EmployeeProfileView> {
 
           // Action buttons row (Right-aligned Save & Clear)
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
             children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 12, color: Colors.white54),
+                    SizedBox(width: 4),
+                    Text(
+                      'Saving creates an onboarding request sent to Admin for credential & role provisioning.',
+                      style: TextStyle(color: Colors.white54, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+              const Spacer(),
               OutlinedButton(
                 onPressed: _clearForm,
                 style: OutlinedButton.styleFrom(
@@ -572,8 +966,14 @@ class _EmployeeProfileViewState extends State<EmployeeProfileView> {
                 child: const Text('Clear / New'),
               ),
               const SizedBox(width: 8),
-              ElevatedButton(
-                onPressed: _saveRecord,
+              ElevatedButton.icon(
+                onPressed: _isSaving ? null : _saveRecord,
+                icon: _isSaving
+                    ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : Icon(_selectedRecordId != null ? Icons.save_rounded : Icons.send_rounded, size: 14),
+                label: Text(_isSaving
+                    ? (_selectedRecordId != null ? 'Saving...' : 'Submitting...')
+                    : (_selectedRecordId != null ? 'Update & Save Profile' : 'Save & Submit to Admin')),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFF26522),
                   foregroundColor: Colors.white,
@@ -581,7 +981,6 @@ class _EmployeeProfileViewState extends State<EmployeeProfileView> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(3)),
                   textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                 ),
-                child: const Text('Save Record'),
               ),
             ],
           ),
@@ -638,6 +1037,7 @@ class _EmployeeProfileViewState extends State<EmployeeProfileView> {
   Widget _buildTextInput({
     required TextEditingController controller,
     Widget? suffixIcon,
+    ValueChanged<String>? onChanged,
   }) {
     return Container(
       height: 28,
@@ -648,6 +1048,7 @@ class _EmployeeProfileViewState extends State<EmployeeProfileView> {
       ),
       child: TextField(
         controller: controller,
+        onChanged: onChanged,
         style: const TextStyle(color: Colors.white, fontSize: 12),
         decoration: InputDecoration(
           contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -692,8 +1093,15 @@ class _EmployeeProfileViewState extends State<EmployeeProfileView> {
     );
   }
 
-  // ─── Saved Records Table ────────────────────────────────────────────────────
+  // ─── Saved Records Table with Status Badges ─────────────────────────────────
   Widget _buildRecordsTable() {
+    var displayRecords = _records;
+    if (_tableFilter == 'PENDING_APPROVAL') {
+      displayRecords = _records.where((r) => r.status == 'PENDING_APPROVAL').toList();
+    } else if (_tableFilter == 'ACTIVE') {
+      displayRecords = _records.where((r) => r.status == 'ACTIVE').toList();
+    }
+
     return Scrollbar(
       thumbVisibility: true,
       child: SingleChildScrollView(
@@ -701,66 +1109,39 @@ class _EmployeeProfileViewState extends State<EmployeeProfileView> {
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: SizedBox(
-            width: 950,
+            width: 1050,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 DataTable(
                   headingRowHeight: 32,
-                  dataRowMinHeight: 28,
-                  dataRowMaxHeight: 32,
+                  dataRowMinHeight: 30,
+                  dataRowMaxHeight: 36,
                   horizontalMargin: 12,
-                  columnSpacing: 20,
+                  columnSpacing: 18,
                   headingRowColor: WidgetStateProperty.all(const Color(0xFF17181A)),
                   columns: const [
-                    DataColumn(
-                      label: Text(
-                        'Employee ID',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                      ),
-                    ),
-                    DataColumn(
-                      label: Text(
-                        'First Name',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                      ),
-                    ),
-                    DataColumn(
-                      label: Text(
-                        'Middle Name',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                      ),
-                    ),
-                    DataColumn(
-                      label: Text(
-                        'Full Name',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                      ),
-                    ),
-                    DataColumn(
-                      label: Text(
-                        'Work Email',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                      ),
-                    ),
-                    DataColumn(
-                      label: Text(
-                        'Date of Birth',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                      ),
-                    ),
+                    DataColumn(label: Text('Employee ID', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                    DataColumn(label: Text('Full Name', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                    DataColumn(label: Text('Department', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                    DataColumn(label: Text('Designation', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                    DataColumn(label: Text('Work Email', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                    DataColumn(label: Text('Status / Approval', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                    DataColumn(label: Text('Date of Birth', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
                   ],
-                  rows: _records.map((r) {
-                    final isSelected = _selectedRecordId == r.id;
+                  rows: displayRecords.map((r) {
+                    final isSelected = _selectedRecordId == r.dbId || _selectedRecordId == r.id;
+                    final isPending = r.status == 'PENDING_APPROVAL';
+
                     return DataRow(
                       selected: isSelected,
                       onSelectChanged: (_) => _selectRecord(r),
                       color: WidgetStateProperty.resolveWith<Color?>((states) {
                         if (isSelected) {
-                          return const Color(0xFFF26522).withValues(alpha: 0.18);
+                          return const Color(0xFFF26522).withOpacity(0.18);
                         }
                         if (states.contains(WidgetState.hovered)) {
-                          return Colors.white.withValues(alpha: 0.04);
+                          return Colors.white.withOpacity(0.04);
                         }
                         return Colors.transparent;
                       }),
@@ -773,31 +1154,57 @@ class _EmployeeProfileViewState extends State<EmployeeProfileView> {
                             fontSize: 12,
                           ),
                         )),
-                        DataCell(Text(r.firstName, style: const TextStyle(color: Color(0xFFC0C0C0), fontSize: 12))),
-                        DataCell(Text(r.middleName, style: const TextStyle(color: Color(0xFFC0C0C0), fontSize: 12))),
-                        DataCell(Text(r.fullName, style: const TextStyle(color: Color(0xFFC0C0C0), fontSize: 12))),
+                        DataCell(Text(r.fullName, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500))),
+                        DataCell(Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            r.departmentName,
+                            style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 11),
+                          ),
+                        )),
+                        DataCell(Text(r.designation, style: const TextStyle(color: Color(0xFFC0C0C0), fontSize: 12))),
                         DataCell(Text(r.workEmail, style: const TextStyle(color: Color(0xFFC0C0C0), fontSize: 12))),
+                        DataCell(Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: isPending ? Colors.orange.withOpacity(0.18) : Colors.green.withOpacity(0.18),
+                            borderRadius: BorderRadius.circular(3),
+                            border: Border.all(color: isPending ? Colors.orange.withOpacity(0.4) : Colors.green.withOpacity(0.4)),
+                          ),
+                          child: Text(
+                            isPending ? 'Pending Admin Approval' : 'Approved / Active',
+                            style: TextStyle(
+                              color: isPending ? Colors.orangeAccent : Colors.greenAccent,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        )),
                         DataCell(Text(r.dateOfBirth, style: const TextStyle(color: Color(0xFFC0C0C0), fontSize: 12))),
                       ],
                     );
                   }).toList(),
                 ),
-                if (_records.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 36),
+                if (displayRecords.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 36),
                     child: Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.folder_open_outlined, color: Colors.white24, size: 36),
-                          SizedBox(height: 8),
+                          const Icon(Icons.folder_open_outlined, color: Colors.white24, size: 36),
+                          const SizedBox(height: 8),
                           Text(
-                            'No saved records found',
-                            style: TextStyle(color: Colors.white60, fontSize: 13, fontWeight: FontWeight.w500),
+                            _tableFilter == 'PENDING_APPROVAL' ? 'No pending requests found' : 'No records found',
+                            style: const TextStyle(color: Colors.white60, fontSize: 13, fontWeight: FontWeight.w500),
                           ),
-                          SizedBox(height: 4),
-                          Text(
-                            'Fill in employee details above and click "Save Record" to add',
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Fill in employee details above and click "Save & Submit to Admin"',
                             style: TextStyle(color: Colors.white38, fontSize: 11),
                           ),
                         ],

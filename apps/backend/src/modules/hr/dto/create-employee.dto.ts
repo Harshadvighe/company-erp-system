@@ -37,6 +37,11 @@ export class CreateEmployeeDto {
   @IsString()
   employmentType?: string;
 
+  @ApiPropertyOptional({ example: 'PENDING_APPROVAL' })
+  @IsOptional()
+  @IsString()
+  status?: string;
+
   @ApiPropertyOptional({ example: 650000 })
   @IsOptional()
   @IsNumber()

@@ -1,10 +1,11 @@
 import {
   Controller, Get, Post, Put, Patch, Delete,
-  Body, Param, Query, UseGuards,
+  Body, Param, Query, UseGuards, Req,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { ApproveEmployeeRequestDto } from './dto/approve-employee-request.dto';
 
 @ApiTags('Administration')
 @ApiBearerAuth()
@@ -185,5 +186,37 @@ export class AdminController {
   @ApiOperation({ summary: 'List all available permissions (module:action pairs)' })
   getPermissions() {
     return this.adminService.getPermissions();
+  }
+
+  // ─── EMPLOYEE REQUESTS & ONBOARDING PROVISIONING ──────────────────────────
+
+  @Get('employee-requests')
+  @ApiOperation({ summary: 'List employee onboarding requests awaiting approval' })
+  getEmployeeRequests(
+    @Query('departmentId') departmentId?: string,
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.adminService.getEmployeeRequests({ departmentId, status, search });
+  }
+
+  @Post('employee-requests/:id/approve')
+  @ApiOperation({ summary: 'Approve employee onboarding, assign department/role, and create login credentials' })
+  approveEmployeeRequest(
+    @Param('id') id: string,
+    @Body() dto: ApproveEmployeeRequestDto,
+    @Req() req: any,
+  ) {
+    return this.adminService.approveEmployeeRequest(id, dto, req.user);
+  }
+
+  @Post('employee-requests/:id/reject')
+  @ApiOperation({ summary: 'Reject employee onboarding request' })
+  rejectEmployeeRequest(
+    @Param('id') id: string,
+    @Body('reason') reason: string,
+    @Req() req: any,
+  ) {
+    return this.adminService.rejectEmployeeRequest(id, reason, req.user);
   }
 }
