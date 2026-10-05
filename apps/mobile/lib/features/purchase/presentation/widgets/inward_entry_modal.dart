@@ -126,7 +126,7 @@ class _InwardEntryModalState extends ConsumerState<InwardEntryModal> {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: AppTheme.primary.withOpacity(0.15),
+                              color: AppTheme.primary.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: const Icon(Icons.move_to_inbox, color: AppTheme.primary, size: 24),
@@ -163,7 +163,7 @@ class _InwardEntryModalState extends ConsumerState<InwardEntryModal> {
                               children: [
                                 Expanded(
                                   child: DropdownButtonFormField<String>(
-                                    value: _selectedVendorId,
+                                    initialValue: _selectedVendorId,
                                     dropdownColor: AppTheme.darkSurface,
                                     style: const TextStyle(color: Colors.white),
                                     decoration: InputDecoration(
@@ -295,7 +295,7 @@ class _InwardEntryModalState extends ConsumerState<InwardEntryModal> {
                                           Expanded(
                                             flex: 3,
                                             child: DropdownButtonFormField<String>(
-                                              value: item.productId,
+                                              initialValue: item.productId,
                                               dropdownColor: AppTheme.darkSurface,
                                               style: const TextStyle(color: Colors.white),
                                               decoration: InputDecoration(
@@ -395,7 +395,7 @@ class _InwardEntryModalState extends ConsumerState<InwardEntryModal> {
                                               const Text('QC Required:', style: TextStyle(color: AppTheme.darkTextSecondary, fontSize: 12)),
                                               Switch(
                                                 value: item.qcRequired,
-                                                activeColor: AppTheme.primary,
+                                                activeThumbColor: AppTheme.primary,
                                                 onChanged: (val) => setState(() => item.qcRequired = val),
                                               ),
                                             ],
@@ -418,9 +418,9 @@ class _InwardEntryModalState extends ConsumerState<InwardEntryModal> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                               decoration: BoxDecoration(
-                                color: AppTheme.primary.withOpacity(0.1),
+                                color: AppTheme.primary.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: AppTheme.primary.withOpacity(0.3)),
+                                border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3)),
                               ),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,

@@ -75,7 +75,7 @@ class _OutwardDocumentModalState extends ConsumerState<OutwardDocumentModal> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: AppTheme.primary.withOpacity(0.15),
+                        color: AppTheme.primary.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(Icons.outbox, color: AppTheme.primary, size: 24),
@@ -112,7 +112,7 @@ class _OutwardDocumentModalState extends ConsumerState<OutwardDocumentModal> {
                         children: [
                           Expanded(
                             child: DropdownButtonFormField<String>(
-                              value: _outwardType,
+                              initialValue: _outwardType,
                               dropdownColor: AppTheme.darkSurface,
                               style: const TextStyle(color: Colors.white),
                               decoration: InputDecoration(
@@ -136,7 +136,7 @@ class _OutwardDocumentModalState extends ConsumerState<OutwardDocumentModal> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: DropdownButtonFormField<String>(
-                              value: _partyType,
+                              initialValue: _partyType,
                               dropdownColor: AppTheme.darkSurface,
                               style: const TextStyle(color: Colors.white),
                               decoration: InputDecoration(
@@ -327,7 +327,7 @@ class _OutwardDocumentModalState extends ConsumerState<OutwardDocumentModal> {
                                 SizedBox(
                                   width: 90,
                                   child: DropdownButtonFormField<String>(
-                                    value: item.unit,
+                                    initialValue: item.unit,
                                     dropdownColor: AppTheme.darkSurface,
                                     style: const TextStyle(color: Colors.white),
                                     decoration: InputDecoration(

@@ -157,7 +157,7 @@ class _PurchaseDashboardPageState extends ConsumerState<PurchaseDashboardPage> {
                       Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: AppTheme.primary.withOpacity(0.2),
+                          color: AppTheme.primary.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Icon(Icons.shopping_bag, color: AppTheme.primary, size: 20),
@@ -501,7 +501,7 @@ class _PurchaseDashboardPageState extends ConsumerState<PurchaseDashboardPage> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
+                  color: color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(icon, color: color, size: 20),
@@ -548,7 +548,7 @@ class _PurchaseDashboardPageState extends ConsumerState<PurchaseDashboardPage> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppTheme.primary.withOpacity(0.12),
+                    color: AppTheme.primary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(Icons.receipt_long, color: AppTheme.primary, size: 20),
@@ -802,7 +802,7 @@ class _PurchaseDashboardPageState extends ConsumerState<PurchaseDashboardPage> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppTheme.info.withOpacity(0.12),
+                    color: AppTheme.info.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(Icons.move_to_inbox, color: AppTheme.info, size: 20),
@@ -949,7 +949,7 @@ class _PurchaseDashboardPageState extends ConsumerState<PurchaseDashboardPage> {
                                 ],
                               ),
                             );
-                          }).toList(),
+                          }),
                         ],
                       ),
                     ),
@@ -982,20 +982,20 @@ class _PurchaseDashboardPageState extends ConsumerState<PurchaseDashboardPage> {
 
     switch (status.toUpperCase()) {
       case 'PAID':
-        bg = AppTheme.success.withOpacity(0.15);
+        bg = AppTheme.success.withValues(alpha: 0.15);
         fg = AppTheme.success;
         break;
       case 'PARTIALLY_PAID':
-        bg = AppTheme.primary.withOpacity(0.15);
+        bg = AppTheme.primary.withValues(alpha: 0.15);
         fg = AppTheme.primary;
         break;
       case 'OVERDUE':
-        bg = AppTheme.error.withOpacity(0.15);
+        bg = AppTheme.error.withValues(alpha: 0.15);
         fg = AppTheme.error;
         break;
       case 'UNPAID':
       default:
-        bg = AppTheme.warning.withOpacity(0.15);
+        bg = AppTheme.warning.withValues(alpha: 0.15);
         fg = AppTheme.warning;
         break;
     }
@@ -1005,7 +1005,7 @@ class _PurchaseDashboardPageState extends ConsumerState<PurchaseDashboardPage> {
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: fg.withOpacity(0.3)),
+        border: Border.all(color: fg.withValues(alpha: 0.3)),
       ),
       child: Text(
         status.replaceAll('_', ' '),
@@ -1034,9 +1034,9 @@ class _PurchaseDashboardPageState extends ConsumerState<PurchaseDashboardPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withOpacity(0.4)),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Text(
         status,

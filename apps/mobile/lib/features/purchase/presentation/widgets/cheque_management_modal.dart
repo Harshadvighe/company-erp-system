@@ -71,7 +71,7 @@ class _ChequeManagementModalState extends ConsumerState<ChequeManagementModal> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppTheme.primary.withOpacity(0.15),
+                      color: AppTheme.primary.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(Icons.account_balance, color: AppTheme.primary, size: 24),
@@ -137,7 +137,7 @@ class _ChequeManagementModalState extends ConsumerState<ChequeManagementModal> {
                                     width: 44,
                                     height: 44,
                                     decoration: BoxDecoration(
-                                      color: _getStatusColor(status).withOpacity(0.15),
+                                      color: _getStatusColor(status).withValues(alpha: 0.15),
                                       borderRadius: BorderRadius.circular(10),
                                     ),
                                     child: Icon(Icons.pin, color: _getStatusColor(status), size: 22),
@@ -167,9 +167,9 @@ class _ChequeManagementModalState extends ConsumerState<ChequeManagementModal> {
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                           decoration: BoxDecoration(
-                                            color: _getStatusColor(status).withOpacity(0.2),
+                                            color: _getStatusColor(status).withValues(alpha: 0.2),
                                             borderRadius: BorderRadius.circular(6),
-                                            border: Border.all(color: _getStatusColor(status).withOpacity(0.5)),
+                                            border: Border.all(color: _getStatusColor(status).withValues(alpha: 0.5)),
                                           ),
                                           child: Text(
                                             status,

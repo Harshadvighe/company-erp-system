@@ -108,7 +108,7 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: AppTheme.primary.withOpacity(0.15),
+                        color: AppTheme.primary.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(Icons.storefront, color: AppTheme.primary, size: 24),
@@ -228,7 +228,7 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
                             children: [
                               Expanded(
                                 child: DropdownButtonFormField<String>(
-                                  value: _vendorType,
+                                  initialValue: _vendorType,
                                   dropdownColor: AppTheme.darkSurface,
                                   style: const TextStyle(color: Colors.white),
                                   decoration: InputDecoration(
@@ -250,7 +250,7 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
                               const SizedBox(width: 12),
                               Expanded(
                                 child: DropdownButtonFormField<String>(
-                                  value: _vendorCategory,
+                                  initialValue: _vendorCategory,
                                   dropdownColor: AppTheme.darkSurface,
                                   style: const TextStyle(color: Colors.white),
                                   decoration: InputDecoration(
@@ -513,7 +513,7 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
                             children: [
                               Expanded(
                                 child: DropdownButtonFormField<String>(
-                                  value: _paymentTerms,
+                                  initialValue: _paymentTerms,
                                   dropdownColor: AppTheme.darkSurface,
                                   style: const TextStyle(color: Colors.white),
                                   decoration: InputDecoration(
