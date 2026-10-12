@@ -159,7 +159,7 @@ async function testHrLoginAndWorkflows() {
   // 13. Test Leave Application by HR
   console.log('\n13. Testing Leave Application as HR Manager...');
   const leavePayload = {
-    employeeId: createdEmp?.id || 'emp-001',
+    employeeId: createdEmp?.id || (employees.length > 0 ? employees[0].id : 'emp-001'),
     leaveType: 'CASUAL',
     startDate: '2026-11-20T00:00:00.000Z',
     endDate: '2026-11-21T00:00:00.000Z',
