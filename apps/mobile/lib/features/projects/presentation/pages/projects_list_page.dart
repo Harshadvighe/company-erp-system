@@ -33,8 +33,8 @@ class _ProjectsListPageState extends ConsumerState<ProjectsListPage> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
-            if (Navigator.canPop(context)) {
-              Navigator.pop(context);
+            if (context.canPop()) {
+              context.pop();
             } else {
               context.go('/dashboard');
             }
@@ -129,7 +129,7 @@ class _ProjectsListPageState extends ConsumerState<ProjectsListPage> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: AppTheme.primary.withOpacity(0.15),
+                      color: AppTheme.primary.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
@@ -154,9 +154,9 @@ class _ProjectsListPageState extends ConsumerState<ProjectsListPage> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: healthColor.withOpacity(0.15),
+                      color: healthColor.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: healthColor.withOpacity(0.3)),
+                      border: Border.all(color: healthColor.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -222,7 +222,7 @@ class _ProjectsListPageState extends ConsumerState<ProjectsListPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
@@ -262,7 +262,7 @@ class _ProjectsListPageState extends ConsumerState<ProjectsListPage> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: projectType,
+                  initialValue: projectType,
                   decoration: const InputDecoration(labelText: 'Project Type'),
                   items: [
                     'Customer Project',
@@ -277,7 +277,7 @@ class _ProjectsListPageState extends ConsumerState<ProjectsListPage> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: selectedPmId,
+                  initialValue: selectedPmId,
                   decoration: const InputDecoration(labelText: 'Project Manager *'),
                   items: staffList
                       .map((s) => DropdownMenuItem(value: s.id, child: Text('${s.fullName} (${s.designationName ?? "Staff"})')))
@@ -328,3 +328,4 @@ class _ProjectsListPageState extends ConsumerState<ProjectsListPage> {
     );
   }
 }
+

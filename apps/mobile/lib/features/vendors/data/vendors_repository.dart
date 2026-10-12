@@ -31,6 +31,11 @@ class VendorsRepository {
     return response.data as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> verifyGst(String gstin) async {
+    final response = await _dio.post('/vendors/verify-gst', data: {'gstin': gstin});
+    return response.data as Map<String, dynamic>;
+  }
+
   Future<void> deleteVendor(String id) async {
     await _dio.delete('/vendors/$id');
   }

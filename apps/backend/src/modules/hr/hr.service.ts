@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
+import { SequenceService } from '../../core/database/sequence.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { CreateLeaveDto, UpdateLeaveStatusDto } from './dto/create-leave.dto';
 import { ClockInDto, ClockOutDto } from './dto/clock-in.dto';
@@ -7,12 +8,16 @@ import { AllocateWorkstationDto, LogOvertimeDto, ReportSafetyIncidentDto } from 
 
 @Injectable()
 export class HrService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly sequenceService: SequenceService,
+  ) {}
 
   // -------------------------------------------------------------
   // 1. HR INDUSTRIAL DASHBOARD & EXECUTIVE METRICS
   // -------------------------------------------------------------
   async getDashboardMetrics() {
+    const now = new Date();
     const totalEmployees = await this.prisma.employee.count();
     const activeEmployees = await this.prisma.employee.count({ where: { status: 'ACTIVE' } });
     const onLeaveEmployees = await this.prisma.employee.count({ where: { status: 'ON_LEAVE' } });
@@ -74,9 +79,11 @@ export class HrService {
       where: { status: 'PENDING' },
     });
 
-    // Monthly Payroll
+    // Monthly Payroll — use current month/year
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
     const payrollRecords = await this.prisma.payrollRecord.findMany({
-      where: { monthNumber: 10, year: 2026 },
+      where: { monthNumber: currentMonth, year: currentYear },
     });
     const totalMonthlyPayroll = payrollRecords.reduce((sum, r) => sum + r.netPay, 0);
 
@@ -140,7 +147,6 @@ export class HrService {
         estimatedOtPayout: Math.round(monthlyOtHours * 450), // Approx 2x factory technician rate
       },
       safetyKpis: {
-        incidentFreeDays: 142, // Certified LTI Free milestone
         totalIncidents,
         openIncidents,
         ppeComplianceRate,
@@ -304,8 +310,7 @@ export class HrService {
   }
 
   async reportSafetyIncident(dto: ReportSafetyIncidentDto, reporter: string) {
-    const count = await this.prisma.safetyIncident.count();
-    const code = `INC-2026-${String(count + 1).padStart(3, '0')}`;
+    const code = await this.sequenceService.nextIncidentCode();
 
     return this.prisma.safetyIncident.create({
       data: {
@@ -326,8 +331,8 @@ export class HrService {
   // 6. FACTORIES ACT FORM 25 MUSTER ROLL REPORT
   // -------------------------------------------------------------
   async getMusterRoll(month?: string, year?: number) {
-    const currentYear = year || 2026;
-    const currentMonth = month ? Number(month) : 10;
+    const currentYear = year || new Date().getFullYear();
+    const currentMonth = month ? Number(month) : new Date().getMonth() + 1;
 
     const employees = await this.prisma.employee.findMany({
       include: {
@@ -441,18 +446,11 @@ export class HrService {
       );
     }
 
-    // Auto-generate next employeeCode safely without colliding
-    const count = await this.prisma.employee.count();
-    let codeIndex = count + 1;
-    let nextCode = `EMP-2026-${String(codeIndex).padStart(3, '0')}`;
-    while (await this.prisma.employee.findUnique({ where: { employeeCode: nextCode } })) {
-      codeIndex++;
-      nextCode = `EMP-2026-${String(codeIndex).padStart(3, '0')}`;
-    }
+    const employeeCode = await this.sequenceService.nextEmployeeCode();
 
     return this.prisma.employee.create({
       data: {
-        employeeCode: nextCode,
+        employeeCode,
         firstName: dto.firstName,
         lastName: dto.lastName,
         email: normalizedEmail,
@@ -600,9 +598,24 @@ export class HrService {
     today.setHours(0, 0, 0, 0);
 
     const now = new Date();
-    const isLate = now.getHours() > 9 || (now.getHours() === 9 && now.getMinutes() > 30);
 
     const emp = await this.prisma.employee.findUnique({ where: { id: dto.employeeId } });
+    if (!emp) throw new NotFoundException('Employee not found');
+
+    // Determine late status from shift-specific start time
+    const shiftCode = emp.shiftCode || 'SHIFT_G';
+    const shift = await this.prisma.shiftMaster.findUnique({ where: { code: shiftCode } });
+    let isLate = false;
+    if (shift) {
+      const [shiftHour, shiftMin] = shift.startTime.split(':').map(Number);
+      const graceMinutes = shift.graceMinutes ?? 15;
+      const shiftStartMs = shiftHour * 60 + shiftMin + graceMinutes;
+      const nowMs = now.getHours() * 60 + now.getMinutes();
+      isLate = nowMs > shiftStartMs;
+    } else {
+      // Fallback: 9:30 + 15 min grace = 9:45
+      isLate = now.getHours() > 9 || (now.getHours() === 9 && now.getMinutes() > 45);
+    }
 
     return this.prisma.attendance.upsert({
       where: { employeeId_punchDate: { employeeId: dto.employeeId, punchDate: today } },
@@ -677,8 +690,7 @@ export class HrService {
   }
 
   async createLeaveRequest(dto: CreateLeaveDto) {
-    const count = await this.prisma.leaveRequest.count();
-    const leaveCode = `LV-2026-${String(count + 1).padStart(4, '0')}`;
+    const leaveCode = await this.sequenceService.nextLeaveCode();
 
     return this.prisma.leaveRequest.create({
       data: {

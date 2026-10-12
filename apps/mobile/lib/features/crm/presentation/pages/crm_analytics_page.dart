@@ -16,8 +16,8 @@ class CrmAnalyticsPage extends ConsumerWidget {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
-            if (Navigator.canPop(context)) {
-              Navigator.pop(context);
+            if (context.canPop()) {
+              context.pop();
             } else {
               context.go('/crm/dashboard');
             }
@@ -117,7 +117,7 @@ class CrmAnalyticsPage extends ConsumerWidget {
               const Text('Win / Loss Performance', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(color: Colors.green.withOpacity(0.15), borderRadius: BorderRadius.circular(6)),
+                decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)),
                 child: Text('Win Rate: $winRate%', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
               ),
             ],
@@ -143,9 +143,9 @@ class CrmAnalyticsPage extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -286,3 +286,4 @@ class CrmAnalyticsPage extends ConsumerWidget {
     );
   }
 }
+

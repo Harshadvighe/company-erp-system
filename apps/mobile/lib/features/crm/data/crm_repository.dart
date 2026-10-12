@@ -11,9 +11,19 @@ class CrmRepository {
     return response.data as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> globalSearch(String query) async {
+    final response = await _dio.get('/crm/search', queryParameters: {'q': query});
+    final data = response.data;
+    if (data is Map<String, dynamic>) {
+      return (data['data'] is Map<String, dynamic>) ? data['data'] as Map<String, dynamic> : data;
+    }
+    return {};
+  }
+
   // ─── Leads ──────────────────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> getLeads({String? status, String? priority, String? search, int page = 1}) async {
+  Future<Map<String, dynamic>> getLeads(
+      {String? status, String? priority, String? search, int page = 1}) async {
     final response = await _dio.get('/crm/leads', queryParameters: {
       if (status != null) 'status': status,
       if (priority != null) 'priority': priority,
@@ -34,29 +44,38 @@ class CrmRepository {
     return response.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> updateLead(String id, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> updateLead(
+      String id, Map<String, dynamic> data) async {
     final response = await _dio.put('/crm/leads/$id', data: data);
     return response.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> updateLeadStatus(String id, String status) async {
-    final response = await _dio.patch('/crm/leads/$id/status', data: {'status': status});
+  Future<Map<String, dynamic>> updateLeadStatus(
+      String id, String status) async {
+    final response =
+        await _dio.patch('/crm/leads/$id/status', data: {'status': status});
     return response.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> qualifyLead(String id, Map<String, dynamic> bantData) async {
+  Future<Map<String, dynamic>> qualifyLead(
+      String id, Map<String, dynamic> bantData) async {
     final response = await _dio.post('/crm/leads/$id/qualify', data: bantData);
     return response.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> convertLead(String id, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> convertLead(
+      String id, Map<String, dynamic> data) async {
     final response = await _dio.post('/crm/leads/$id/convert', data: data);
     return response.data as Map<String, dynamic>;
   }
 
   // ─── Enquiries ──────────────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> getEnquiries({String? status, String? customerId, String? search, int page = 1}) async {
+  Future<Map<String, dynamic>> getEnquiries(
+      {String? status,
+      String? customerId,
+      String? search,
+      int page = 1}) async {
     final response = await _dio.get('/crm/enquiries', queryParameters: {
       if (status != null) 'status': status,
       if (customerId != null) 'customerId': customerId,
@@ -72,14 +91,16 @@ class CrmRepository {
     return response.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> updateEnquiry(String id, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> updateEnquiry(
+      String id, Map<String, dynamic> data) async {
     final response = await _dio.put('/crm/enquiries/$id', data: data);
     return response.data as Map<String, dynamic>;
   }
 
   // ─── Opportunities & Pipeline ───────────────────────────────────────────
 
-  Future<Map<String, dynamic>> getOpportunities({String? stage, String? status, String? search, int page = 1}) async {
+  Future<Map<String, dynamic>> getOpportunities(
+      {String? stage, String? status, String? search, int page = 1}) async {
     final response = await _dio.get('/crm/opportunities', queryParameters: {
       if (stage != null) 'stage': stage,
       if (status != null) 'status': status,
@@ -95,17 +116,21 @@ class CrmRepository {
     return response.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> createOpportunity(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> createOpportunity(
+      Map<String, dynamic> data) async {
     final response = await _dio.post('/crm/opportunities', data: data);
     return response.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> updateOpportunityStage(String id, String stage) async {
-    final response = await _dio.patch('/crm/opportunities/$id/stage', data: {'stage': stage});
+  Future<Map<String, dynamic>> updateOpportunityStage(
+      String id, String stage) async {
+    final response = await _dio
+        .patch('/crm/opportunities/$id/stage', data: {'stage': stage});
     return response.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> markOpportunityLost(String id, String reason, String? notes) async {
+  Future<Map<String, dynamic>> markOpportunityLost(
+      String id, String reason, String? notes) async {
     final response = await _dio.post('/crm/opportunities/$id/lost', data: {
       'reason': reason,
       if (notes != null) 'notes': notes,
@@ -120,7 +145,8 @@ class CrmRepository {
     return response.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> scheduleMeeting(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> scheduleMeeting(
+      Map<String, dynamic> data) async {
     final response = await _dio.post('/crm/activities/meeting', data: data);
     return response.data as Map<String, dynamic>;
   }
@@ -132,20 +158,59 @@ class CrmRepository {
 
   // ─── Follow-ups ─────────────────────────────────────────────────────────
 
-  Future<List<dynamic>> getFollowUps({String? status, String? due}) async {
+  Future<List<dynamic>> getFollowUps({
+    String? status,
+    String? due,
+    String? customerId,
+  }) async {
     final response = await _dio.get('/crm/follow-ups', queryParameters: {
       if (status != null) 'status': status,
       if (due != null) 'due': due,
+      if (customerId != null) 'customerId': customerId,
     });
     final data = response.data;
     if (data is Map) return data['data'] as List? ?? [];
     return data as List? ?? [];
   }
 
-  Future<Map<String, dynamic>> completeFollowUp(String id, String? outcome) async {
-    final response = await _dio.patch('/crm/follow-ups/$id/complete', data: {
-      if (outcome != null) 'outcome': outcome,
+  Future<Map<String, dynamic>> getFollowUpCompanies({
+    String? search,
+    String? status,
+    String? assignedStaffId,
+    String? customerId,
+    int page = 1,
+    int limit = 50,
+  }) async {
+    final response =
+        await _dio.get('/crm/follow-ups/companies', queryParameters: {
+      if (search != null && search.isNotEmpty) 'search': search,
+      if (status != null && status != 'ALL') 'status': status,
+      if (assignedStaffId != null) 'assignedStaffId': assignedStaffId,
+      if (customerId != null) 'customerId': customerId,
+      'page': page,
+      'limit': limit,
     });
+    final data = response.data;
+    if (data is Map && data['data'] is Map) {
+      return Map<String, dynamic>.from(data['data'] as Map);
+    }
+    if (data is Map) return Map<String, dynamic>.from(data);
+    if (data is List) return {'data': data, 'meta': <String, dynamic>{}};
+    throw const FormatException('Unexpected company follow-up response');
+  }
+
+  Future<Map<String, dynamic>> completeFollowUp(
+    String id,
+    Map<String, dynamic> data,
+  ) async {
+    final response = await _dio.patch('/crm/follow-ups/$id/complete', data: {
+      ...data,
+    });
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> createFollowUp(Map<String, dynamic> data) async {
+    final response = await _dio.post('/crm/follow-ups', data: data);
     return response.data as Map<String, dynamic>;
   }
 
@@ -167,17 +232,118 @@ class CrmRepository {
     return data as List? ?? [];
   }
 
-  Future<Map<String, dynamic>> checkDuplicate(Map<String, dynamic> params) async {
-    final response = await _dio.get('/customers/duplicates/check', queryParameters: params);
+  Future<Map<String, dynamic>> checkDuplicate(
+      Map<String, dynamic> params) async {
+    final response =
+        await _dio.get('/customers/duplicates/check', queryParameters: params);
     return response.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> mergeCustomers(String primaryId, String duplicateId, String? reason) async {
+  Future<Map<String, dynamic>> mergeCustomers(
+      String primaryId, String duplicateId, String? reason) async {
     final response = await _dio.post('/customers/merge', data: {
       'primaryCustomerId': primaryId,
       'duplicateCustomerId': duplicateId,
       if (reason != null) 'reason': reason,
     });
+    return response.data as Map<String, dynamic>;
+  }
+
+  // ─── Meetings Management ─────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> getMeetings({
+    String? customerId,
+    String? status,
+    String? hostStaffId,
+    String? search,
+    int page = 1,
+    int limit = 50,
+  }) async {
+    final response = await _dio.get('/crm/meetings', queryParameters: {
+      if (customerId != null) 'customerId': customerId,
+      if (status != null) 'status': status,
+      if (hostStaffId != null) 'hostStaffId': hostStaffId,
+      if (search != null && search.isNotEmpty) 'search': search,
+      'page': page,
+      'limit': limit,
+    });
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> createMeeting(Map<String, dynamic> data) async {
+    final response = await _dio.post('/crm/meetings', data: data);
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> respondMeeting(
+    String id, {
+    required String action,
+    String? newStartTime,
+    String? newEndTime,
+    String? reason,
+  }) async {
+    final response = await _dio.patch('/crm/meetings/$id/respond', data: {
+      'action': action,
+      if (newStartTime != null) 'newStartTime': newStartTime,
+      if (newEndTime != null) 'newEndTime': newEndTime,
+      if (reason != null) 'reason': reason,
+    });
+    return response.data as Map<String, dynamic>;
+  }
+
+  // ─── Calls Management ────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> getCalls({
+    String? customerId,
+    String? callOutcome,
+    String? callType,
+    String? search,
+    int page = 1,
+    int limit = 50,
+  }) async {
+    final response = await _dio.get('/crm/calls', queryParameters: {
+      if (customerId != null) 'customerId': customerId,
+      if (callOutcome != null) 'callOutcome': callOutcome,
+      if (callType != null) 'callType': callType,
+      if (search != null && search.isNotEmpty) 'search': search,
+      'page': page,
+      'limit': limit,
+    });
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> createCall(Map<String, dynamic> data) async {
+    final response = await _dio.post('/crm/calls', data: data);
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> uploadCallRecording(
+      String callId, Map<String, dynamic> data) async {
+    final response =
+        await _dio.post('/crm/calls/$callId/recordings', data: data);
+    return response.data as Map<String, dynamic>;
+  }
+
+  // ─── Site Visits Management ──────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> getSiteVisits({
+    String? customerId,
+    String? search,
+    int page = 1,
+    int limit = 50,
+  }) async {
+    final response = await _dio.get('/crm/site-visits', queryParameters: {
+      if (customerId != null) 'customerId': customerId,
+      if (search != null && search.isNotEmpty) 'search': search,
+      'page': page,
+      'limit': limit,
+    });
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> createSiteVisit(
+      Map<String, dynamic> data) async {
+    final response = await _dio.post('/crm/site-visits', data: data);
     return response.data as Map<String, dynamic>;
   }
 }
@@ -237,9 +403,14 @@ class LeadListNotifier extends StateNotifier<LeadListState> {
     try {
       final result = await _repo.getLeads(status: status, search: search);
       final data = result['data'] as Map<String, dynamic>? ?? result;
-      final leads = (data['data'] as List? ?? []).map((l) => l as Map<String, dynamic>).toList();
+      final leads = (data['data'] as List? ?? [])
+          .map((l) => l as Map<String, dynamic>)
+          .toList();
       final meta = data['meta'] as Map<String, dynamic>? ?? {};
-      state = state.copyWith(leads: leads, isLoading: false, total: meta['total'] as int? ?? leads.length);
+      state = state.copyWith(
+          leads: leads,
+          isLoading: false,
+          total: meta['total'] as int? ?? leads.length);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
@@ -251,7 +422,8 @@ class LeadListNotifier extends StateNotifier<LeadListState> {
   }
 }
 
-final leadListProvider = StateNotifierProvider<LeadListNotifier, LeadListState>((ref) {
+final leadListProvider =
+    StateNotifierProvider<LeadListNotifier, LeadListState>((ref) {
   return LeadListNotifier(ref.watch(crmRepositoryProvider));
 });
 
@@ -270,7 +442,11 @@ class EnquiryListState {
     this.total = 0,
   });
 
-  EnquiryListState copyWith({List<Map<String, dynamic>>? enquiries, bool? isLoading, String? error, int? total}) {
+  EnquiryListState copyWith(
+      {List<Map<String, dynamic>>? enquiries,
+      bool? isLoading,
+      String? error,
+      int? total}) {
     return EnquiryListState(
       enquiries: enquiries ?? this.enquiries,
       isLoading: isLoading ?? this.isLoading,
@@ -289,16 +465,22 @@ class EnquiryListNotifier extends StateNotifier<EnquiryListState> {
     try {
       final result = await _repo.getEnquiries(status: status, search: search);
       final data = result['data'] as Map<String, dynamic>? ?? result;
-      final enquiries = (data['data'] as List? ?? []).map((e) => e as Map<String, dynamic>).toList();
+      final enquiries = (data['data'] as List? ?? [])
+          .map((e) => e as Map<String, dynamic>)
+          .toList();
       final meta = data['meta'] as Map<String, dynamic>? ?? {};
-      state = state.copyWith(enquiries: enquiries, isLoading: false, total: meta['total'] as int? ?? enquiries.length);
+      state = state.copyWith(
+          enquiries: enquiries,
+          isLoading: false,
+          total: meta['total'] as int? ?? enquiries.length);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 }
 
-final enquiryListProvider = StateNotifierProvider<EnquiryListNotifier, EnquiryListState>((ref) {
+final enquiryListProvider =
+    StateNotifierProvider<EnquiryListNotifier, EnquiryListState>((ref) {
   return EnquiryListNotifier(ref.watch(crmRepositoryProvider));
 });
 
@@ -355,12 +537,16 @@ class FollowUpListNotifier extends StateNotifier<FollowUpListState> {
   }
 
   Future<void> complete(String id, String? outcome) async {
-    await _repo.completeFollowUp(id, outcome);
+    await _repo.completeFollowUp(id, {
+      if (outcome != null) 'outcome': outcome,
+      if (outcome != null) 'discussion': outcome,
+    });
     await loadFollowUps(status: state.filterStatus);
   }
 }
 
-final followUpListProvider = StateNotifierProvider<FollowUpListNotifier, FollowUpListState>((ref) {
+final followUpListProvider =
+    StateNotifierProvider<FollowUpListNotifier, FollowUpListState>((ref) {
   return FollowUpListNotifier(ref.watch(crmRepositoryProvider));
 });
 
@@ -371,4 +557,3 @@ final crmAnalyticsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final result = await repo.getAnalytics();
   return result['data'] as Map<String, dynamic>? ?? result;
 });
-

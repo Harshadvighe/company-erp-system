@@ -89,33 +89,12 @@ List<_NavItem> _getAuthorizedNavItems(AuthUser? user) {
     ));
   }
 
-  if (user.canView('CRM')) {
+  if (user.canView('CRM') || user.canView('CUSTOMERS')) {
     items.add(const _NavItem(
-      label: 'CRM',
-      icon: Icons.people_outline,
-      activeIcon: Icons.people,
+      label: 'CRM & Sales',
+      icon: Icons.hub_outlined,
+      activeIcon: Icons.hub,
       route: '/crm/dashboard',
-    ));
-    items.add(const _NavItem(
-      label: 'Pipeline',
-      icon: Icons.view_kanban_outlined,
-      activeIcon: Icons.view_kanban,
-      route: '/crm/pipeline',
-    ));
-    items.add(const _NavItem(
-      label: 'Follow-ups',
-      icon: Icons.event_repeat_outlined,
-      activeIcon: Icons.event_repeat,
-      route: '/crm/follow-ups',
-    ));
-  }
-
-  if (user.canView('CUSTOMERS')) {
-    items.add(const _NavItem(
-      label: 'Customers',
-      icon: Icons.person_outline,
-      activeIcon: Icons.person,
-      route: '/customers',
     ));
   }
 
@@ -200,6 +179,15 @@ List<_NavItem> _getAuthorizedNavItems(AuthUser? user) {
     ));
   }
 
+  if (user.canView('ACCOUNTS') || user.isAdmin) {
+    items.add(const _NavItem(
+      label: 'Accounts & Receivables',
+      icon: Icons.account_balance_outlined,
+      activeIcon: Icons.account_balance,
+      route: '/accounts',
+    ));
+  }
+
   if (user.isAdmin) {
     items.add(const _NavItem(
       label: 'Admin',
@@ -214,6 +202,12 @@ List<_NavItem> _getAuthorizedNavItems(AuthUser? user) {
 
 int _getNavIndex(List<_NavItem> items, String route) {
   for (int i = 0; i < items.length; i++) {
+    if (items[i].route == '/crm/dashboard' && (route.startsWith('/crm') || route.startsWith('/customers'))) {
+      return i;
+    }
+    if (items[i].route == '/dashboard' && (route == '/dashboard' || route == '/')) {
+      return i;
+    }
     if (route.startsWith(items[i].route)) return i;
   }
   return 0;
@@ -269,8 +263,9 @@ class _DesktopShell extends ConsumerWidget {
                   child: ListView(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     children: navItems.map((item) {
-                      final isActive = currentRoute.startsWith(item.route) ||
-                          (item.route == '/dashboard' && currentRoute == '/dashboard');
+                      final isCrm = item.route == '/crm/dashboard' && (currentRoute.startsWith('/crm') || currentRoute.startsWith('/customers'));
+                      final isDash = item.route == '/dashboard' && (currentRoute == '/dashboard' || currentRoute == '/');
+                      final isActive = isCrm || isDash || (item.route != '/dashboard' && item.route != '/crm/dashboard' && currentRoute.startsWith(item.route));
                       return _SidebarItem(
                         item: item,
                         isActive: isActive,
@@ -605,7 +600,9 @@ class _MobileShellState extends ConsumerState<_MobileShell> {
               child: ListView(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 children: navItems.map((item) {
-                  final isActive = widget.currentRoute.startsWith(item.route);
+                  final isCrm = item.route == '/crm/dashboard' && (widget.currentRoute.startsWith('/crm') || widget.currentRoute.startsWith('/customers'));
+                  final isDash = item.route == '/dashboard' && (widget.currentRoute == '/dashboard' || widget.currentRoute == '/');
+                  final isActive = isCrm || isDash || (item.route != '/dashboard' && item.route != '/crm/dashboard' && widget.currentRoute.startsWith(item.route));
                   return ListTile(
                     leading: Icon(
                       isActive ? item.activeIcon : item.icon,
@@ -815,6 +812,16 @@ class _TopHeader extends StatelessWidget {
     if (route.startsWith('/products')) return 'Products';
     if (route.startsWith('/crm/leads')) return 'Leads';
     if (route.startsWith('/crm/enquiries')) return 'Enquiries';
+    if (route.startsWith('/crm/dashboard')) return 'CRM & Sales — Dashboard';
+    if (route.startsWith('/crm/leads')) return 'CRM & Sales — Leads';
+    if (route.startsWith('/crm/enquiries')) return 'CRM & Sales — Enquiries';
+    if (route.startsWith('/crm/pipeline')) return 'CRM & Sales — Pipeline';
+    if (route.startsWith('/crm/follow-ups')) return 'CRM & Sales — Follow-ups & Meetings';
+    if (route.startsWith('/crm/analytics')) return 'CRM & Sales — Analytics';
+    if (route.startsWith('/crm/sales-orders') || route.startsWith('/sales/orders')) return 'Sales Orders';
+    if (route.startsWith('/crm/invoices') || route.startsWith('/sales/invoices')) return 'Tax Invoices';
+    if (route.startsWith('/crm')) return 'CRM & Sales';
+    if (route.startsWith('/customers')) return 'CRM & Sales — Customers';
     if (route.startsWith('/sales')) return 'Sales';
     if (route.startsWith('/purchase')) return 'Purchase';
     if (route.startsWith('/inventory')) return 'Inventory';

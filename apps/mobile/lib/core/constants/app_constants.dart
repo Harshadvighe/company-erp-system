@@ -3,9 +3,19 @@ import 'package:flutter/foundation.dart';
 class AppConstants {
   // Production Render Cloud URL - Hosted 24/7
   static const String defaultPublicUrl = 'https://saark-erp-backend.onrender.com';
+  static const String serverUrlKey = 'custom_server_url';
+
+  static String? customServerUrl;
 
   // API - Automatically routes on Web and Mobile
   static String get baseUrl {
+    if (customServerUrl != null && customServerUrl!.trim().isNotEmpty) {
+      final clean = customServerUrl!.trim().endsWith('/')
+          ? customServerUrl!.trim().substring(0, customServerUrl!.trim().length - 1)
+          : customServerUrl!.trim();
+      if (clean.endsWith('/api/v1')) return clean;
+      return '$clean/api/v1';
+    }
     if (kIsWeb) {
       if (Uri.base.scheme == 'https' || Uri.base.port == 3000) {
         return '${Uri.base.origin}/api/v1';

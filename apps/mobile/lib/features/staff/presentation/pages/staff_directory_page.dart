@@ -95,7 +95,7 @@ class _StaffDirectoryPageState extends ConsumerState<StaffDirectoryPage> {
                         contentPadding: const EdgeInsets.all(12),
                         leading: CircleAvatar(
                           radius: 24,
-                          backgroundColor: AppTheme.primary.withOpacity(0.2),
+                          backgroundColor: AppTheme.primary.withValues(alpha: 0.2),
                           child: Text(
                             staff.fullName.isNotEmpty ? staff.fullName[0].toUpperCase() : 'S',
                             style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold, fontSize: 18),
@@ -108,7 +108,7 @@ class _StaffDirectoryPageState extends ConsumerState<StaffDirectoryPage> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: AppTheme.primary.withOpacity(0.15),
+                                color: AppTheme.primary.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
@@ -146,8 +146,8 @@ class _StaffDirectoryPageState extends ConsumerState<StaffDirectoryPage> {
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: staff.status == 'ACTIVE'
-                                ? AppTheme.success.withOpacity(0.15)
-                                : Colors.red.withOpacity(0.15),
+                                ? AppTheme.success.withValues(alpha: 0.15)
+                                : Colors.red.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(

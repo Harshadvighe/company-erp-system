@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 class AppTheme {
   // Brand Colors
   static const Color primary = Color(0xFFF97316); // Orange
+  static const Color primaryColor = primary;
   static const Color primaryDark = Color(0xFFC2410C);
   static const Color primaryLight = Color(0xFFFFEDD5);
-  
+  static const Color backgroundColor = Color(0xFFF7F8FA);
+
   // Dark Theme Colors
   static const Color darkBackground = Color(0xFF0F1115);
   static const Color darkSurface = Color(0xFF181B21);
@@ -63,13 +65,16 @@ class AppTheme {
           backgroundColor: primary,
           foregroundColor: Colors.white,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          minimumSize: const Size(0, 36),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
           ),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         filled: true,
         fillColor: darkBackground,
         border: OutlineInputBorder(
@@ -93,12 +98,20 @@ class AppTheme {
         color: darkBorder,
         thickness: 1,
       ),
+      dataTableTheme: const DataTableThemeData(
+        headingRowHeight: 40,
+        dataRowMinHeight: 40,
+        dataRowMaxHeight: 48,
+        horizontalMargin: 12,
+        columnSpacing: 20,
+      ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: darkSurface,
         indicatorColor: primary.withValues(alpha: 0.2),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return const TextStyle(color: primary, fontSize: 11, fontWeight: FontWeight.w600);
+            return const TextStyle(
+                color: primary, fontSize: 11, fontWeight: FontWeight.w600);
           }
           return const TextStyle(color: darkTextSecondary, fontSize: 11);
         }),
@@ -129,6 +142,14 @@ class AppTheme {
               side: const BorderSide(color: darkBorder),
             ),
           ),
+        ),
+      ),
+      dialogTheme: DialogThemeData(
+        alignment: Alignment.center,
+        backgroundColor: darkSurface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: darkBorder),
         ),
       ),
     );
@@ -170,13 +191,16 @@ class AppTheme {
           backgroundColor: primary,
           foregroundColor: Colors.white,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          minimumSize: const Size(0, 36),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
           ),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         filled: true,
         fillColor: lightBackground,
         border: OutlineInputBorder(
@@ -200,12 +224,20 @@ class AppTheme {
         color: lightBorder,
         thickness: 1,
       ),
+      dataTableTheme: const DataTableThemeData(
+        headingRowHeight: 40,
+        dataRowMinHeight: 40,
+        dataRowMaxHeight: 48,
+        horizontalMargin: 12,
+        columnSpacing: 20,
+      ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: lightSurface,
         indicatorColor: primary.withValues(alpha: 0.15),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return const TextStyle(color: primary, fontSize: 11, fontWeight: FontWeight.w600);
+            return const TextStyle(
+                color: primary, fontSize: 11, fontWeight: FontWeight.w600);
           }
           return const TextStyle(color: lightTextSecondary, fontSize: 11);
         }),

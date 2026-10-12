@@ -54,8 +54,8 @@ class _ProductsListPageState extends ConsumerState<ProductsListPage>
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
-            if (Navigator.canPop(context)) {
-              Navigator.pop(context);
+            if (context.canPop()) {
+              context.pop();
             } else {
               context.go('/dashboard');
             }
@@ -409,7 +409,7 @@ class _ProductFormSheetState extends ConsumerState<_ProductFormSheet> {
         await repo.createProduct(data);
       }
       if (mounted) {
-        Navigator.pop(context);
+        context.pop();
         widget.onSuccess();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(isEdit ? 'Product updated' : 'Product created'), backgroundColor: AppTheme.success),
@@ -441,3 +441,4 @@ class _StatusBadge extends StatelessWidget {
     );
   }
 }
+

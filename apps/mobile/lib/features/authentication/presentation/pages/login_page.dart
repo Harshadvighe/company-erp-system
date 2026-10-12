@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:saark_erp_mobile/core/theme/app_theme.dart';
-import 'package:saark_erp_mobile/core/network/dio_client.dart';
-import 'package:saark_erp_mobile/core/constants/app_constants.dart';
-import 'package:saark_erp_mobile/core/storage/app_storage.dart';
 import 'package:saark_erp_mobile/features/authentication/data/auth_repository.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
@@ -58,25 +56,33 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           context.go('/dashboard');
         }
       }
-    } on Exception catch (e) {
+    } catch (e) {
       String message = 'Login failed. Please check your credentials.';
-      final errStr = e.toString().toLowerCase();
-      if (errStr.contains('dioexception') || errStr.contains('socketexception') || errStr.contains('connection refused') || errStr.contains('timed out')) {
-        message = 'Cannot connect to Server ($baseUrlHost).\nCheck your Wi-Fi or tap "Server" below to change connection.';
+      if (e is DioException) {
+        if (e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout ||
+            e.type == DioExceptionType.sendTimeout ||
+            e.type == DioExceptionType.connectionError) {
+          message =
+              'Unable to connect to backend server. Please ensure the server is running.';
+        } else if (e.response != null && e.response?.data != null) {
+          final resData = e.response!.data;
+          if (resData is Map && resData.containsKey('message')) {
+            message = resData['message'].toString();
+          } else {
+            message =
+                'Invalid credentials. Please check your username and password.';
+          }
+        } else {
+          message =
+              'Invalid credentials. Please check your username and password.';
+        }
       } else {
         message = e.toString().replaceAll('Exception: ', '');
       }
       setState(() => _errorMessage = message);
     } finally {
       if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  String get baseUrlHost {
-    try {
-      return Uri.tryParse(AppConstants.baseUrl)?.host ?? AppConstants.baseUrl;
-    } catch (_) {
-      return AppConstants.baseUrl;
     }
   }
 
@@ -180,7 +186,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               color: AppTheme.primary,
               borderRadius: BorderRadius.circular(18),
             ),
-            child: const Icon(Icons.water_drop_rounded, color: Colors.white, size: 40),
+            child: const Icon(Icons.water_drop_rounded,
+                color: Colors.white, size: 40),
           ),
           const SizedBox(height: 20),
           const Text(
@@ -194,7 +201,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           ),
           const Text(
             'PRIVATE LIMITED',
-            style: TextStyle(fontSize: 11, letterSpacing: 3, color: Colors.grey),
+            style:
+                TextStyle(fontSize: 11, letterSpacing: 3, color: Colors.grey),
           ),
           const SizedBox(height: 40),
           _buildLoginForm(maxWidth: double.infinity),
@@ -204,20 +212,34 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   List<Widget> _buildFeaturePills() {
-    final features = ['CRM', 'Sales', 'Purchase', 'Inventory', 'Production', 'Projects', 'HR'];
+    final features = [
+      'CRM',
+      'Sales',
+      'Purchase',
+      'Inventory',
+      'Production',
+      'Projects',
+      'HR'
+    ];
     return [
       Wrap(
         spacing: 8,
         runSpacing: 8,
         alignment: WrapAlignment.center,
-        children: features.map((f) => Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            border: Border.all(color: AppTheme.primary.withOpacity(0.4)),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(f, style: const TextStyle(color: Colors.white60, fontSize: 12)),
-        )).toList(),
+        children: features
+            .map((f) => Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                        color: AppTheme.primary.withValues(alpha: 0.4)),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(f,
+                      style:
+                          const TextStyle(color: Colors.white60, fontSize: 12)),
+                ))
+            .toList(),
       ),
     ];
   }
@@ -247,36 +269,47 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
                 // Demo Credentials Box
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: AppTheme.primary.withOpacity(0.08),
+                    color: AppTheme.primary.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppTheme.primary.withOpacity(0.25)),
+                    border: Border.all(
+                        color: AppTheme.primary.withValues(alpha: 0.25)),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.key_rounded, size: 18, color: AppTheme.primary),
+                      const Icon(Icons.key_rounded,
+                          size: 18, color: AppTheme.primary),
                       const SizedBox(width: 10),
                       const Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Default Admin Account:',
-                              style: TextStyle(fontSize: 11, color: AppTheme.darkTextSecondary, fontWeight: FontWeight.w600),
+                              'Demo Logins (Password: Saark@2026):',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppTheme.darkTextSecondary,
+                                  fontWeight: FontWeight.w600),
                             ),
                             Text(
-                              'admin / Saark@2026',
-                              style: TextStyle(fontSize: 13, color: Colors.white, fontWeight: FontWeight.bold),
+                              'Admin: admin | HR: hr.manager',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold),
                             ),
                           ],
                         ),
                       ),
                       TextButton(
                         style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
                           visualDensity: VisualDensity.compact,
-                          backgroundColor: AppTheme.primary.withOpacity(0.15),
+                          backgroundColor:
+                              AppTheme.primary.withValues(alpha: 0.15),
                         ),
                         onPressed: () {
                           setState(() {
@@ -284,7 +317,31 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             _passwordController.text = 'Saark@2026';
                           });
                         },
-                        child: const Text('Fill', style: TextStyle(fontSize: 12, color: AppTheme.primary, fontWeight: FontWeight.bold)),
+                        child: const Text('Admin',
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: AppTheme.primary,
+                                fontWeight: FontWeight.bold)),
+                      ),
+                      const SizedBox(width: 4),
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          visualDensity: VisualDensity.compact,
+                          backgroundColor: Colors.blue.withValues(alpha: 0.15),
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _emailController.text = 'hr.manager';
+                            _passwordController.text = 'Saark@2026';
+                          });
+                        },
+                        child: const Text('HR Fill',
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.blue,
+                                fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
@@ -296,18 +353,24 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppTheme.error.withOpacity(0.1),
+                      color: AppTheme.error.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppTheme.error.withOpacity(0.3)),
+                      border: Border.all(
+                          color: AppTheme.error.withValues(alpha: 0.35)),
                     ),
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.error_outline, color: AppTheme.error, size: 18),
-                        const SizedBox(width: 8),
+                        const Icon(Icons.error_outline,
+                            color: AppTheme.error, size: 20),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Text(
                             _errorMessage!,
-                            style: TextStyle(color: AppTheme.error, fontSize: 13),
+                            style: const TextStyle(
+                                color: AppTheme.error,
+                                fontSize: 13,
+                                height: 1.3),
                           ),
                         ),
                       ],
@@ -412,7 +475,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           ),
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
                 const Center(
                   child: Text(
                     '© 2026 Saark Exploration Private Limited',

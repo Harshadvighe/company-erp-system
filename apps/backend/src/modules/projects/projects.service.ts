@@ -5,12 +5,14 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
 import { AuditService } from '../../core/audit/audit.service';
+import { SequenceService } from '../../core/database/sequence.service';
 
 @Injectable()
 export class ProjectsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
+    private readonly sequenceService: SequenceService,
   ) {}
 
   async findAll(query?: {
@@ -157,9 +159,7 @@ export class ProjectsService {
     budget?: number;
     status?: string;
   }, actorId?: string, actorEmail?: string) {
-    const year = new Date().getFullYear();
-    const count = await this.prisma.project.count();
-    const projectNumber = `PRJ-${year}-${String(count + 1).padStart(3, '0')}`;
+    const projectNumber = await this.sequenceService.nextProjectNumber();
 
     const project = await this.prisma.project.create({
       data: {

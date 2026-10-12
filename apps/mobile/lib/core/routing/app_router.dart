@@ -16,17 +16,29 @@ import 'package:saark_erp_mobile/features/crm/presentation/pages/crm_dashboard_p
 import 'package:saark_erp_mobile/features/crm/presentation/pages/crm_pipeline_page.dart';
 import 'package:saark_erp_mobile/features/crm/presentation/pages/crm_follow_ups_page.dart';
 import 'package:saark_erp_mobile/features/crm/presentation/pages/crm_analytics_page.dart';
+import 'package:saark_erp_mobile/features/crm/presentation/pages/quotations_list_page.dart';
+import 'package:saark_erp_mobile/features/crm/presentation/pages/quotation_form_page.dart';
+import 'package:saark_erp_mobile/features/crm/presentation/pages/quotation_detail_page.dart';
+import 'package:saark_erp_mobile/features/crm/presentation/pages/sales_orders_list_page.dart';
+import 'package:saark_erp_mobile/features/crm/presentation/pages/meetings_list_page.dart';
+import 'package:saark_erp_mobile/features/crm/presentation/pages/calls_list_page.dart';
+import 'package:saark_erp_mobile/features/crm/presentation/pages/site_visits_list_page.dart';
 import 'package:saark_erp_mobile/features/production/presentation/pages/panel_specs_list_page.dart';
 import 'package:saark_erp_mobile/features/production/presentation/pages/panel_spec_detail_page.dart';
 import 'package:saark_erp_mobile/features/production/presentation/pages/panel_spec_form_page.dart';
 import 'package:saark_erp_mobile/features/purchase/presentation/pages/purchase_dashboard_page.dart';
 import 'package:saark_erp_mobile/features/my_work/presentation/pages/my_work_page.dart';
 import 'package:saark_erp_mobile/features/tasks/presentation/pages/tasks_list_page.dart';
+import 'package:saark_erp_mobile/features/tasks/presentation/pages/task_detail_page.dart';
 import 'package:saark_erp_mobile/features/projects/presentation/pages/projects_list_page.dart';
 import 'package:saark_erp_mobile/features/projects/presentation/pages/project_detail_page.dart';
 import 'package:saark_erp_mobile/features/staff/presentation/pages/staff_directory_page.dart';
 import 'package:saark_erp_mobile/features/hr/presentation/pages/hr_dashboard_page.dart';
 import 'package:saark_erp_mobile/features/admin/presentation/pages/admin_dashboard_page.dart';
+import 'package:saark_erp_mobile/features/crm/presentation/pages/invoices_list_page.dart';
+import 'package:saark_erp_mobile/features/crm/presentation/pages/accounts_dashboard_page.dart';
+import 'package:saark_erp_mobile/features/inventory/presentation/pages/inventory_dashboard_page.dart';
+import 'package:saark_erp_mobile/features/reports/presentation/pages/reports_dashboard_page.dart';
 
 class RouterNotifier extends ChangeNotifier {
   final Ref _ref;
@@ -71,8 +83,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // ─── Main Shell ────────────────────────────────────────────────
       ShellRoute(
         builder: (context, state, child) => AppShell(
-          child: child,
           currentRoute: state.matchedLocation,
+          child: child,
         ),
         routes: [
           GoRoute(
@@ -100,6 +112,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: '/tasks',
             name: 'tasks',
             builder: (context, state) => const TasksListPage(),
+          ),
+          GoRoute(
+            path: '/tasks/:id',
+            name: 'task-detail',
+            builder: (context, state) =>
+                TaskDetailPage(taskId: state.pathParameters['id']!),
           ),
 
           // ─── Projects ────────────────────────────────────────────
@@ -160,6 +178,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const CrmDashboardPage(),
           ),
           GoRoute(
+            path: '/crm/companies',
+            name: 'crm-companies',
+            builder: (context, state) => const CustomersListPage(),
+          ),
+          GoRoute(
+            path: '/crm/companies/new',
+            name: 'crm-company-new',
+            builder: (context, state) => const CustomerFormPage(),
+          ),
+          GoRoute(
+            path: '/crm/companies/:id',
+            name: 'crm-company-detail',
+            builder: (context, state) =>
+                CustomerDetailPage(customerId: state.pathParameters['id']!),
+          ),
+          GoRoute(
+            path: '/crm/companies/:id/edit',
+            name: 'crm-company-edit',
+            builder: (context, state) =>
+                CustomerFormPage(customerId: state.pathParameters['id']),
+          ),
+          GoRoute(
             path: '/crm/leads',
             name: 'crm-leads',
             builder: (context, state) => const LeadsListPage(),
@@ -177,18 +217,77 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/crm/follow-ups',
             name: 'crm-follow-ups',
-            builder: (context, state) => const CrmFollowUpsPage(),
+            builder: (context, state) => CrmFollowUpsPage(
+              initialCustomerId: state.uri.queryParameters['customerId'],
+            ),
           ),
           GoRoute(
             path: '/crm/analytics',
             name: 'crm-analytics',
             builder: (context, state) => const CrmAnalyticsPage(),
           ),
+          GoRoute(
+            path: '/crm/meetings',
+            name: 'crm-meetings',
+            builder: (context, state) => const MeetingsListPage(),
+          ),
+          GoRoute(
+            path: '/crm/calls',
+            name: 'crm-calls',
+            builder: (context, state) => const CallsListPage(),
+          ),
+          GoRoute(
+            path: '/crm/site-visits',
+            name: 'crm-site-visits',
+            builder: (context, state) => const SiteVisitsListPage(),
+          ),
 
-          // ─── Phase 2 Modules (placeholder pages) ─────────────────
-          GoRoute(path: '/sales/quotations', builder: (_, __) => _comingSoon('Sales — Phase 2')),
-          GoRoute(path: '/sales/orders', builder: (_, __) => _comingSoon('Sales Orders — Phase 2')),
-          GoRoute(path: '/sales/invoices', builder: (_, __) => _comingSoon('Invoices — Phase 2')),
+          // ─── Commercial Quotations & Sales Orders ────────────────
+          GoRoute(
+            path: '/crm/quotations',
+            name: 'crm-quotations',
+            builder: (context, state) => const QuotationsListPage(),
+          ),
+          GoRoute(
+            path: '/crm/quotations/new',
+            name: 'crm-quotation-new',
+            builder: (context, state) => QuotationFormPage(
+              prefillCustomerId: state.uri.queryParameters['customerId'],
+              prefillOpportunityId: state.uri.queryParameters['opportunityId'],
+              prefillPanelSpecId: state.uri.queryParameters['panelSpecId'],
+            ),
+          ),
+          GoRoute(
+            path: '/crm/quotations/:id',
+            name: 'crm-quotation-detail',
+            builder: (context, state) =>
+                QuotationDetailPage(quotationId: state.pathParameters['id']!),
+          ),
+          GoRoute(
+            path: '/sales/quotations',
+            name: 'sales-quotations',
+            builder: (context, state) => const QuotationsListPage(),
+          ),
+          GoRoute(
+            path: '/crm/sales-orders',
+            name: 'crm-sales-orders',
+            builder: (context, state) => const SalesOrdersListPage(),
+          ),
+          GoRoute(
+            path: '/sales/orders',
+            name: 'sales-orders',
+            builder: (context, state) => const SalesOrdersListPage(),
+          ),
+          GoRoute(
+            path: '/crm/invoices',
+            name: 'crm-invoices',
+            builder: (context, state) => const InvoicesListPage(),
+          ),
+          GoRoute(
+            path: '/sales/invoices',
+            name: 'sales-invoices',
+            builder: (context, state) => const InvoicesListPage(),
+          ),
           // ─── Purchase / Procurement Module ───────────────────────
           GoRoute(
             path: '/purchase',
@@ -205,7 +304,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             name: 'purchase-inward',
             builder: (context, state) => const PurchaseDashboardPage(),
           ),
-          GoRoute(path: '/inventory', builder: (_, __) => _comingSoon('Inventory — Phase 2')),
+          GoRoute(
+            path: '/inventory',
+            name: 'inventory',
+            builder: (context, state) => const InventoryDashboardPage(),
+          ),
           // ─── Production / Panel Manufacturing ────────────────────
           GoRoute(
             path: '/production',
@@ -223,38 +326,25 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) =>
                 PanelSpecDetailPage(specId: state.pathParameters['id']!),
           ),
-          GoRoute(path: '/accounts', builder: (_, __) => _comingSoon('Accounts — Phase 2')),
+          GoRoute(
+            path: '/accounts',
+            name: 'accounts',
+            builder: (context, state) => const AccountsDashboardPage(),
+          ),
           GoRoute(
             path: '/hr',
             name: 'hr-dashboard',
             builder: (context, state) => const HrDashboardPage(),
           ),
           GoRoute(
-            path: '/hr/employees',
-            name: 'hr-employees',
-            builder: (context, state) => const HrDashboardPage(),
+            path: '/reports',
+            name: 'reports',
+            builder: (context, state) => const ReportsDashboardPage(),
           ),
-          GoRoute(path: '/reports', builder: (_, __) => _comingSoon('Reports — Phase 2')),
-          GoRoute(path: '/admin', builder: (_, __) => const AdminDashboardPage()),
+          GoRoute(
+              path: '/admin', builder: (_, __) => const AdminDashboardPage()),
         ],
       ),
     ],
   );
 });
-
-Widget _comingSoon(String label) => Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.construction, size: 64, color: Colors.grey),
-            const SizedBox(height: 16),
-            Text(label,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            const Text('This module will be available in Phase 2',
-                style: TextStyle(color: Colors.grey)),
-          ],
-        ),
-      ),
-    );

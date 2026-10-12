@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import 'package:saark_erp_mobile/features/admin/data/admin_repository.dart';
+import 'package:saark_erp_mobile/features/admin/presentation/pages/admin_organization_page.dart';
 import 'package:saark_erp_mobile/features/hr/models/hr_models.dart';
 
 class AdminDashboardPage extends ConsumerStatefulWidget {
@@ -31,7 +32,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _loadInitialData();
   }
 
@@ -151,7 +152,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF26522).withOpacity(0.15),
+                      color: const Color(0xFFF26522).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: const Icon(Icons.verified_user_rounded, color: Color(0xFFF26522), size: 22),
@@ -227,9 +228,9 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: Colors.orange.withOpacity(0.18),
+                                color: Colors.orange.withValues(alpha: 0.18),
                                 borderRadius: BorderRadius.circular(3),
-                                border: Border.all(color: Colors.orange.withOpacity(0.4)),
+                                border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
                               ),
                               child: const Text(
                                 'Pending Approval',
@@ -571,6 +572,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: TabBar(
               controller: _tabController,
+              isScrollable: true,
               indicatorColor: const Color(0xFFF26522),
               indicatorWeight: 3,
               labelColor: const Color(0xFFF26522),
@@ -596,6 +598,10 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                             '$pendingCount',
                             style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                           ),
+                        ),
+                        const Tab(
+                          icon: Icon(Icons.account_tree_outlined, size: 18),
+                          text: 'Organization',
                         ),
                       ],
                     ],
@@ -641,6 +647,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                         children: [
                           _buildRequestsTabContent(),
                           _buildUsersTabContent(),
+                          const AdminOrganizationPage(),
                         ],
                       ),
           ),
@@ -661,7 +668,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFFF26522).withOpacity(0.15),
+              color: const Color(0xFFF26522).withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(6),
             ),
             child: const Icon(Icons.admin_panel_settings_rounded, color: Color(0xFFF26522), size: 24),
@@ -686,9 +693,9 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
-              color: pendingCount > 0 ? const Color(0xFFF26522).withOpacity(0.15) : Colors.white10,
+              color: pendingCount > 0 ? const Color(0xFFF26522).withValues(alpha: 0.15) : Colors.white10,
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: pendingCount > 0 ? const Color(0xFFF26522).withOpacity(0.4) : Colors.white24),
+              border: Border.all(color: pendingCount > 0 ? const Color(0xFFF26522).withValues(alpha: 0.4) : Colors.white24),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -915,7 +922,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                                       children: [
                                         CircleAvatar(
                                           radius: 13,
-                                          backgroundColor: const Color(0xFFF26522).withOpacity(0.2),
+                                          backgroundColor: const Color(0xFFF26522).withValues(alpha: 0.2),
                                           child: Text(
                                             r.firstName.isNotEmpty ? r.firstName[0].toUpperCase() : 'E',
                                             style: const TextStyle(color: Color(0xFFF26522), fontSize: 11, fontWeight: FontWeight.bold),
@@ -928,9 +935,9 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                                     DataCell(Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(
-                                        color: Colors.blue.withOpacity(0.15),
+                                        color: Colors.blue.withValues(alpha: 0.15),
                                         borderRadius: BorderRadius.circular(3),
-                                        border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                                        border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
                                       ),
                                       child: Text(
                                         r.departmentName ?? 'Unassigned',
@@ -950,9 +957,9 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                                     DataCell(Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(
-                                        color: isPending ? Colors.orange.withOpacity(0.18) : Colors.green.withOpacity(0.18),
+                                        color: isPending ? Colors.orange.withValues(alpha: 0.18) : Colors.green.withValues(alpha: 0.18),
                                         borderRadius: BorderRadius.circular(3),
-                                        border: Border.all(color: isPending ? Colors.orange.withOpacity(0.4) : Colors.green.withOpacity(0.4)),
+                                        border: Border.all(color: isPending ? Colors.orange.withValues(alpha: 0.4) : Colors.green.withValues(alpha: 0.4)),
                                       ),
                                       child: Text(
                                         isPending ? 'Pending Approval' : 'Approved / Active',
@@ -980,7 +987,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                                           : Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                               decoration: BoxDecoration(
-                                                color: Colors.white.withOpacity(0.06),
+                                                color: Colors.white.withValues(alpha: 0.06),
                                                 borderRadius: BorderRadius.circular(3),
                                               ),
                                               child: const Row(
@@ -1080,9 +1087,9 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                                     margin: const EdgeInsets.only(right: 4),
                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: Colors.purple.withOpacity(0.18),
+                                      color: Colors.purple.withValues(alpha: 0.18),
                                       borderRadius: BorderRadius.circular(3),
-                                      border: Border.all(color: Colors.purple.withOpacity(0.3)),
+                                      border: Border.all(color: Colors.purple.withValues(alpha: 0.3)),
                                     ),
                                     child: Text(r, style: const TextStyle(color: Colors.purpleAccent, fontSize: 10, fontWeight: FontWeight.w600)),
                                   );
@@ -1091,7 +1098,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                               DataCell(Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: isActive ? Colors.green.withOpacity(0.15) : Colors.red.withOpacity(0.15),
+                                  color: isActive ? Colors.green.withValues(alpha: 0.15) : Colors.red.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(3),
                                 ),
                                 child: Text(

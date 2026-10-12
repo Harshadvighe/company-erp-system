@@ -104,6 +104,50 @@ class AdminRepository {
 
   AdminRepository(this._dio);
 
+  dynamic _payload(dynamic response) {
+    var payload = response;
+    for (var i = 0; i < 3 && payload is Map && payload.containsKey('data'); i++) {
+      payload = payload['data'];
+    }
+    return payload;
+  }
+
+  Future<List<Map<String, dynamic>>> getOrganizationStructure() async {
+    final response = await _dio.get('/admin/organization');
+    final payload = _payload(response.data);
+    if (payload is! List) {
+      throw const FormatException('Unexpected organization response');
+    }
+    return payload
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+  }
+
+  Future<void> updateDepartmentHead(String departmentId, String? staffId) async {
+    await _dio.put('/admin/departments/$departmentId/head', data: {
+      'staffId': staffId,
+    });
+  }
+
+  Future<Map<String, dynamic>> saveTeam(
+    Map<String, dynamic> payload, {
+    String? teamId,
+  }) async {
+    final response = teamId == null
+        ? await _dio.post('/admin/teams', data: payload)
+        : await _dio.put('/admin/teams/$teamId', data: payload);
+    final data = _payload(response.data);
+    if (data is! Map) {
+      throw const FormatException('Unexpected saved team response');
+    }
+    return Map<String, dynamic>.from(data);
+  }
+
+  Future<void> deleteTeam(String teamId) async {
+    await _dio.delete('/admin/teams/$teamId');
+  }
+
   Future<List<Employee>> getEmployeeRequests({
     String? departmentId,
     String? status,

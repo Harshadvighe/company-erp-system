@@ -9,10 +9,13 @@ class VendorRegistrationModal extends ConsumerStatefulWidget {
   const VendorRegistrationModal({super.key, required this.onSuccess});
 
   @override
-  ConsumerState<VendorRegistrationModal> createState() => _VendorRegistrationModalState();
+  ConsumerState<VendorRegistrationModal> createState() =>
+      _VendorRegistrationModalState();
 }
 
-class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModal> with SingleTickerProviderStateMixin {
+class _VendorRegistrationModalState
+    extends ConsumerState<VendorRegistrationModal>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final _formKey = GlobalKey<FormState>();
 
@@ -51,6 +54,11 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
   final _branchCtrl = TextEditingController();
 
   bool _isSubmitting = false;
+  bool _isVerifyingGst = false;
+  bool _gstVerified = false;
+  String? _verifiedGstin;
+  String? _gstProviderRef;
+  final Map<TextEditingController, String> _gstAutoFilledValues = {};
 
   @override
   void initState() {
@@ -85,6 +93,224 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
     super.dispose();
   }
 
+  bool _isValidGstin(String value) {
+    const characters = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    final gstin = value.trim().toUpperCase();
+    if (!RegExp(r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$')
+        .hasMatch(gstin)) {
+      return false;
+    }
+
+    var factor = 1;
+    var sum = 0;
+    for (var index = 0; index < 14; index++) {
+      final codePoint = characters.indexOf(gstin[index]);
+      var product = factor * codePoint;
+      factor = factor == 2 ? 1 : 2;
+      product = (product ~/ 36) + (product % 36);
+      sum += product;
+    }
+    final checkCodePoint = (36 - (sum % 36)) % 36;
+    return characters[checkCodePoint] == gstin[14];
+  }
+
+  void _fillGstValueIfEmpty(TextEditingController controller, String? value) {
+    if (value == null || value.isEmpty) return;
+    if (controller.text.trim().isEmpty ||
+        _gstAutoFilledValues.containsKey(controller)) {
+      controller.text = value;
+      _gstAutoFilledValues[controller] = value;
+    }
+  }
+
+  void _onPincodeChanged(String val) {
+    final cleanPin = val.trim();
+    if (cleanPin.length == 6 && RegExp(r'^\d{6}$').hasMatch(cleanPin)) {
+      const pinPrefixes = {
+        '411': {'district': 'Pune', 'state': 'Maharashtra', 'city': 'Pune'},
+        '412': {
+          'district': 'Pune',
+          'state': 'Maharashtra',
+          'city': 'Pune Rural'
+        },
+        '413': {
+          'district': 'Solapur',
+          'state': 'Maharashtra',
+          'city': 'Solapur'
+        },
+        '414': {
+          'district': 'Ahmednagar',
+          'state': 'Maharashtra',
+          'city': 'Ahmednagar'
+        },
+        '415': {'district': 'Satara', 'state': 'Maharashtra', 'city': 'Satara'},
+        '416': {
+          'district': 'Kolhapur',
+          'state': 'Maharashtra',
+          'city': 'Kolhapur'
+        },
+        '400': {'district': 'Mumbai', 'state': 'Maharashtra', 'city': 'Mumbai'},
+        '401': {'district': 'Thane', 'state': 'Maharashtra', 'city': 'Thane'},
+        '421': {'district': 'Thane', 'state': 'Maharashtra', 'city': 'Kalyan'},
+        '422': {'district': 'Nashik', 'state': 'Maharashtra', 'city': 'Nashik'},
+        '424': {'district': 'Dhule', 'state': 'Maharashtra', 'city': 'Dhule'},
+        '425': {
+          'district': 'Jalgaon',
+          'state': 'Maharashtra',
+          'city': 'Jalgaon'
+        },
+        '431': {
+          'district': 'Chhatrapati Sambhaji Nagar',
+          'state': 'Maharashtra',
+          'city': 'Chhatrapati Sambhaji Nagar'
+        },
+        '440': {'district': 'Nagpur', 'state': 'Maharashtra', 'city': 'Nagpur'},
+        '444': {
+          'district': 'Amravati',
+          'state': 'Maharashtra',
+          'city': 'Amravati'
+        },
+        '380': {
+          'district': 'Ahmedabad',
+          'state': 'Gujarat',
+          'city': 'Ahmedabad'
+        },
+        '390': {'district': 'Vadodara', 'state': 'Gujarat', 'city': 'Vadodara'},
+        '395': {'district': 'Surat', 'state': 'Gujarat', 'city': 'Surat'},
+        '360': {'district': 'Rajkot', 'state': 'Gujarat', 'city': 'Rajkot'},
+        '560': {
+          'district': 'Bengaluru',
+          'state': 'Karnataka',
+          'city': 'Bengaluru'
+        },
+        '500': {
+          'district': 'Hyderabad',
+          'state': 'Telangana',
+          'city': 'Hyderabad'
+        },
+        '600': {
+          'district': 'Chennai',
+          'state': 'Tamil Nadu',
+          'city': 'Chennai'
+        },
+        '110': {'district': 'Delhi', 'state': 'Delhi', 'city': 'New Delhi'},
+        '122': {'district': 'Gurugram', 'state': 'Haryana', 'city': 'Gurugram'},
+        '201': {
+          'district': 'Gautam Buddha Nagar',
+          'state': 'Uttar Pradesh',
+          'city': 'Noida'
+        },
+        '700': {
+          'district': 'Kolkata',
+          'state': 'West Bengal',
+          'city': 'Kolkata'
+        },
+        '302': {'district': 'Jaipur', 'state': 'Rajasthan', 'city': 'Jaipur'},
+      };
+      final prefix = cleanPin.substring(0, 3);
+      final mapped = pinPrefixes[prefix];
+      if (mapped != null) {
+        if (_stateCtrl.text.trim().isEmpty) _stateCtrl.text = mapped['state']!;
+        if (_cityCtrl.text.trim().isEmpty && mapped['city'] != null)
+          _cityCtrl.text = mapped['city']!;
+      }
+    }
+  }
+
+  Future<void> _verifyGst() async {
+    final gstin = _gstinCtrl.text.trim().toUpperCase();
+    if (!_isValidGstin(gstin)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Enter a valid 15-digit GSTIN with a correct checksum digit'),
+          backgroundColor: AppTheme.warning,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isVerifyingGst = true;
+      _gstVerified = false;
+      _gstProviderRef = null;
+      _verifiedGstin = null;
+    });
+
+    try {
+      final repo = ref.read(purchaseRepositoryProvider);
+      final res = await repo.verifyGst(gstin);
+      final data = res['data'] as Map<String, dynamic>? ?? res;
+
+      if (data['valid'] == true) {
+        final legalName = data['legalName']?.toString();
+        final tradeName = data['tradeName']?.toString();
+        final address = data['address']?.toString();
+        final city = data['city']?.toString();
+        final pincode = data['pincode']?.toString();
+        final state = data['state']?.toString();
+        final pan = data['pan']?.toString() ??
+            (gstin.length >= 12 ? gstin.substring(2, 12) : null);
+
+        if (mounted) {
+          setState(() {
+            _gstVerified = true;
+            _verifiedGstin = gstin;
+            _gstProviderRef = data['providerRef']?.toString() ?? 'LIVE';
+
+            _fillGstValueIfEmpty(_panCtrl, pan);
+            _fillGstValueIfEmpty(_legalNameCtrl, legalName);
+            _fillGstValueIfEmpty(
+              _companyNameCtrl,
+              tradeName != null && tradeName.isNotEmpty ? tradeName : legalName,
+            );
+            _fillGstValueIfEmpty(_addressCtrl, address);
+            _fillGstValueIfEmpty(_cityCtrl, city);
+            _fillGstValueIfEmpty(_pincodeCtrl, pincode);
+            _fillGstValueIfEmpty(_stateCtrl, state);
+          });
+
+          final hasDetails = legalName != null && legalName.isNotEmpty;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.verified, color: Colors.white, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      hasDetails
+                          ? 'GSTIN verified: $legalName'
+                          : 'GSTIN verified successfully & details filled.',
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: AppTheme.success,
+            ),
+          );
+        }
+      } else {
+        throw Exception(
+            data['message'] ?? 'GSTIN verification was not successful');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'GST Verification Failed: ${e.toString().replaceAll('Exception: ', '')}'),
+            backgroundColor: AppTheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isVerifyingGst = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -101,7 +327,8 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: AppTheme.darkBorder)),
+                  border:
+                      Border(bottom: BorderSide(color: AppTheme.darkBorder)),
                 ),
                 child: Row(
                   children: [
@@ -111,7 +338,8 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
                         color: AppTheme.primary.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.storefront, color: AppTheme.primary, size: 24),
+                      child: const Icon(Icons.storefront,
+                          color: AppTheme.primary, size: 24),
                     ),
                     const SizedBox(width: 12),
                     const Expanded(
@@ -119,14 +347,21 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text('Vendor Registration & Master Onboarding',
-                              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                          Text('Register vendor, multi-contacts, banking details & credit limits',
-                              style: TextStyle(color: AppTheme.darkTextSecondary, fontSize: 12)),
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold)),
+                          Text(
+                              'Register vendor, multi-contacts, banking details & credit limits',
+                              style: TextStyle(
+                                  color: AppTheme.darkTextSecondary,
+                                  fontSize: 12)),
                         ],
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, color: AppTheme.darkTextSecondary),
+                      icon: const Icon(Icons.close,
+                          color: AppTheme.darkTextSecondary),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                   ],
@@ -140,10 +375,18 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
                 labelColor: AppTheme.primary,
                 unselectedLabelColor: AppTheme.darkTextSecondary,
                 tabs: const [
-                  Tab(icon: Icon(Icons.business, size: 18), text: 'Master Info'),
-                  Tab(icon: Icon(Icons.person, size: 18), text: 'Contact & Address'),
-                  Tab(icon: Icon(Icons.account_balance, size: 18), text: 'Bank Account'),
-                  Tab(icon: Icon(Icons.handshake, size: 18), text: 'Commercial Terms'),
+                  Tab(
+                      icon: Icon(Icons.business, size: 18),
+                      text: 'Master Info'),
+                  Tab(
+                      icon: Icon(Icons.person, size: 18),
+                      text: 'Contact & Address'),
+                  Tab(
+                      icon: Icon(Icons.account_balance, size: 18),
+                      text: 'Bank Account'),
+                  Tab(
+                      icon: Icon(Icons.handshake, size: 18),
+                      text: 'Commercial Terms'),
                 ],
               ),
 
@@ -156,7 +399,133 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
                     SingleChildScrollView(
                       padding: const EdgeInsets.all(20),
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // GSTIN Section with Auto Fetch
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: TextFormField(
+                                  controller: _gstinCtrl,
+                                  textCapitalization:
+                                      TextCapitalization.characters,
+                                  style: const TextStyle(color: Colors.white),
+                                  decoration: InputDecoration(
+                                    labelText: 'GSTIN (15-digit)*',
+                                    hintText: '27AAACS1234F1Z1',
+                                    prefixIcon: const Icon(Icons.receipt_long,
+                                        color: AppTheme.primary, size: 20),
+                                    suffixIcon: _isVerifyingGst
+                                        ? const Padding(
+                                            padding: EdgeInsets.all(12),
+                                            child: SizedBox(
+                                              width: 18,
+                                              height: 18,
+                                              child: CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                  color: Colors.white),
+                                            ),
+                                          )
+                                        : (_gstVerified &&
+                                                _verifiedGstin ==
+                                                    _gstinCtrl.text
+                                                        .trim()
+                                                        .toUpperCase())
+                                            ? const Icon(Icons.check_circle,
+                                                color: AppTheme.success)
+                                            : null,
+                                    filled: true,
+                                    fillColor: AppTheme.darkBackground,
+                                    border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10)),
+                                  ),
+                                  validator: (v) => v == null || v.isEmpty
+                                      ? 'Required'
+                                      : null,
+                                  onChanged: (val) {
+                                    if (_verifiedGstin != null &&
+                                        val.trim().toUpperCase() !=
+                                            _verifiedGstin) {
+                                      setState(() {
+                                        _gstVerified = false;
+                                        _verifiedGstin = null;
+                                      });
+                                    }
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              SizedBox(
+                                height: 52,
+                                child: ElevatedButton.icon(
+                                  onPressed:
+                                      _isVerifyingGst ? null : _verifyGst,
+                                  icon: _isVerifyingGst
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2),
+                                        )
+                                      : const Icon(
+                                          Icons.cloud_download_outlined,
+                                          size: 18),
+                                  label: const Text(
+                                    'Auto Fetch',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.primary,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10)),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (_gstVerified &&
+                              _verifiedGstin ==
+                                  _gstinCtrl.text.trim().toUpperCase())
+                            Container(
+                              margin: const EdgeInsets.only(top: 8, bottom: 6),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: AppTheme.success.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                    color: AppTheme.success
+                                        .withValues(alpha: 0.3)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.verified,
+                                      color: AppTheme.success, size: 18),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'GSTIN Verified • ${_legalNameCtrl.text.isNotEmpty ? _legalNameCtrl.text : _companyNameCtrl.text}',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppTheme.success,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          const SizedBox(height: 14),
                           Row(
                             children: [
                               Expanded(
@@ -164,13 +533,17 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
                                   controller: _companyNameCtrl,
                                   style: const TextStyle(color: Colors.white),
                                   decoration: InputDecoration(
-                                    labelText: 'Vendor Name*',
+                                    labelText: 'Vendor Display / Company Name*',
                                     hintText: 'e.g. L&T Electrical Solutions',
                                     filled: true,
                                     fillColor: AppTheme.darkBackground,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                    border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10)),
                                   ),
-                                  validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                                  validator: (v) => v == null || v.isEmpty
+                                      ? 'Required'
+                                      : null,
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -183,7 +556,9 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
                                     hintText: 'Larsen & Toubro Limited',
                                     filled: true,
                                     fillColor: AppTheme.darkBackground,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                    border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10)),
                                   ),
                                 ),
                               ),
@@ -194,57 +569,22 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
                             children: [
                               Expanded(
                                 child: TextFormField(
-                                  controller: _gstinCtrl,
-                                  style: const TextStyle(color: Colors.white),
-                                  decoration: InputDecoration(
-                                    labelText: 'GSTIN*',
-                                    hintText: '27AAACS1234F1Z1',
-                                    filled: true,
-                                    fillColor: AppTheme.darkBackground,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                                  ),
-                                  validator: (v) => v == null || v.isEmpty ? 'Required' : null,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: TextFormField(
                                   controller: _panCtrl,
+                                  textCapitalization:
+                                      TextCapitalization.characters,
                                   style: const TextStyle(color: Colors.white),
                                   decoration: InputDecoration(
                                     labelText: 'PAN Number*',
                                     hintText: 'AAACS1234F',
                                     filled: true,
                                     fillColor: AppTheme.darkBackground,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                    border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10)),
                                   ),
-                                  validator: (v) => v == null || v.isEmpty ? 'Required' : null,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 14),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: DropdownButtonFormField<String>(
-                                  initialValue: _vendorType,
-                                  dropdownColor: AppTheme.darkSurface,
-                                  style: const TextStyle(color: Colors.white),
-                                  decoration: InputDecoration(
-                                    labelText: 'Vendor Type*',
-                                    filled: true,
-                                    fillColor: AppTheme.darkBackground,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                                  ),
-                                  items: const [
-                                    DropdownMenuItem(value: 'MANUFACTURER', child: Text('Manufacturer')),
-                                    DropdownMenuItem(value: 'DEALER', child: Text('Authorized Dealer')),
-                                    DropdownMenuItem(value: 'DISTRIBUTOR', child: Text('Distributor')),
-                                    DropdownMenuItem(value: 'SERVICE_PROVIDER', child: Text('Service Provider')),
-                                    DropdownMenuItem(value: 'OTHER', child: Text('Other')),
-                                  ],
-                                  onChanged: (v) => setState(() => _vendorType = v!),
+                                  validator: (v) => v == null || v.isEmpty
+                                      ? 'Required'
+                                      : null,
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -257,28 +597,70 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
                                     labelText: 'Vendor Category*',
                                     filled: true,
                                     fillColor: AppTheme.darkBackground,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                    border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10)),
                                   ),
                                   items: const [
-                                    DropdownMenuItem(value: 'STRATEGIC_TIER_1', child: Text('Strategic Tier 1')),
-                                    DropdownMenuItem(value: 'STANDARD', child: Text('Standard')),
-                                    DropdownMenuItem(value: 'PREFERRED', child: Text('Preferred')),
+                                    DropdownMenuItem(
+                                        value: 'STRATEGIC_TIER_1',
+                                        child: Text('Strategic Tier 1')),
+                                    DropdownMenuItem(
+                                        value: 'STANDARD',
+                                        child: Text('Standard')),
+                                    DropdownMenuItem(
+                                        value: 'PREFERRED',
+                                        child: Text('Preferred')),
                                   ],
-                                  onChanged: (v) => setState(() => _vendorCategory = v!),
+                                  onChanged: (v) =>
+                                      setState(() => _vendorCategory = v!),
                                 ),
                               ),
                             ],
+                          ),
+                          const SizedBox(height: 14),
+                          DropdownButtonFormField<String>(
+                            initialValue: _vendorType,
+                            dropdownColor: AppTheme.darkSurface,
+                            style: const TextStyle(color: Colors.white),
+                            decoration: InputDecoration(
+                              labelText: 'Vendor Type*',
+                              filled: true,
+                              fillColor: AppTheme.darkBackground,
+                              border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10)),
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                  value: 'MANUFACTURER',
+                                  child: Text('Manufacturer')),
+                              DropdownMenuItem(
+                                  value: 'DEALER',
+                                  child: Text('Authorized Dealer')),
+                              DropdownMenuItem(
+                                  value: 'DISTRIBUTOR',
+                                  child: Text('Distributor')),
+                              DropdownMenuItem(
+                                  value: 'SERVICE_PROVIDER',
+                                  child: Text('Service Provider')),
+                              DropdownMenuItem(
+                                  value: 'OTHER', child: Text('Other')),
+                            ],
+                            onChanged: (v) => setState(() => _vendorType = v!),
                           ),
                           const SizedBox(height: 14),
                           TextFormField(
                             controller: _productsCtrl,
                             style: const TextStyle(color: Colors.white),
                             decoration: InputDecoration(
-                              labelText: 'Products Supplied / Materials Offered',
-                              hintText: 'e.g. Copper Cables, VFD Drives, MCBs, Enclosures',
+                              labelText:
+                                  'Products Supplied / Materials Offered',
+                              hintText:
+                                  'e.g. Copper Cables, VFD Drives, MCBs, Enclosures',
                               filled: true,
                               fillColor: AppTheme.darkBackground,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                              border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10)),
                             ),
                           ),
                         ],
@@ -301,9 +683,13 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
                                     hintText: 'e.g. Rajesh Sharma',
                                     filled: true,
                                     fillColor: AppTheme.darkBackground,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                    border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10)),
                                   ),
-                                  validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                                  validator: (v) => v == null || v.isEmpty
+                                      ? 'Required'
+                                      : null,
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -316,7 +702,9 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
                                     hintText: 'Sales Director',
                                     filled: true,
                                     fillColor: AppTheme.darkBackground,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                    border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10)),
                                   ),
                                 ),
                               ),
@@ -334,9 +722,13 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
                                     hintText: '+91 98200 12345',
                                     filled: true,
                                     fillColor: AppTheme.darkBackground,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                    border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10)),
                                   ),
-                                  validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                                  validator: (v) => v == null || v.isEmpty
+                                      ? 'Required'
+                                      : null,
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -349,9 +741,13 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
                                     hintText: 'sales@vendor.com',
                                     filled: true,
                                     fillColor: AppTheme.darkBackground,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                    border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10)),
                                   ),
-                                  validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                                  validator: (v) => v == null || v.isEmpty
+                                      ? 'Required'
+                                      : null,
                                 ),
                               ),
                             ],
@@ -365,9 +761,11 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
                               hintText: 'Plot 105, Industrial Zone Phase 2',
                               filled: true,
                               fillColor: AppTheme.darkBackground,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                              border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10)),
                             ),
-                            validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                            validator: (v) =>
+                                v == null || v.isEmpty ? 'Required' : null,
                           ),
                           const SizedBox(height: 14),
                           Row(
@@ -381,9 +779,13 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
                                     hintText: 'Mumbai',
                                     filled: true,
                                     fillColor: AppTheme.darkBackground,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                    border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10)),
                                   ),
-                                  validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                                  validator: (v) => v == null || v.isEmpty
+                                      ? 'Required'
+                                      : null,
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -395,23 +797,31 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
                                     labelText: 'State*',
                                     filled: true,
                                     fillColor: AppTheme.darkBackground,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                    border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10)),
                                   ),
-                                  validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                                  validator: (v) => v == null || v.isEmpty
+                                      ? 'Required'
+                                      : null,
                                 ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: TextFormField(
                                   controller: _pincodeCtrl,
+                                  keyboardType: TextInputType.number,
                                   style: const TextStyle(color: Colors.white),
                                   decoration: InputDecoration(
                                     labelText: 'Pincode',
                                     hintText: '400001',
                                     filled: true,
                                     fillColor: AppTheme.darkBackground,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                    border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10)),
                                   ),
+                                  onChanged: _onPincodeChanged,
                                 ),
                               ),
                             ],
@@ -433,7 +843,8 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
                               hintText: 'As per bank records',
                               filled: true,
                               fillColor: AppTheme.darkBackground,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                              border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10)),
                             ),
                           ),
                           const SizedBox(height: 14),
@@ -448,7 +859,9 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
                                     hintText: 'e.g. HDFC Bank Ltd',
                                     filled: true,
                                     fillColor: AppTheme.darkBackground,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                    border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10)),
                                   ),
                                 ),
                               ),
@@ -462,7 +875,9 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
                                     hintText: '50200001234567',
                                     filled: true,
                                     fillColor: AppTheme.darkBackground,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                    border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10)),
                                   ),
                                 ),
                               ),
@@ -480,7 +895,9 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
                                     hintText: 'HDFC0000123',
                                     filled: true,
                                     fillColor: AppTheme.darkBackground,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                    border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10)),
                                   ),
                                 ),
                               ),
@@ -494,7 +911,9 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
                                     hintText: 'Fort, Mumbai',
                                     filled: true,
                                     fillColor: AppTheme.darkBackground,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                    border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10)),
                                   ),
                                 ),
                               ),
@@ -520,16 +939,29 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
                                     labelText: 'Payment Terms*',
                                     filled: true,
                                     fillColor: AppTheme.darkBackground,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                    border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10)),
                                   ),
                                   items: const [
-                                    DropdownMenuItem(value: 'IMMEDIATE', child: Text('Immediate / Advance')),
-                                    DropdownMenuItem(value: 'NET_15', child: Text('Net 15 Days')),
-                                    DropdownMenuItem(value: 'NET_30', child: Text('Net 30 Days')),
-                                    DropdownMenuItem(value: 'NET_45', child: Text('Net 45 Days')),
-                                    DropdownMenuItem(value: 'NET_60', child: Text('Net 60 Days')),
+                                    DropdownMenuItem(
+                                        value: 'IMMEDIATE',
+                                        child: Text('Immediate / Advance')),
+                                    DropdownMenuItem(
+                                        value: 'NET_15',
+                                        child: Text('Net 15 Days')),
+                                    DropdownMenuItem(
+                                        value: 'NET_30',
+                                        child: Text('Net 30 Days')),
+                                    DropdownMenuItem(
+                                        value: 'NET_45',
+                                        child: Text('Net 45 Days')),
+                                    DropdownMenuItem(
+                                        value: 'NET_60',
+                                        child: Text('Net 60 Days')),
                                   ],
-                                  onChanged: (v) => setState(() => _paymentTerms = v!),
+                                  onChanged: (v) =>
+                                      setState(() => _paymentTerms = v!),
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -542,7 +974,9 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
                                     labelText: 'Approved Credit Limit (₹)',
                                     filled: true,
                                     fillColor: AppTheme.darkBackground,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                    border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10)),
                                   ),
                                 ),
                               ),
@@ -557,7 +991,8 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
 
               // Footer
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 decoration: const BoxDecoration(
                   border: Border(top: BorderSide(color: AppTheme.darkBorder)),
                 ),
@@ -565,22 +1000,32 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     TextButton(
-                      onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
-                      child: const Text('Cancel', style: TextStyle(color: AppTheme.darkTextSecondary)),
+                      onPressed: _isSubmitting
+                          ? null
+                          : () => Navigator.of(context).pop(),
+                      child: const Text('Cancel',
+                          style: TextStyle(color: AppTheme.darkTextSecondary)),
                     ),
                     const SizedBox(width: 12),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.primary,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
                       ),
                       onPressed: _isSubmitting ? null : _submitVendor,
                       icon: _isSubmitting
-                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                  color: Colors.white, strokeWidth: 2))
                           : const Icon(Icons.check, size: 18),
-                      label: Text(_isSubmitting ? 'Registering...' : 'Register Vendor'),
+                      label: Text(
+                          _isSubmitting ? 'Registering...' : 'Register Vendor'),
                     ),
                   ],
                 ),
@@ -605,7 +1050,9 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
 
       final payload = {
         'companyName': _companyNameCtrl.text.trim(),
-        'legalName': _legalNameCtrl.text.trim().isEmpty ? null : _legalNameCtrl.text.trim(),
+        'legalName': _legalNameCtrl.text.trim().isEmpty
+            ? null
+            : _legalNameCtrl.text.trim(),
         'gstin': _gstinCtrl.text.trim(),
         'pan': _panCtrl.text.trim(),
         'vendorType': _vendorType,
@@ -638,7 +1085,9 @@ class _VendorRegistrationModalState extends ConsumerState<VendorRegistrationModa
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Vendor registration failed: $e'), backgroundColor: AppTheme.error),
+          SnackBar(
+              content: Text('Vendor registration failed: $e'),
+              backgroundColor: AppTheme.error),
         );
       }
     } finally {

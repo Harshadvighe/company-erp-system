@@ -53,8 +53,8 @@ class _LeadsListPageState extends ConsumerState<LeadsListPage>
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
-            if (Navigator.canPop(context)) {
-              Navigator.pop(context);
+            if (context.canPop()) {
+              context.pop();
             } else {
               context.go('/crm/dashboard');
             }
@@ -196,7 +196,7 @@ class _LeadsListPageState extends ConsumerState<LeadsListPage>
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: status,
+                initialValue: status,
                 decoration: const InputDecoration(labelText: 'Qualification Result'),
                 items: const [
                   DropdownMenuItem(value: 'QUALIFIED', child: Text('QUALIFIED')),
@@ -713,7 +713,7 @@ class _LeadFormSheetState extends ConsumerState<_LeadFormSheet> {
         'priority': _priority,
       });
       if (mounted) {
-        Navigator.pop(context);
+        context.pop();
         widget.onSuccess();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Lead created'), backgroundColor: AppTheme.success),
@@ -730,3 +730,4 @@ class _LeadFormSheetState extends ConsumerState<_LeadFormSheet> {
     }
   }
 }
+

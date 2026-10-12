@@ -1,10 +1,12 @@
 import {
   Controller, Get, Post, Put, Patch, Delete,
-  Body, Param, Query, UseGuards, Req,
+  Body, Param, Query, UseGuards, Req, BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { RequirePermissions } from '../../common/decorators/permissions.decorator';
 import { ApproveEmployeeRequestDto } from './dto/approve-employee-request.dto';
 
 @ApiTags('Administration')
@@ -36,6 +38,14 @@ export class AdminController {
     return this.adminService.getDepartments();
   }
 
+  @Get('organization')
+  @UseGuards(PermissionsGuard)
+  @RequirePermissions('STAFF:VIEW')
+  @ApiOperation({ summary: 'Get departments, department heads, teams and memberships' })
+  getOrganizationStructure() {
+    return this.adminService.getOrganizationStructure();
+  }
+
   @Post('departments')
   @ApiOperation({ summary: 'Create department' })
   createDepartment(@Body() dto: { name: string; code: string }) {
@@ -48,10 +58,53 @@ export class AdminController {
     return this.adminService.updateDepartment(id, dto);
   }
 
+  @Put('departments/:id/head')
+  @UseGuards(PermissionsGuard)
+  @RequirePermissions('ORGANIZATION:EDIT')
+  @ApiOperation({ summary: 'Assign or remove the department head' })
+  updateDepartmentHead(@Param('id') id: string, @Body() dto: any) {
+    if (!dto || !Object.prototype.hasOwnProperty.call(dto, 'staffId')) {
+      throw new BadRequestException('staffId must be provided as a staff ID or null');
+    }
+    return this.adminService.updateDepartmentHead(id, dto.staffId);
+  }
+
   @Delete('departments/:id')
   @ApiOperation({ summary: 'Delete department (only if no users assigned)' })
   deleteDepartment(@Param('id') id: string) {
     return this.adminService.deleteDepartment(id);
+  }
+
+  @Get('teams')
+  @UseGuards(PermissionsGuard)
+  @RequirePermissions('STAFF:VIEW')
+  @ApiOperation({ summary: 'List teams, optionally filtered by department' })
+  getTeams(@Query('departmentId') departmentId?: string) {
+    return this.adminService.getTeams(departmentId);
+  }
+
+  @Post('teams')
+  @UseGuards(PermissionsGuard)
+  @RequirePermissions('ORGANIZATION:CREATE')
+  @ApiOperation({ summary: 'Create team with leader and members' })
+  createTeam(@Body() dto: any) {
+    return this.adminService.createTeam(dto);
+  }
+
+  @Put('teams/:id')
+  @UseGuards(PermissionsGuard)
+  @RequirePermissions('ORGANIZATION:EDIT')
+  @ApiOperation({ summary: 'Update team, leader and members' })
+  updateTeam(@Param('id') id: string, @Body() dto: any) {
+    return this.adminService.updateTeam(id, dto);
+  }
+
+  @Delete('teams/:id')
+  @UseGuards(PermissionsGuard)
+  @RequirePermissions('ORGANIZATION:DELETE')
+  @ApiOperation({ summary: 'Delete team' })
+  deleteTeam(@Param('id') id: string) {
+    return this.adminService.deleteTeam(id);
   }
 
   // ─── DESIGNATIONS ──────────────────────────────────────────────────────────

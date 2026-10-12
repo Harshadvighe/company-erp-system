@@ -41,14 +41,26 @@ class StaffMember {
       email: json['email'] ?? '',
       mobile: json['mobile'],
       profilePhoto: json['profilePhoto'],
-      departmentName: json['department']?['name'],
-      designationName: json['designation']?['name'],
-      reportingManagerName: json['reportingManager']?['fullName'],
+      departmentName: _relationValue(json['department'], 'name') ??
+          json['departmentName']?.toString(),
+      designationName: _relationValue(json['designation'], 'name') ??
+          json['designationName']?.toString(),
+      reportingManagerName:
+          _relationValue(json['reportingManager'], 'fullName'),
       status: json['status'] ?? 'ACTIVE',
       location: json['location'],
       notes: json['notes'],
       hasUserAccount: json['user'] != null,
     );
+  }
+
+  static String? _relationValue(dynamic relation, String key) {
+    if (relation is Map) return relation[key]?.toString();
+    if (relation is List && relation.isNotEmpty && relation.first is Map) {
+      return relation.first[key]?.toString();
+    }
+    if (relation is String) return relation;
+    return null;
   }
 }
 
@@ -68,8 +80,25 @@ class StaffRepository {
     if (status != null) queryParams['status'] = status;
 
     final response = await _dio.get('/staff', queryParameters: queryParams);
-    final data = response.data as List;
-    return data.map((json) => StaffMember.fromJson(json)).toList();
+    dynamic payload = response.data;
+    for (var depth = 0; depth < 3 && payload is Map; depth++) {
+      if (payload['data'] is List) {
+        payload = payload['data'];
+        break;
+      }
+      if (payload['data'] is Map) {
+        payload = payload['data'];
+        continue;
+      }
+      break;
+    }
+    if (payload is! List) {
+      throw const FormatException('Unexpected staff list response');
+    }
+    return payload
+        .whereType<Map>()
+        .map((json) => StaffMember.fromJson(Map<String, dynamic>.from(json)))
+        .toList();
   }
 
   Future<StaffMember> createStaff(Map<String, dynamic> payload) async {
@@ -92,6 +121,7 @@ final staffRepositoryProvider = Provider<StaffRepository>((ref) {
   return StaffRepository(ref.watch(dioProvider));
 });
 
-final staffListProvider = FutureProvider.family<List<StaffMember>, String?>((ref, search) async {
+final staffListProvider =
+    FutureProvider.family<List<StaffMember>, String?>((ref, search) async {
   return ref.watch(staffRepositoryProvider).getStaffList(search: search);
 });

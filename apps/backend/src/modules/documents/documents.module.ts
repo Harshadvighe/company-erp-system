@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { DocumentsController } from './documents.controller';
 import { DocumentsService } from './documents.service';
 import { PrismaService } from '../../core/database/prisma.service';
+import { SequenceService } from '../../core/database/sequence.service';
 import {
   FileStorageService,
   LocalFileStorageService,
@@ -13,6 +14,7 @@ import {
   providers: [
     DocumentsService,
     PrismaService,
+    SequenceService,
     {
       provide: FileStorageService,
       useFactory: () => {

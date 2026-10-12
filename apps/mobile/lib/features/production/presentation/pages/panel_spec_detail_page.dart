@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:saark_erp_mobile/core/theme/app_theme.dart';
 import 'package:saark_erp_mobile/features/production/data/panel_manufacturing_repository.dart';
+import 'package:saark_erp_mobile/features/crm/data/sales_repository.dart';
 
 class PanelSpecDetailPage extends ConsumerWidget {
   final String specId;
@@ -61,12 +62,12 @@ class PanelSpecDetailPage extends ConsumerWidget {
             ],
           ),
         ),
-        data: (spec) => _buildContent(context, spec, currency),
+        data: (spec) => _buildContent(context, spec, currency, ref),
       ),
     );
   }
 
-  Widget _buildContent(BuildContext context, Map<String, dynamic> spec, NumberFormat currency) {
+  Widget _buildContent(BuildContext context, Map<String, dynamic> spec, NumberFormat currency, WidgetRef ref) {
     final isDesktop = MediaQuery.of(context).size.width >= 1024;
     final bomItems = (spec['bomItems'] as List?)?.cast<Map<String, dynamic>>() ?? [];
 
@@ -76,7 +77,7 @@ class PanelSpecDetailPage extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header Card
-          _buildHeaderCard(context, spec),
+          _buildHeaderCard(context, spec, ref),
           const SizedBox(height: 20),
 
           // Main 2-column or 1-column layout
@@ -121,7 +122,7 @@ class PanelSpecDetailPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildHeaderCard(BuildContext context, Map<String, dynamic> spec) {
+  Widget _buildHeaderCard(BuildContext context, Map<String, dynamic> spec, WidgetRef ref) {
     final code = spec['panelCode'] ?? '—';
     final type = (spec['panelType'] ?? '').toString().replaceAll('_', ' ');
     final status = spec['status'] ?? 'DRAFT';
@@ -165,10 +166,28 @@ class PanelSpecDetailPage extends ConsumerWidget {
             ],
           ),
           ElevatedButton.icon(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Generating official Sales Quotation for this panel...')),
-              );
+            onPressed: () async {
+              try {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Auto-building Commercial Proposal from Engineering BOM...')),
+                );
+                final repo = ref.read(salesRepositoryProvider);
+                final res = await repo.createFromPanelSpec(spec['id'], {
+                  'includeBomDetails': true,
+                });
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Quotation ${res['code']} generated successfully!')),
+                  );
+                  context.push('/crm/quotations/${res['id']}');
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to generate quotation: $e')),
+                  );
+                }
+              }
             },
             icon: const Icon(Icons.receipt_long, size: 16),
             label: const Text('Generate Quotation'),

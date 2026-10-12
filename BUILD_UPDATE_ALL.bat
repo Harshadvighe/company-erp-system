@@ -1,41 +1,53 @@
 @echo off
 title Saark ERP - Build and Update Everything (Web and Mobile)
+setlocal enabledelayedexpansion
+
+set "PATH=D:\saark\flutter\bin;C:\Program Files\nodejs;%PATH%"
+
+set "FLUTTER_CMD=flutter"
+if exist "D:\saark\flutter\bin\flutter.bat" (
+    set "FLUTTER_CMD=D:\saark\flutter\bin\flutter.bat"
+)
+
 echo ========================================================
 echo Building Saark ERP Web and Mobile App with all changes...
 echo ========================================================
+
+echo [0/3] Stopping running backend processes to release file locks...
+taskkill /f /im node.exe >nul 2>nul
 
 echo.
 echo [1/3] Generating Prisma Client and Compiling Backend (NestJS)...
 cd /d "%~dp0apps\backend"
 call npx prisma generate
-if %errorlevel% neq 0 (
+if !errorlevel! neq 0 (
     echo [ERROR] Prisma generate failed!
     pause
-    exit /b %errorlevel%
+    exit /b !errorlevel!
 )
 
 call npx prisma db push --skip-generate
-if %errorlevel% neq 0 (
+if !errorlevel! neq 0 (
     echo [ERROR] Prisma db push failed!
     pause
-    exit /b %errorlevel%
+    exit /b !errorlevel!
 )
 
 call npm run build
-if %errorlevel% neq 0 (
+if !errorlevel! neq 0 (
     echo [ERROR] Backend build failed!
     pause
-    exit /b %errorlevel%
+    exit /b !errorlevel!
 )
 
 echo.
 echo [2/3] Compiling Web Application (Flutter Web)...
 cd /d "%~dp0apps\mobile"
-call flutter build web --release
-if %errorlevel% neq 0 (
+call "!FLUTTER_CMD!" build web --release
+if !errorlevel! neq 0 (
     echo [ERROR] Flutter Web build failed!
     pause
-    exit /b %errorlevel%
+    exit /b !errorlevel!
 )
 if exist "%~dp0apps\mobile\build\web" (
     xcopy "%~dp0apps\mobile\build\web" "%~dp0apps\backend\public\" /E /I /Y >nul
@@ -44,8 +56,8 @@ if exist "%~dp0apps\mobile\build\web" (
 echo.
 echo [3/3] Compiling Android APK (Flutter APK)...
 cd /d "%~dp0apps\mobile"
-call flutter build apk --debug
-if %errorlevel% neq 0 (
+call "!FLUTTER_CMD!" build apk --debug
+if !errorlevel! neq 0 (
     echo [WARNING] APK build had an error or was skipped.
 )
 
@@ -57,3 +69,4 @@ echo - Mobile APK: apps\mobile\build\app\outputs\flutter-apk\app-debug.apk
 echo - Backend:    apps\backend\dist
 echo ========================================================
 pause
+

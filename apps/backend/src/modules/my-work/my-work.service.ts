@@ -11,6 +11,21 @@ export class MyWorkService {
       const staff = await this.prisma.staff.findFirst({ where: { userId: user?.id } });
       if (staff) staffId = staff.id;
     }
+    const currentStaff = staffId
+      ? await this.prisma.staff.findUnique({
+          where: { id: staffId },
+          include: {
+            headedDepartment: { select: { id: true } },
+            ledTeams: { select: { id: true } },
+            teamMemberships: {
+              select: {
+                role: true,
+                team: { select: { id: true, leaderStaffId: true } },
+              },
+            },
+          },
+        })
+      : null;
 
     const isAdmin =
       user?.roles?.includes('ROLE_ADMIN') ||
@@ -18,19 +33,63 @@ export class MyWorkService {
       user?.roles?.includes('SUPER_ADMIN');
 
     // 1. My Assigned Tasks
-    const myTasks = staffId
-      ? await this.prisma.task.findMany({
+    const teamRoles = new Map<string, string>();
+    for (const team of currentStaff?.ledTeams ?? []) {
+      teamRoles.set(team.id, 'LEADER');
+    }
+    for (const membership of currentStaff?.teamMemberships ?? []) {
+      teamRoles.set(
+        membership.team.id,
+        membership.team.leaderStaffId === staffId ? 'LEADER' : membership.role,
+      );
+    }
+    const teamIds = [...teamRoles.keys()];
+    const departmentIds = currentStaff?.headedDepartment
+      ? [currentStaff.headedDepartment.id]
+      : [];
+    const taskScope = staffId
+      ? {
+          OR: [
+            { assigneeStaffId: staffId },
+            ...(teamIds.length ? [{ teamId: { in: teamIds } }] : []),
+            ...(departmentIds.length
+              ? [{ departmentId: { in: departmentIds } }]
+              : []),
+          ],
+        }
+      : undefined;
+    const myTasks = taskScope
+      ? (await this.prisma.task.findMany({
           where: {
-            assigneeStaffId: staffId,
+            ...taskScope,
             status: { notIn: ['COMPLETED', 'CANCELLED'] },
           },
           include: {
             project: { select: { id: true, name: true, projectNumber: true } },
             milestone: { select: { id: true, title: true } },
+            department: { select: { id: true, name: true } },
+            team: {
+              select: {
+                id: true,
+                name: true,
+                departments: {
+                  select: { department: { select: { id: true, name: true } } },
+                },
+              },
+            },
           },
           orderBy: [{ priority: 'desc' }, { dueDate: 'asc' }],
           take: 10,
-        })
+        })).map((task) => ({
+          ...task,
+          assignmentScope:
+            task.assigneeStaffId === staffId
+              ? 'DIRECT'
+              : task.teamId && teamRoles.has(task.teamId)
+                  ? 'TEAM'
+                  : 'DEPARTMENT',
+          teamRole: task.teamId ? teamRoles.get(task.teamId) ?? null : null,
+        }))
       : [];
 
     // 2. My Projects
@@ -85,19 +144,19 @@ export class MyWorkService {
     }
 
     // 4. Task Counts
-    const taskStats = staffId
+    const taskStats = staffId && taskScope
       ? {
           assigned: await this.prisma.task.count({
-            where: { assigneeStaffId: staffId },
+            where: taskScope,
           }),
           inProgress: await this.prisma.task.count({
-            where: { assigneeStaffId: staffId, status: 'IN_PROGRESS' },
+            where: { ...taskScope, status: 'IN_PROGRESS' },
           }),
           completed: await this.prisma.task.count({
-            where: { assigneeStaffId: staffId, status: 'COMPLETED' },
+            where: { ...taskScope, status: 'COMPLETED' },
           }),
           pendingReview: await this.prisma.task.count({
-            where: { assigneeStaffId: staffId, status: 'REVIEW' },
+            where: { ...taskScope, status: 'REVIEW' },
           }),
         }
       : { assigned: 0, inProgress: 0, completed: 0, pendingReview: 0 };

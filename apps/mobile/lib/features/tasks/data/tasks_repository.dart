@@ -9,8 +9,15 @@ class TaskItem {
   final String? description;
   final String? projectName;
   final String? projectNumber;
+  final String? departmentName;
+  final String? teamName;
   final String? assigneeName;
   final String? assigneeStaffId;
+  final String? assignedByStaffId;
+  final String? createdByStaffId;
+  final String assignmentScope;
+  final String? teamRole;
+  final bool isTaskAssigner;
   final String priority;
   final String status;
   final DateTime? dueDate;
@@ -26,8 +33,15 @@ class TaskItem {
     this.description,
     this.projectName,
     this.projectNumber,
+    this.departmentName,
+    this.teamName,
     this.assigneeName,
     this.assigneeStaffId,
+    this.assignedByStaffId,
+    this.createdByStaffId,
+    this.assignmentScope = '',
+    this.teamRole,
+    this.isTaskAssigner = false,
     required this.priority,
     required this.status,
     this.dueDate,
@@ -38,18 +52,32 @@ class TaskItem {
   });
 
   factory TaskItem.fromJson(Map<String, dynamic> json) {
+    final project = json['project'] is Map ? json['project'] as Map : const {};
+    final team = json['team'] is Map ? json['team'] as Map : const {};
+    final department =
+        json['department'] is Map ? json['department'] as Map : const {};
+    final assignee =
+        json['assignee'] is Map ? json['assignee'] as Map : const {};
     return TaskItem(
       id: json['id'] ?? '',
       taskNumber: json['taskNumber'] ?? '',
       title: json['title'] ?? '',
       description: json['description'],
-      projectName: json['project']?['name'],
-      projectNumber: json['project']?['projectNumber'],
-      assigneeName: json['assignee']?['fullName'],
+      projectName: project['name']?.toString(),
+      projectNumber: project['projectNumber']?.toString(),
+      departmentName: department['name']?.toString(),
+      teamName: team['name']?.toString(),
+      assigneeName: assignee['fullName']?.toString(),
       assigneeStaffId: json['assigneeStaffId'],
+      assignedByStaffId: json['assignedByStaffId']?.toString(),
+      createdByStaffId: json['createdByStaffId']?.toString(),
+      assignmentScope: json['assignmentScope']?.toString() ?? 'DIRECT',
+      teamRole: json['teamRole']?.toString(),
+      isTaskAssigner: json['isTaskAssigner'] == true,
       priority: json['priority'] ?? 'MEDIUM',
       status: json['status'] ?? 'CREATED',
-      dueDate: json['dueDate'] != null ? DateTime.tryParse(json['dueDate']) : null,
+      dueDate:
+          json['dueDate'] != null ? DateTime.tryParse(json['dueDate']) : null,
       estimatedHours: (json['estimatedHours'] ?? 0).toDouble(),
       actualHours: (json['actualHours'] ?? 0).toDouble(),
       progress: json['progress'] ?? 0,
@@ -65,6 +93,16 @@ class TasksRepository {
 
   TasksRepository(this._dio);
 
+  dynamic _payload(dynamic response) {
+    var payload = response;
+    for (var i = 0;
+        i < 3 && payload is Map && payload.containsKey('data');
+        i++) {
+      payload = payload['data'];
+    }
+    return payload;
+  }
+
   Future<List<TaskItem>> getTasks({
     String? status,
     String? priority,
@@ -73,36 +111,85 @@ class TasksRepository {
   }) async {
     final queryParams = <String, dynamic>{};
     if (status != null && status != 'ALL') queryParams['status'] = status;
-    if (priority != null && priority != 'ALL') queryParams['priority'] = priority;
+    if (priority != null && priority != 'ALL') {
+      queryParams['priority'] = priority;
+    }
     if (projectId != null) queryParams['projectId'] = projectId;
     if (search != null && search.isNotEmpty) queryParams['search'] = search;
 
     final response = await _dio.get('/tasks', queryParameters: queryParams);
-    final data = response.data as List;
-    return data.map((json) => TaskItem.fromJson(json)).toList();
+    final data = _payload(response.data);
+    if (data is! List) throw const FormatException('Unexpected tasks response');
+    return data
+        .whereType<Map>()
+        .map((json) => TaskItem.fromJson(Map<String, dynamic>.from(json)))
+        .toList();
   }
 
   Future<List<TaskItem>> getMyTasks() async {
     final response = await _dio.get('/tasks/my-tasks');
-    final data = response.data as List;
-    return data.map((json) => TaskItem.fromJson(json)).toList();
+    final data = _payload(response.data);
+    if (data is! List) {
+      throw const FormatException('Unexpected my tasks response');
+    }
+    return data
+        .whereType<Map>()
+        .map((json) => TaskItem.fromJson(Map<String, dynamic>.from(json)))
+        .toList();
+  }
+
+  Future<List<Map<String, dynamic>>> getMyLedTeams() async {
+    final response = await _dio.get('/tasks/my-led-teams');
+    final data = _payload(response.data);
+    if (data is! List) {
+      throw const FormatException('Unexpected led teams response');
+    }
+    return data
+        .whereType<Map>()
+        .map((team) => Map<String, dynamic>.from(team))
+        .toList();
+  }
+
+  Future<List<Map<String, dynamic>>> getAssignableStaff() async {
+    final response = await _dio.get('/tasks/assignees');
+    final data = _payload(response.data);
+    if (data is! List) {
+      throw const FormatException('Unexpected assignable staff response');
+    }
+    return data
+        .whereType<Map>()
+        .map((staff) => Map<String, dynamic>.from(staff))
+        .toList();
   }
 
   Future<Map<String, dynamic>> getTaskDetail(String id) async {
     final response = await _dio.get('/tasks/$id');
-    return response.data as Map<String, dynamic>;
+    final data = _payload(response.data);
+    if (data is! Map) {
+      throw const FormatException('Unexpected task detail response');
+    }
+    return Map<String, dynamic>.from(data);
   }
 
   Future<TaskItem> createTask(Map<String, dynamic> payload) async {
     final response = await _dio.post('/tasks', data: payload);
-    return TaskItem.fromJson(response.data);
+    final data = _payload(response.data);
+    if (data is! Map) {
+      throw const FormatException('Unexpected created task response');
+    }
+    return TaskItem.fromJson(Map<String, dynamic>.from(data));
   }
 
-  Future<void> updateTaskStatus(String id, String status, {String? notes}) async {
+  Future<void> updateTaskStatus(String id, String status,
+      {String? notes}) async {
     await _dio.patch('/tasks/$id/status', data: {
       'status': status,
       if (notes != null) 'notes': notes,
     });
+  }
+
+  Future<void> updateTaskProgress(String id, int progress) async {
+    await _dio.patch('/tasks/$id/progress', data: {'progress': progress});
   }
 
   Future<void> addComment(String id, String comment) async {
@@ -114,7 +201,8 @@ final tasksRepositoryProvider = Provider<TasksRepository>((ref) {
   return TasksRepository(ref.watch(dioProvider));
 });
 
-final allTasksProvider = FutureProvider.family<List<TaskItem>, String?>((ref, status) async {
+final allTasksProvider =
+    FutureProvider.family<List<TaskItem>, String?>((ref, status) async {
   return ref.watch(tasksRepositoryProvider).getTasks(status: status);
 });
 

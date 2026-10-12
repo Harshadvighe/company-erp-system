@@ -22,6 +22,12 @@ export class VendorsController {
     return this.vendorsService.findOne(id);
   }
 
+  @Post('verify-gst')
+  @ApiOperation({ summary: 'Verify GSTIN and auto-fetch business details from GST Portal' })
+  verifyGst(@Body('gstin') gstin: string, @Req() req: any) {
+    return this.vendorsService.verifyGst(gstin, req.user, req.ip);
+  }
+
   @Post()
   @ApiOperation({ summary: 'Create vendor master record' })
   create(@Body() dto: any, @Req() req: any) {

@@ -214,9 +214,12 @@ class _PanelSpecFormPageState extends ConsumerState<PanelSpecFormPage> {
           const SizedBox(width: 16),
         ],
       ),
-      body: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
+      body: Center(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 1200),
+          child: Form(
+            key: _formKey,
+            child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: isDesktop
               ? Row(
@@ -250,7 +253,9 @@ class _PanelSpecFormPageState extends ConsumerState<PanelSpecFormPage> {
                 ),
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 
   Widget _buildGeneralSpecsCard(CustomerListState customersState) {

@@ -58,8 +58,11 @@ class ProjectItem {
       memberCount: json['_count']?['members'] ?? 0,
       milestoneCount: json['_count']?['milestones'] ?? 0,
       taskCount: json['_count']?['tasks'] ?? 0,
-      startDate: json['startDate'] != null ? DateTime.tryParse(json['startDate']) : null,
-      endDate: json['endDate'] != null ? DateTime.tryParse(json['endDate']) : null,
+      startDate: json['startDate'] != null
+          ? DateTime.tryParse(json['startDate'])
+          : null,
+      endDate:
+          json['endDate'] != null ? DateTime.tryParse(json['endDate']) : null,
     );
   }
 }
@@ -69,24 +72,49 @@ class ProjectsRepository {
 
   ProjectsRepository(this._dio);
 
-  Future<List<ProjectItem>> getProjects({String? status, String? search}) async {
+  dynamic _unwrap(dynamic value) {
+    var payload = value;
+    for (var depth = 0;
+        depth < 3 && payload is Map && payload.containsKey('data');
+        depth++) {
+      payload = payload['data'];
+    }
+    return payload;
+  }
+
+  Future<List<ProjectItem>> getProjects(
+      {String? status, String? search}) async {
     final queryParams = <String, dynamic>{};
     if (status != null && status != 'ALL') queryParams['status'] = status;
     if (search != null && search.isNotEmpty) queryParams['search'] = search;
 
     final response = await _dio.get('/projects', queryParameters: queryParams);
-    final data = response.data as List;
-    return data.map((json) => ProjectItem.fromJson(json)).toList();
+    final data = _unwrap(response.data);
+    if (data is! List) {
+      throw const FormatException('Unexpected projects list response');
+    }
+    return data
+        .whereType<Map>()
+        .map((json) => ProjectItem.fromJson(Map<String, dynamic>.from(json)))
+        .toList();
   }
 
   Future<Map<String, dynamic>> getProjectDetail(String id) async {
     final response = await _dio.get('/projects/$id');
-    return response.data as Map<String, dynamic>;
+    final data = _unwrap(response.data);
+    if (data is! Map) {
+      throw const FormatException('Unexpected project detail response');
+    }
+    return Map<String, dynamic>.from(data);
   }
 
   Future<ProjectItem> createProject(Map<String, dynamic> payload) async {
     final response = await _dio.post('/projects', data: payload);
-    return ProjectItem.fromJson(response.data);
+    final data = _unwrap(response.data);
+    if (data is! Map) {
+      throw const FormatException('Unexpected created project response');
+    }
+    return ProjectItem.fromJson(Map<String, dynamic>.from(data));
   }
 }
 
@@ -94,6 +122,7 @@ final projectsRepositoryProvider = Provider<ProjectsRepository>((ref) {
   return ProjectsRepository(ref.watch(dioProvider));
 });
 
-final projectsListProvider = FutureProvider.family<List<ProjectItem>, String?>((ref, search) async {
+final projectsListProvider =
+    FutureProvider.family<List<ProjectItem>, String?>((ref, search) async {
   return ref.watch(projectsRepositoryProvider).getProjects(search: search);
 });

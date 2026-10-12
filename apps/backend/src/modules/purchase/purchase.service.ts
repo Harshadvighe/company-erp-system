@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
 import { AuditService } from '../../core/audit/audit.service';
+import { SequenceService } from '../../core/database/sequence.service';
 
 function round2(val: number): number {
   return Math.round((Number(val) || 0) * 100) / 100;
@@ -16,6 +17,7 @@ export class PurchaseService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
+    private readonly sequenceService: SequenceService,
   ) {}
 
   // ══════════════════════════════════════════════════════════════════════════════
@@ -311,9 +313,7 @@ export class PurchaseService {
   }
 
   async createRequisition(dto: any, userId?: string, userName?: string) {
-    const year = new Date().getFullYear();
-    const count = await this.prisma.purchaseRequisition.count();
-    const prNumber = `PR-${year}-${String(count + 1).padStart(5, '0')}`;
+    const prNumber = await this.sequenceService.nextPrNumber();
 
     let totalEstimated = 0;
     const itemsData = (dto.items || []).map((it: any) => {
@@ -406,9 +406,7 @@ export class PurchaseService {
   }
 
   async createRFQ(dto: any, userId?: string) {
-    const year = new Date().getFullYear();
-    const count = await this.prisma.rFQ.count();
-    const rfqNumber = `RFQ-${year}-${String(count + 1).padStart(5, '0')}`;
+    const rfqNumber = await this.sequenceService.nextRfqNumber();
 
     const items = (dto.items || []).map((i: any) => ({
       productId: i.productId,
@@ -450,9 +448,7 @@ export class PurchaseService {
   }
 
   async addVendorQuotation(dto: any, userId?: string) {
-    const year = new Date().getFullYear();
-    const count = await this.prisma.vendorQuotation.count();
-    const quotationNumber = dto.quotationNumber || `VQ-${year}-${String(count + 1).padStart(5, '0')}`;
+    const quotationNumber = dto.quotationNumber || (await this.sequenceService.nextVendorQuotationNumber());
 
     let subtotal = 0;
     let taxAmount = 0;
@@ -592,9 +588,7 @@ export class PurchaseService {
   }
 
   async createPurchaseOrder(dto: any, userId?: string) {
-    const year = new Date().getFullYear();
-    const count = await this.prisma.purchaseOrder.count();
-    const poNumber = `PO-${year}-${String(count + 1).padStart(5, '0')}`;
+    const poNumber = await this.sequenceService.nextPoNumber();
 
     let subtotal = 0;
     let taxAmount = 0;
@@ -716,9 +710,7 @@ export class PurchaseService {
   }
 
   async createInwardEntry(dto: any, userId?: string, userName?: string) {
-    const year = new Date().getFullYear();
-    const count = await this.prisma.inwardEntry.count();
-    const inwardNumber = `GRN-${year}-${String(count + 1).padStart(5, '0')}`;
+    const inwardNumber = await this.sequenceService.nextGrnNumber();
 
     if (!dto.vendorId) throw new BadRequestException('Vendor is required for Inward Entry');
     if (!dto.vendorInvoiceNumber) {
@@ -1089,8 +1081,7 @@ export class PurchaseService {
 
   async createPurchaseInvoice(dto: any, userId?: string) {
     const year = new Date().getFullYear();
-    const count = await this.prisma.purchaseInvoice.count();
-    const invoiceNumber = dto.invoiceNumber || `PINV-${year}-${String(count + 1).padStart(5, '0')}`;
+    const invoiceNumber = dto.invoiceNumber || (await this.sequenceService.nextPurchaseInvoiceNumber());
 
     let subtotal = 0;
     let taxAmount = 0;
@@ -1181,9 +1172,7 @@ export class PurchaseService {
       );
     }
 
-    const year = new Date().getFullYear();
-    const count = await this.prisma.purchasePayment.count();
-    const paymentNumber = `PAY-${year}-${String(count + 1).padStart(5, '0')}`;
+    const paymentNumber = await this.sequenceService.nextPurchasePaymentNumber();
 
     // 1. Create Payment record
     const payment = await this.prisma.purchasePayment.create({
@@ -1360,9 +1349,7 @@ export class PurchaseService {
   }
 
   async createOutwardDocument(dto: any, userId?: string) {
-    const year = new Date().getFullYear();
-    const count = await this.prisma.outwardDocument.count();
-    const outwardNumber = `OUT-${year}-${String(count + 1).padStart(5, '0')}`;
+    const outwardNumber = await this.sequenceService.nextOutwardDocumentNumber();
 
     const items = (dto.items || []).map((i: any) => ({
       productId: i.productId,
@@ -1428,9 +1415,7 @@ export class PurchaseService {
   }
 
   async createPurchaseReturn(dto: any, userId?: string) {
-    const year = new Date().getFullYear();
-    const count = await this.prisma.purchaseReturn.count();
-    const returnNumber = `PRET-${year}-${String(count + 1).padStart(5, '0')}`;
+    const returnNumber = await this.sequenceService.nextPurchaseReturnNumber();
 
     let subtotal = 0;
     const items = (dto.items || []).map((it: any) => {
@@ -1449,7 +1434,17 @@ export class PurchaseService {
       };
     });
 
-    const taxAmount = round2(subtotal * 0.18); // Default GST or calculated
+    // Use provided taxAmount or calculate from items if taxRate is supplied
+    const itemsTaxTotal = round2(
+      (dto.items || []).reduce((acc: number, it: any) => {
+        const qty = Number(it.quantity) || 1;
+        const rate = Number(it.rate) || 0;
+        const base = round2(qty * rate);
+        const taxRate = Number(it.taxRate) || 0;
+        return acc + round2((base * taxRate) / 100);
+      }, 0),
+    );
+    const taxAmount = itemsTaxTotal > 0 ? itemsTaxTotal : round2(Number(dto.taxAmount) || 0);
     const grandTotal = round2(subtotal + taxAmount);
 
     const purchaseReturn = await this.prisma.purchaseReturn.create({

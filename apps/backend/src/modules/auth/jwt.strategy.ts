@@ -9,7 +9,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET || 'saark_erp_production_jwt_secret_key_2026_x98123',
+      secretOrKey: process.env.JWT_SECRET,
     });
   }
 
@@ -46,6 +46,24 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       return ur.role.code;
     });
 
+    // Resolve staffId — read-only lookup, no writes on every request
+    let staffId = user.staff?.id;
+    if (!staffId) {
+      const existingStaff = await this.prisma.staff.findFirst({
+        where: { OR: [{ userId: user.id }, { email: user.email }] },
+        select: { id: true, userId: true },
+      });
+      if (existingStaff) {
+        staffId = existingStaff.id;
+        // Link userId if missing — one-time fix, fire-and-forget
+        if (!existingStaff.userId) {
+          this.prisma.staff
+            .update({ where: { id: existingStaff.id }, data: { userId: user.id } })
+            .catch(() => null);
+        }
+      }
+    }
+
     return {
       id: user.id,
       username: user.username,
@@ -53,7 +71,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       fullName: user.fullName,
       designation: user.designation,
       department: user.department?.name,
-      staffId: user.staff?.id,
+      staffId,
       roles,
       permissions: Array.from(permissions),
     };

@@ -9,7 +9,16 @@ class MyWorkRepository {
 
   Future<Map<String, dynamic>> getSummary() async {
     final response = await _dio.get('/my-work/summary');
-    return response.data as Map<String, dynamic>;
+    dynamic payload = response.data;
+    for (var depth = 0;
+        depth < 3 && payload is Map && payload.containsKey('data');
+        depth++) {
+      payload = payload['data'];
+    }
+    if (payload is! Map) {
+      throw const FormatException('Unexpected my work summary response');
+    }
+    return Map<String, dynamic>.from(payload);
   }
 }
 

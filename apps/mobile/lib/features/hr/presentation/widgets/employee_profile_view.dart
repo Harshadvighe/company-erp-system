@@ -4,7 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:saark_erp_mobile/features/hr/data/hr_repository.dart';
 import 'package:saark_erp_mobile/features/admin/data/admin_repository.dart';
 import 'package:saark_erp_mobile/features/hr/models/hr_models.dart';
-
+import 'package:saark_erp_mobile/core/utils/web_utils.dart';
 /// Data class representing an Employee record matching the enterprise HR UI
 class EmployeeProfileRecord {
   String dbId;
@@ -482,6 +482,40 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
           ElevatedButton.icon(
             onPressed: () {
               Navigator.pop(ctx);
+              
+              final htmlBuffer = StringBuffer();
+              htmlBuffer.writeln('<html xmlns:x="urn:schemas-microsoft-com:office:excel">');
+              htmlBuffer.writeln('<head><meta charset="utf-8"></head><body>');
+              htmlBuffer.writeln('<table border="1"><tr>');
+              htmlBuffer.writeln('<th style="background-color: #F26522; color: white;">Employee ID</th>');
+              htmlBuffer.writeln('<th style="background-color: #F26522; color: white;">Full Name</th>');
+              htmlBuffer.writeln('<th style="background-color: #F26522; color: white;">Department</th>');
+              htmlBuffer.writeln('<th style="background-color: #F26522; color: white;">Designation</th>');
+              htmlBuffer.writeln('<th style="background-color: #F26522; color: white;">Work Email</th>');
+              htmlBuffer.writeln('<th style="background-color: #F26522; color: white;">Phone</th>');
+              htmlBuffer.writeln('<th style="background-color: #F26522; color: white;">Status</th>');
+              htmlBuffer.writeln('</tr>');
+
+              String escapeHtml(String? v) {
+                if (v == null || v.isEmpty) return '';
+                return v.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+              }
+
+              for (final r in _records) {
+                htmlBuffer.writeln('<tr>');
+                htmlBuffer.writeln('<td>${escapeHtml(r.id)}</td>');
+                htmlBuffer.writeln('<td>${escapeHtml(r.fullName)}</td>');
+                htmlBuffer.writeln('<td>${escapeHtml(r.departmentName)}</td>');
+                htmlBuffer.writeln('<td>${escapeHtml(r.designation)}</td>');
+                htmlBuffer.writeln('<td>${escapeHtml(r.workEmail)}</td>');
+                htmlBuffer.writeln('<td>${escapeHtml(r.phone)}</td>');
+                htmlBuffer.writeln('<td>${escapeHtml(r.status)}</td>');
+                htmlBuffer.writeln('</tr>');
+              }
+              htmlBuffer.writeln('</table></body></html>');
+
+              downloadExcelFile(htmlBuffer.toString(), 'saark_employees.xls');
+
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Employee records exported successfully.'),
@@ -559,10 +593,10 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: pendingCount > 0 ? const Color(0xFFF26522).withOpacity(0.18) : Colors.green.withOpacity(0.18),
+                  color: pendingCount > 0 ? const Color(0xFFF26522).withValues(alpha: 0.18) : Colors.green.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(3),
                   border: Border.all(
-                    color: pendingCount > 0 ? const Color(0xFFF26522).withOpacity(0.4) : Colors.green.withOpacity(0.4),
+                    color: pendingCount > 0 ? const Color(0xFFF26522).withValues(alpha: 0.4) : Colors.green.withValues(alpha: 0.4),
                   ),
                 ),
                 child: Row(
@@ -939,7 +973,7 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
+                  color: Colors.white.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(3),
                 ),
                 child: const Row(
@@ -1138,10 +1172,10 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
                       onSelectChanged: (_) => _selectRecord(r),
                       color: WidgetStateProperty.resolveWith<Color?>((states) {
                         if (isSelected) {
-                          return const Color(0xFFF26522).withOpacity(0.18);
+                          return const Color(0xFFF26522).withValues(alpha: 0.18);
                         }
                         if (states.contains(WidgetState.hovered)) {
-                          return Colors.white.withOpacity(0.04);
+                          return Colors.white.withValues(alpha: 0.04);
                         }
                         return Colors.transparent;
                       }),
@@ -1158,7 +1192,7 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
                         DataCell(Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.15),
+                            color: Colors.blue.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(3),
                           ),
                           child: Text(
@@ -1171,9 +1205,9 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
                         DataCell(Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: isPending ? Colors.orange.withOpacity(0.18) : Colors.green.withOpacity(0.18),
+                            color: isPending ? Colors.orange.withValues(alpha: 0.18) : Colors.green.withValues(alpha: 0.18),
                             borderRadius: BorderRadius.circular(3),
-                            border: Border.all(color: isPending ? Colors.orange.withOpacity(0.4) : Colors.green.withOpacity(0.4)),
+                            border: Border.all(color: isPending ? Colors.orange.withValues(alpha: 0.4) : Colors.green.withValues(alpha: 0.4)),
                           ),
                           child: Text(
                             isPending ? 'Pending Admin Approval' : 'Approved / Active',

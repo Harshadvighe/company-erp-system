@@ -1,9 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
+import { SequenceService } from '../../core/database/sequence.service';
 
 @Injectable()
 export class PanelManufacturingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly sequenceService: SequenceService,
+  ) {}
 
   async findAll() {
     return this.prisma.panelSpecification.findMany({
@@ -28,8 +32,7 @@ export class PanelManufacturingService {
   }
 
   async create(dto: any) {
-    const count = await this.prisma.panelSpecification.count();
-    const panelCode = `PANEL-2026-${String(count + 1).padStart(4, '0')}`;
+    const panelCode = await this.sequenceService.nextPanelCode();
 
     // Auto calculate BOM costs
     let calculatedMaterialCost = 0;

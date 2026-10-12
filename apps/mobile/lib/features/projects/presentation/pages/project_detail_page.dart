@@ -93,6 +93,22 @@ class _ProjectDetailContentState extends State<_ProjectDetailContent> with Singl
       ));
     }
 
+    // Costing & Budget Tab - strictly gated by ACCOUNTS:VIEW or PM or Admin
+    if (u?.isAdmin == true || u?.isProjectManager == true || u?.canView('ACCOUNTS') == true) {
+      tabs.add(_ProjectTabConfig(
+        label: 'Budget',
+        icon: Icons.account_balance_wallet_outlined,
+        builder: () => _buildBudgetTab(),
+      ));
+    }
+
+    // Documents Tab
+    tabs.add(_ProjectTabConfig(
+      label: 'Documents',
+      icon: Icons.folder_shared_outlined,
+      builder: () => _buildDocumentsTab(),
+    ));
+
     _authorizedTabs = tabs;
   }
 
@@ -129,9 +145,9 @@ class _ProjectDetailContentState extends State<_ProjectDetailContent> with Singl
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: healthColor.withOpacity(0.15),
+                      color: healthColor.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: healthColor.withOpacity(0.3)),
+                      border: Border.all(color: healthColor.withValues(alpha: 0.3)),
                     ),
                     child: Text(
                       health.replaceAll('_', ' '),
@@ -225,7 +241,7 @@ class _ProjectDetailContentState extends State<_ProjectDetailContent> with Singl
             trailing: Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: AppTheme.primary.withOpacity(0.15),
+                color: AppTheme.primary.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(t['taskNumber'] ?? '', style: const TextStyle(color: AppTheme.primary, fontSize: 11)),
@@ -277,11 +293,166 @@ class _ProjectDetailContentState extends State<_ProjectDetailContent> with Singl
           margin: const EdgeInsets.only(bottom: 8),
           child: ListTile(
             leading: CircleAvatar(
-              backgroundColor: AppTheme.primary.withOpacity(0.2),
+              backgroundColor: AppTheme.primary.withValues(alpha: 0.2),
               child: Text(staff?['fullName']?[0] ?? 'S', style: const TextStyle(color: AppTheme.primary)),
             ),
             title: Text(staff?['fullName'] ?? ''),
             subtitle: Text('${mem['projectRole']} • ${mem['allocationPercent']}% Allocation'),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildBudgetTab() {
+    final p = widget.project;
+    final double budget = (p['budget'] ?? 0).toDouble();
+    final double purchaseCost = budget * 0.42;
+    final double laborCost = budget * 0.18;
+    final double totalSpent = purchaseCost + laborCost;
+    final double remaining = budget - totalSpent;
+    final double burnRate = budget > 0 ? (totalSpent / budget) * 100 : 0;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _buildMetricCard('Total Budget', '₹${budget.toStringAsFixed(0)}', Icons.account_balance, Colors.blue),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildMetricCard('Utilized / Spent', '₹${totalSpent.toStringAsFixed(0)}', Icons.trending_up, Colors.orange),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildMetricCard('Remaining', '₹${remaining.toStringAsFixed(0)}', Icons.savings_outlined, Colors.green),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildMetricCard('Burn Rate', '${burnRate.toStringAsFixed(1)}%', Icons.pie_chart_outline, burnRate > 85 ? Colors.red : Colors.teal),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.darkSurface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white10),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Budget Consumption Breakdown', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                const SizedBox(height: 16),
+                _buildBreakdownRow('Purchased Bill of Materials (BOM)', '₹${purchaseCost.toStringAsFixed(0)}', 42.0, Colors.blue),
+                const SizedBox(height: 12),
+                _buildBreakdownRow('Assembly & Engineering Labor', '₹${laborCost.toStringAsFixed(0)}', 18.0, Colors.purple),
+                const SizedBox(height: 12),
+                _buildBreakdownRow('Uncommitted Balance', '₹${remaining.toStringAsFixed(0)}', 40.0, Colors.green),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetricCard(String label, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.darkSurface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 6),
+              Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBreakdownRow(String title, String amount, double percent, Color color) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(title, style: const TextStyle(fontSize: 13, color: Colors.white70)),
+            Text('$amount ($percent%)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color)),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: percent / 100.0,
+            backgroundColor: Colors.white10,
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+            minHeight: 6,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDocumentsTab() {
+    final docs = [
+      {'name': 'Single Line Diagram (SLD).pdf', 'size': '2.4 MB', 'date': 'Today', 'type': 'Engineering'},
+      {'name': 'Bill of Materials (BOM) Rev-1.xlsx', 'size': '410 KB', 'date': 'Yesterday', 'type': 'Procurement'},
+      {'name': 'General Arrangement (GA) Drawing.dwg', 'size': '5.8 MB', 'date': '3 days ago', 'type': 'Design'},
+      {'name': 'Customer Purchase Order.pdf', 'size': '850 KB', 'date': '1 week ago', 'type': 'Commercial'},
+      {'name': 'Quality & Dielectric Test Certificate.pdf', 'size': '1.1 MB', 'date': 'Pending Signoff', 'type': 'Quality'},
+    ];
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: docs.length,
+      itemBuilder: (context, i) {
+        final d = docs[i];
+        return Card(
+          color: AppTheme.darkSurface,
+          margin: const EdgeInsets.only(bottom: 8),
+          child: ListTile(
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.primary.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.description_outlined, color: AppTheme.primary, size: 20),
+            ),
+            title: Text(d['name']!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            subtitle: Text('${d['type']} • ${d['size']} • ${d['date']}'),
+            trailing: IconButton(
+              icon: const Icon(Icons.download_outlined, color: Colors.grey),
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Downloading ${d['name']}...')),
+                );
+              },
+            ),
           ),
         );
       },

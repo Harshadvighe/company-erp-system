@@ -32,8 +32,14 @@ model User {
   auditLogs    AuditLog[]
   notifications Notification[]
   staff        Staff?
+  createdCustomers Customer[] @relation("CustomerCreator")
+  updatedCustomers Customer[] @relation("CustomerUpdater")
+  createdVendors   Vendor[]   @relation("VendorCreator")
+  updatedVendors   Vendor[]   @relation("VendorUpdater")
 
   @@map("users")
+  @@index([status])
+  @@index([departmentId])
 }
 
 model Role {
@@ -117,10 +123,14 @@ model Department {
   id        String   @id @default(uuid())
   name      String   @unique
   code      String   @unique
+  headStaffId String? @unique
   users     User[]
   staff     Staff[]
   tasks     Task[]
   employees Employee[]
+  headStaff Staff?   @relation("DepartmentHead", fields: [headStaffId], references: [id], onDelete: SetNull)
+  teams     Team[]   @relation("PrimaryTeamDepartment")
+  teamDepartments TeamDepartment[]
   createdAt DateTime @default(now())
 
   @@map("departments")
@@ -197,6 +207,14 @@ model Customer {
   pincode              String
   ownerName            String?
   staffCount           Int      @default(0)
+  gstStatus            String   @default("GST_REGISTERED") // GST_REGISTERED, NO_GST
+  noGstReason          String?  // UNREGISTERED_BUSINESS, INDIVIDUAL_CONSUMER, EXEMPTED_GOODS, BELOW_TURNOVER_THRESHOLD, OTHER
+  gstVerified          Boolean  @default(false)
+  gstVerifiedAt        DateTime?
+  gstProviderRef       String?
+  tradeName            String?
+  companyType          String?  @default("PVT_LTD") // PVT_LTD, PUBLIC_LTD, PROPRIETORSHIP, PARTNERSHIP, LLP, GOVT, INDIVIDUAL, OTHER
+  numEmployees         Int?     @default(0)
   turnover             String?
   industry             String?
   source               String?  @default("DIRECT")
@@ -207,14 +225,20 @@ model Customer {
   status               String   @default("ACTIVE") // ACTIVE, INACTIVE, DORMANT, BLOCKED, DELETED
   assignedStaffId      String?
   salesManagerStaffId  String?
+  createdByUserId      String?
+  updatedByUserId      String?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
+  createdByUser        User?    @relation("CustomerCreator", fields: [createdByUserId], references: [id])
+  updatedByUser        User?    @relation("CustomerUpdater", fields: [updatedByUserId], references: [id])
   assignedStaff        Staff?   @relation("CustomerAssignee", fields: [assignedStaffId], references: [id])
   salesManagerStaff    Staff?   @relation("CustomerManager", fields: [salesManagerStaffId], references: [id])
   contacts             CustomerContact[]
   interactions         CustomerInteraction[]
   valuations           CustomerValuation?
+  valuationHistory     CompanyValuationHistory[]
+  productInterests     CompanyProductInterest[]
   leads                Lead[]
   enquiries            Enquiry[]
   opportunities        Opportunity[]
@@ -224,8 +248,61 @@ model Customer {
   media                CustomerMedia[]
   panelSpecs           PanelSpecification[]
   projects             Project[]
+  quotations           Quotation[]
+  salesOrders          SalesOrder[]
+  salesInvoices        SalesInvoice[]
+  salesPayments        SalesPayment[]
 
   @@map("customers")
+  @@index([status])
+  @@index([assignedStaffId])
+  @@index([customerType])
+}
+
+model ProductSystem {
+  id          String   @id @default(uuid())
+  code        String   @unique // VFD_PANEL, BOOSTER_PUMP, STP, BMS, HVAC, DEWATERING, FIRE_PANEL, SOLAR_PUMP, RO_PLANT
+  name        String
+  category    String?
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  companyInterests CompanyProductInterest[]
+
+  @@map("product_systems")
+}
+
+model CompanyProductInterest {
+  id              String   @id @default(uuid())
+  customerId      String
+  productSystemId String
+  interestLevel   String   @default("HIGH") // LOW, MEDIUM, HIGH, CRITICAL
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  customer      Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  productSystem ProductSystem @relation(fields: [productSystemId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, productSystemId])
+  @@map("company_product_interests")
+}
+
+model CompanyValuationHistory {
+  id            String   @id @default(uuid())
+  customerId    String
+  oldRating     Float?
+  newRating     Float
+  oldValueScore Float?
+  newValueScore Float
+  calculatedBy  String   // SYSTEM, STAFF
+  staffId       String?
+  reason        String?
+  createdAt     DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("company_valuation_history")
 }
 
 model CustomerContact {
@@ -240,6 +317,9 @@ model CustomerContact {
   whatsapp               String?
   isPrimary              Boolean  @default(false)
   isDecisionMaker        Boolean  @default(false)
+  isTechnical            Boolean  @default(false)
+  isCommercial           Boolean  @default(false)
+  isPurchase             Boolean  @default(false)
   preferredCommunication String   @default("CALL") // CALL, WHATSAPP, EMAIL
   notes                  String?
   createdAt              DateTime @default(now())
@@ -265,6 +345,7 @@ model CustomerInteraction {
   recordedBy      String
   attachmentUrl   String?
   audioUrl        String?
+  photoUrl        String?
   createdAt       DateTime @default(now())
 
   customer Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
@@ -320,12 +401,25 @@ model Vendor {
   city             String
   pincode          String?
   productsSupplied String?
-  paymentTerms     String?  @default("NET_30")
-  creditLimit      Float    @default(0)
-  rating           Float    @default(5.0)
-  status           String   @default("ACTIVE")
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  paymentTerms             String?   @default("NET_30")
+  creditLimit              Float     @default(0)
+  rating                   Float     @default(5.0)
+  status                   String    @default("ACTIVE")
+  assignedStaffId          String?
+  createdByUserId          String?
+  updatedByUserId          String?
+  constitution             String?   @default("PROPRIETORSHIP")
+  registeredOfficeLocation String?
+  factoryLocation          String?
+  msmeStatus               String?   @default("NO")
+  approvalStatus           String?   @default("APPROVED")
+  onboardingDate           DateTime? @default(now())
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  assignedStaff            Staff?    @relation("VendorAssignee", fields: [assignedStaffId], references: [id])
+  createdByUser            User?     @relation("VendorCreator", fields: [createdByUserId], references: [id])
+  updatedByUser            User?     @relation("VendorUpdater", fields: [updatedByUserId], references: [id])
 
   contacts         VendorContact[]
   addresses        VendorAddress[]
@@ -393,6 +487,9 @@ model Product {
   poItems           PurchaseOrderItem[]
   inwardItems       InwardEntryItem[]
   returnItems       PurchaseReturnItem[]
+  salesQuotationItems QuotationItem[]
+  salesOrderItems     SalesOrderItem[]
+  salesInvoiceItems   SalesInvoiceItem[]
 
   @@map("products")
 }
@@ -438,6 +535,10 @@ model Lead {
   activities             CrmActivity[]
 
   @@map("leads")
+  @@index([status])
+  @@index([assignedStaffId])
+  @@index([customerId])
+  @@index([createdAt])
 }
 
 model Enquiry {
@@ -461,6 +562,7 @@ model Enquiry {
   customer        Customer      @relation(fields: [customerId], references: [id])
   assignedStaff   Staff?        @relation("EnquiryAssignee", fields: [assignedStaffId], references: [id])
   opportunities   Opportunity[]
+  quotations      Quotation[]
 
   @@map("enquiries")
 }
@@ -496,8 +598,13 @@ model Opportunity {
   enquiry             Enquiry?      @relation(fields: [enquiryId], references: [id])
   activities          CrmActivity[]
   followUps           CrmFollowUp[]
+  quotations          Quotation[]
 
   @@map("opportunities")
+  @@index([stage])
+  @@index([customerId])
+  @@index([assignedStaffId])
+  @@index([createdAt])
 }
 
 model CrmActivity {
@@ -524,6 +631,10 @@ model CrmActivity {
   siteVisit      CrmSiteVisit?
 
   @@map("crm_activities")
+  @@index([customerId])
+  @@index([staffId])
+  @@index([opportunityId])
+  @@index([createdAt])
 }
 
 model CrmCall {
@@ -534,26 +645,70 @@ model CrmCall {
   durationSec  Int      @default(0)
   callOutcome  String   @default("CONNECTED") // CONNECTED, BUSY, NO_ANSWER, WRONG_NUMBER, CALL_BACK, INTERESTED, NOT_INTERESTED
   recordingUrl String?
+  dataSent     Boolean  @default(false)
+  dataTypes    String?  // JSON string array e.g. ["QUOTATION", "CATALOG", "DRAWING"]
 
   activity     CrmActivity      @relation(fields: [activityId], references: [id], onDelete: Cascade)
   contact      CustomerContact? @relation(fields: [contactId], references: [id])
+  recordings   CallRecording[]
 
   @@map("crm_calls")
 }
 
-model CrmMeeting {
-  id          String    @id @default(uuid())
-  activityId  String    @unique
-  meetingType String    @default("OFFLINE") // OFFLINE, ONLINE_TEAMS, ONLINE_ZOOM, CLIENT_OFFICE
-  location    String?
-  startTime   DateTime
-  endTime     DateTime?
-  agenda      String?
-  outcome     String?
+model CallRecording {
+  id            String   @id @default(uuid())
+  callId        String
+  fileName      String
+  fileUrl       String
+  durationSec   Int      @default(0)
+  fileSizeBytes Int      @default(0)
+  mimeType      String?  @default("audio/webm")
+  uploadedBy    String?
+  createdAt     DateTime @default(now())
 
-  activity    CrmActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  call CrmCall @relation(fields: [callId], references: [id], onDelete: Cascade)
+
+  @@map("call_recordings")
+}
+
+model CrmMeeting {
+  id                 String    @id @default(uuid())
+  activityId         String    @unique
+  meetingType        String    @default("OFFLINE") // OFFLINE, ONLINE_TEAMS, ONLINE_ZOOM, CLIENT_OFFICE
+  location           String?
+  startTime          DateTime
+  endTime            DateTime?
+  agenda             String?
+  outcome            String?
+  hostStaffId        String?
+  requestedByStaffId String?
+  meetingStatus      String    @default("SCHEDULED") // REQUESTED, ACCEPTED, RESCHEDULE_PROPOSED, SCHEDULED, COMPLETED, CANCELLED, DECLINED
+  rescheduleReason   String?
+  rescheduleCount    Int       @default(0)
+
+  activity           CrmActivity              @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  hostStaff          Staff?                   @relation("MeetingHost", fields: [hostStaffId], references: [id])
+  scheduleHistory    MeetingScheduleHistory[]
 
   @@map("crm_meetings")
+}
+
+model MeetingScheduleHistory {
+  id                String    @id @default(uuid())
+  meetingId         String
+  previousStartTime DateTime
+  previousEndTime   DateTime?
+  newStartTime       DateTime
+  newEndTime         DateTime?
+  changedByStaffId  String
+  reason            String?
+  statusBefore      String?
+  statusAfter       String?
+  createdAt         DateTime  @default(now())
+
+  meeting CrmMeeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@map("meeting_schedule_history")
 }
 
 model CrmSiteVisit {
@@ -579,7 +734,15 @@ model CrmFollowUp {
   opportunityId   String?
   leadId          String?
   assignedStaffId String
-  scheduledDate   DateTime
+  followUpNumber  Int?
+  activityType    String    @default("CALL")
+  subject         String?
+  discussion      String?
+  outcome         String?
+  nextAction      String?
+  interactionDate DateTime?
+  scheduledDate   DateTime?
+  reminderMinutes Int?
   status          String    @default("PENDING") // PENDING, COMPLETED, OVERDUE, CANCELLED
   priority        String    @default("MEDIUM")
   notes           String?
@@ -591,6 +754,10 @@ model CrmFollowUp {
   assignedStaff   Staff        @relation(fields: [assignedStaffId], references: [id])
 
   @@map("crm_follow_ups")
+  @@unique([customerId, followUpNumber])
+  @@index([assignedStaffId])
+  @@index([status])
+  @@index([scheduledDate])
 }
 
 model CustomerDocument {
@@ -671,6 +838,7 @@ model PanelSpecification {
 
   customer Customer       @relation(fields: [customerId], references: [id])
   bomItems PanelBOMItem[]
+  quotations Quotation[]
 
   @@map("panel_specifications")
 }
@@ -690,6 +858,219 @@ model PanelBOMItem {
   product   Product?           @relation(fields: [productId], references: [id])
 
   @@map("panel_bom_items")
+}
+
+// -------------------------------------------------------------
+// COMMERCIAL SALES QUOTATIONS & SALES ORDERS
+// -------------------------------------------------------------
+
+model Quotation {
+  id                  String   @id @default(uuid())
+  quotationNumber     String   // e.g. QUO-2026-00001
+  revisionNumber      Int      @default(0) // 0 for REV-0, 1 for REV-1, 2 for REV-2
+  code                String   @unique // e.g. QUO-2026-00001-REV-0
+  customerId          String
+  opportunityId       String?
+  enquiryId           String?
+  panelSpecId         String?
+  assignedStaffId     String?
+  quotationDate       DateTime @default(now())
+  validUntil          DateTime?
+  subject             String
+  currency            String   @default("INR")
+  subtotal            Float    @default(0)
+  discountPercent     Float    @default(0)
+  discountAmount      Float    @default(0)
+  taxableAmount       Float    @default(0)
+  cgstPercent         Float    @default(9.0)
+  cgstAmount          Float    @default(0)
+  sgstPercent         Float    @default(9.0)
+  sgstAmount          Float    @default(0)
+  igstPercent         Float    @default(0)
+  igstAmount          Float    @default(0)
+  grandTotal          Float    @default(0)
+  paymentTerms        String?  @default("50% Advance, 50% Against Proforma Invoice before Dispatch")
+  deliveryTerms       String?  @default("2 to 3 weeks from receipt of PO and technical clearance")
+  freightTerms        String?  @default("Ex-Works Pune. Freight extra at actuals.")
+  warrantyTerms       String?  @default("18 months from date of supply or 12 months from commissioning, whichever is earlier.")
+  notes               String?
+  status              String   @default("DRAFT") // DRAFT, PENDING_APPROVAL, APPROVED, SENT, ACCEPTED, REJECTED, EXPIRED, CONVERTED
+  approvedByStaffId   String?
+  approvedAt          DateTime?
+  sentAt              DateTime?
+  acceptedAt          DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  customer            Customer            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  opportunity         Opportunity?        @relation(fields: [opportunityId], references: [id])
+  enquiry             Enquiry?            @relation(fields: [enquiryId], references: [id])
+  panelSpec           PanelSpecification? @relation(fields: [panelSpecId], references: [id])
+  assignedStaff       Staff?              @relation("QuotationAssignee", fields: [assignedStaffId], references: [id])
+  approvedByStaff     Staff?              @relation("QuotationApprover", fields: [approvedByStaffId], references: [id])
+  items               QuotationItem[]
+  salesOrders         SalesOrder[]
+
+  @@map("quotations")
+  @@index([customerId])
+  @@index([status])
+  @@index([quotationNumber])
+  @@index([createdAt])
+}
+
+model QuotationItem {
+  id              String   @id @default(uuid())
+  quotationId     String
+  productId       String?
+  itemCode        String?
+  description     String
+  hsnSac          String?  @default("8537") // Standard electrical control panel HSN code
+  quantity        Int      @default(1)
+  unit            String   @default("Nos")
+  unitPrice       Float    @default(0)
+  discountPercent Float    @default(0)
+  taxableAmount   Float    @default(0)
+  gstPercent      Float    @default(18.0)
+  gstAmount       Float    @default(0)
+  totalAmount     Float    @default(0)
+  sortOrder       Int      @default(0)
+
+  quotation       Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  product         Product?  @relation(fields: [productId], references: [id])
+
+  @@map("quotation_items")
+}
+
+model SalesOrder {
+  id                String    @id @default(uuid())
+  orderNumber       String    @unique // SO-2026-00001
+  quotationId       String?
+  customerId        String
+  poNumber          String?
+  poDate            DateTime?
+  orderDate         DateTime  @default(now())
+  deliveryDate      DateTime?
+  assignedStaffId   String?
+  subtotal          Float     @default(0)
+  discountAmount    Float     @default(0)
+  taxableAmount     Float     @default(0)
+  taxAmount         Float     @default(0)
+  grandTotal        Float     @default(0)
+  paymentTerms      String?
+  shippingAddress   String?
+  billingAddress    String?
+  status            String    @default("CONFIRMED") // DRAFT, CONFIRMED, IN_PRODUCTION, READY_FOR_DISPATCH, DISPATCHED, DELIVERED, CANCELLED
+  productionStatus  String    @default("PENDING") // PENDING, SCHEDULED, IN_ASSEMBLY, TESTING, COMPLETED
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  quotation         Quotation?       @relation(fields: [quotationId], references: [id])
+  customer          Customer         @relation(fields: [customerId], references: [id])
+  assignedStaff     Staff?           @relation("SalesOrderAssignee", fields: [assignedStaffId], references: [id])
+  items             SalesOrderItem[]
+  invoices          SalesInvoice[]
+
+  @@map("sales_orders")
+  @@index([customerId])
+  @@index([status])
+  @@index([productionStatus])
+  @@index([createdAt])
+}
+
+model SalesOrderItem {
+  id            String     @id @default(uuid())
+  salesOrderId  String
+  productId     String?
+  description   String
+  quantity      Int        @default(1)
+  unitPrice     Float      @default(0)
+  taxAmount     Float      @default(0)
+  totalAmount   Float      @default(0)
+
+  salesOrder    SalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  product       Product?   @relation(fields: [productId], references: [id])
+
+  @@map("sales_order_items")
+}
+
+model SalesInvoice {
+  id               String             @id @default(uuid())
+  invoiceNumber    String             @unique // INV-2026-00001
+  salesOrderId     String?
+  customerId       String
+  financialYear    String?            @default("2025-26")
+  invoiceDate      DateTime           @default(now())
+  dueDate          DateTime?
+  poNumber         String?
+  ewayBillNumber   String?
+  irnNumber        String?
+  subtotal         Float              @default(0)
+  discountAmount   Float              @default(0)
+  taxableAmount    Float              @default(0)
+  cgstAmount       Float              @default(0)
+  sgstAmount       Float              @default(0)
+  igstAmount       Float              @default(0)
+  taxAmount        Float              @default(0)
+  grandTotal       Float              @default(0)
+  paidAmount       Float              @default(0)
+  balanceDue       Float              @default(0)
+  paymentStatus    String             @default("UNPAID") // UNPAID, PARTIALLY_PAID, PAID, OVERDUE, CANCELLED
+  status           String             @default("ISSUED") // DRAFT, ISSUED, PAID, CANCELLED
+  notes            String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  customer         Customer           @relation(fields: [customerId], references: [id])
+  salesOrder       SalesOrder?        @relation(fields: [salesOrderId], references: [id])
+  items            SalesInvoiceItem[]
+  payments         SalesPayment[]
+
+  @@map("sales_invoices")
+  @@index([customerId])
+  @@index([paymentStatus])
+  @@index([dueDate])
+  @@index([createdAt])
+}
+
+model SalesInvoiceItem {
+  id              String       @id @default(uuid())
+  salesInvoiceId  String
+  productId       String?
+  itemCode        String?
+  description     String
+  hsnSac          String?      @default("8537")
+  quantity        Int          @default(1)
+  unit            String       @default("Nos")
+  unitPrice       Float        @default(0)
+  taxableAmount   Float        @default(0)
+  gstPercent      Float        @default(18.0)
+  gstAmount       Float        @default(0)
+  totalAmount     Float        @default(0)
+
+  invoice         SalesInvoice @relation(fields: [salesInvoiceId], references: [id], onDelete: Cascade)
+  product         Product?     @relation(fields: [productId], references: [id])
+
+  @@map("sales_invoice_items")
+}
+
+model SalesPayment {
+  id                String       @id @default(uuid())
+  receiptNumber     String       @unique // REC-2026-00001
+  salesInvoiceId    String
+  customerId        String
+  paymentDate       DateTime     @default(now())
+  amount            Float
+  paymentMode       String       // NEFT, RTGS, CHEQUE, UPI, CASH
+  referenceNumber   String?      // UTR / Cheque No
+  bankName          String?
+  notes             String?
+  createdAt         DateTime     @default(now())
+
+  invoice           SalesInvoice @relation(fields: [salesInvoiceId], references: [id], onDelete: Cascade)
+  customer          Customer     @relation(fields: [customerId], references: [id])
+
+  @@map("sales_payments")
 }
 
 // -------------------------------------------------------------
@@ -939,6 +1320,9 @@ model PurchaseOrder {
   purchaseInvoices PurchaseInvoice[]
 
   @@map("purchase_orders")
+  @@index([vendorId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model PurchaseOrderItem {
@@ -994,6 +1378,9 @@ model InwardEntry {
   purchaseReturns  PurchaseReturn[]
 
   @@map("inward_entries")
+  @@index([vendorId])
+  @@index([purchaseOrderId])
+  @@index([status])
 }
 
 model InwardEntryItem {
@@ -1048,6 +1435,9 @@ model StockTransaction {
   warehouse Warehouse @relation(fields: [warehouseId], references: [id])
 
   @@map("stock_transactions")
+  @@index([productId])
+  @@index([warehouseId])
+  @@index([transactionDate])
 }
 
 model PurchaseInvoice {
@@ -1081,6 +1471,9 @@ model PurchaseInvoice {
   purchaseReturns PurchaseReturn[]
 
   @@map("purchase_invoices")
+  @@index([vendorId])
+  @@index([status])
+  @@index([dueDate])
 }
 
 model PurchaseInvoiceItem {
@@ -1266,6 +1659,9 @@ model Notification {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("notifications")
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
 }
 
 model AuditLog {
@@ -1283,6 +1679,9 @@ model AuditLog {
   user User? @relation(fields: [userId], references: [id])
 
   @@map("audit_logs")
+  @@index([userId])
+  @@index([module])
+  @@index([timestamp])
 }
 
 // -------------------------------------------------------------
@@ -1323,6 +1722,7 @@ model Staff {
 
   assignedCustomers  Customer[]   @relation("CustomerAssignee")
   managedCustomers   Customer[]   @relation("CustomerManager")
+  assignedVendors    Vendor[]     @relation("VendorAssignee")
   assignedLeads      Lead[]       @relation("LeadAssignee")
   managedLeads       Lead[]       @relation("LeadManager")
   assignedEnquiries  Enquiry[]    @relation("EnquiryAssignee")
@@ -1333,6 +1733,13 @@ model Staff {
   customerDocuments  CustomerDocument[]
   customerMedia      CustomerMedia[]
   savedFilters       CrmSavedFilter[]
+  hostedMeetings     CrmMeeting[] @relation("MeetingHost")
+  assignedQuotations Quotation[]  @relation("QuotationAssignee")
+  approvedQuotations Quotation[]  @relation("QuotationApprover")
+  assignedSalesOrders SalesOrder[] @relation("SalesOrderAssignee")
+  headedDepartment  Department? @relation("DepartmentHead")
+  ledTeams           Team[]       @relation("TeamLeader")
+  teamMemberships    TeamMember[]
 
   @@map("staff")
 }
@@ -1404,11 +1811,12 @@ model Task {
   projectId          String?
   milestoneId        String?
   departmentId       String?
+  teamId             String?
   assigneeStaffId    String?
   createdByStaffId   String
   assignedByStaffId  String?
   priority           String         @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
-  status             String         @default("CREATED") // CREATED, ASSIGNED, ACCEPTED, IN_PROGRESS, REVIEW, RETURNED, COMPLETED, CANCELLED
+  status             String         @default("CREATED") // CREATED, ASSIGNED, ACCEPTED, IN_PROGRESS, PENDING, REVIEW, RETURNED, COMPLETED, CANCELLED
   dueDate            DateTime?
   estimatedHours     Float          @default(0)
   actualHours        Float          @default(0)
@@ -1419,6 +1827,7 @@ model Task {
   project            Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
   milestone          Milestone?     @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
   department         Department?    @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  team               Team?          @relation(fields: [teamId], references: [id], onDelete: SetNull)
   assignee           Staff?         @relation("TaskAssignee", fields: [assigneeStaffId], references: [id], onDelete: SetNull)
   creator            Staff          @relation("TaskCreator", fields: [createdByStaffId], references: [id])
   assigner           Staff?         @relation("TaskAssigner", fields: [assignedByStaffId], references: [id], onDelete: SetNull)
@@ -1426,6 +1835,60 @@ model Task {
   activities         TaskActivity[]
 
   @@map("tasks")
+  @@index([assigneeStaffId])
+  @@index([status])
+  @@index([projectId])
+  @@index([teamId])
+  @@index([dueDate])
+}
+
+model Team {
+  id            String       @id @default(uuid())
+  name          String
+  code          String
+  departmentId  String?
+  leaderStaffId String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  department Department? @relation("PrimaryTeamDepartment", fields: [departmentId], references: [id], onDelete: SetNull)
+  departments TeamDepartment[]
+  leader     Staff?      @relation("TeamLeader", fields: [leaderStaffId], references: [id], onDelete: SetNull)
+  members    TeamMember[]
+  tasks      Task[]
+
+  @@unique([code])
+  @@unique([name])
+  @@map("teams")
+}
+
+model TeamDepartment {
+  id           String   @id @default(uuid())
+  teamId       String
+  departmentId String
+  createdAt    DateTime @default(now())
+
+  team       Team       @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, departmentId])
+  @@index([departmentId])
+  @@map("team_departments")
+}
+
+model TeamMember {
+  id        String   @id @default(uuid())
+  teamId    String
+  staffId   String
+  role      String   @default("MEMBER")
+  createdAt DateTime @default(now())
+
+  team  Team  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  staff Staff @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, staffId])
+  @@index([staffId])
+  @@map("team_members")
 }
 
 model TaskComment {
@@ -1515,6 +1978,9 @@ model Employee {
   workstationAllocations WorkstationAllocation[]
 
   @@map("employees")
+  @@index([status])
+  @@index([departmentId])
+  @@index([workerCategory])
 }
 
 model Attendance {
@@ -1540,6 +2006,9 @@ model Attendance {
 
   @@unique([employeeId, punchDate])
   @@map("attendances")
+  @@index([employeeId])
+  @@index([punchDate])
+  @@index([status])
 }
 
 model WorkstationAllocation {
@@ -1630,4 +2099,3 @@ model SafetyIncident {
 
   @@map("safety_incidents")
 }
-

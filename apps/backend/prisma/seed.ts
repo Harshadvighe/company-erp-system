@@ -98,6 +98,7 @@ async function main() {
     { name: 'Production Engineer', code: 'ROLE_PRODUCTION_MGR', description: 'Panel Specs & Panel BOM Design' },
     { name: 'QC Engineer', code: 'ROLE_QC_ENG', description: 'Quality inspection & signoff' },
     { name: 'Accountant', code: 'ROLE_ACCOUNTANT', description: 'Invoicing & Receivables/Payables' },
+    { name: 'HR Manager', code: 'ROLE_HR_MGR', description: 'Manages Employee Directory, Attendance, Payroll & Workforce' },
     { name: 'Employee', code: 'ROLE_EMPLOYEE', description: 'Standard Employee with My Work access' },
   ];
 
@@ -205,6 +206,14 @@ async function main() {
     'TASKS:VIEW', 'TASKS:EDIT',
   ]);
 
+  // HR MANAGER
+  await assignRolePerms('ROLE_HR_MGR', [
+    'MY_WORK:VIEW',
+    'STAFF:VIEW', 'STAFF:CREATE', 'STAFF:EDIT', 'STAFF:APPROVE',
+    'ORGANIZATION:VIEW',
+    'REPORTS:VIEW', 'REPORTS:EXPORT',
+  ]);
+
   // EMPLOYEE
   await assignRolePerms('ROLE_EMPLOYEE', [
     'MY_WORK:VIEW',
@@ -295,6 +304,28 @@ async function main() {
       roleCode: 'ROLE_QC_ENG',
       phone: '+91 98200 00007',
       location: 'MIDC Plant',
+    },
+    {
+      empId: 'EMP008',
+      name: 'Sneha Deshmukh',
+      email: 'hr@saark.in',
+      username: 'hr',
+      deptCode: 'ADMIN',
+      desigCode: 'EMPLOYEE',
+      roleCode: 'ROLE_HR_MGR',
+      phone: '+91 98200 00008',
+      location: 'Mumbai Head Office',
+    },
+    {
+      empId: 'EMP008M',
+      name: 'HR Manager',
+      email: 'hr.manager@saark.in',
+      username: 'hr.manager',
+      deptCode: 'ADMIN',
+      desigCode: 'EMPLOYEE',
+      roleCode: 'ROLE_HR_MGR',
+      phone: '+91 98200 00088',
+      location: 'Mumbai Head Office',
     },
   ];
 

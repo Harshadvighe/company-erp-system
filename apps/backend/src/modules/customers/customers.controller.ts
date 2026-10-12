@@ -23,6 +23,13 @@ export class CustomersController {
     return this.customersService.findAll(query);
   }
 
+  @Get('filter-options')
+  @RequirePermissions('CUSTOMERS:VIEW')
+  @ApiOperation({ summary: 'Get company list filter options' })
+  getFilterOptions(@Query('state') state?: string) {
+    return this.customersService.getCompanyFilterOptions(state);
+  }
+
   @Post('check-duplicate')
   @RequirePermissions('CUSTOMERS:VIEW')
   @ApiOperation({ summary: 'Check if GST, phone, or email already exists' })

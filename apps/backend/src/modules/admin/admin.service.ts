@@ -27,9 +27,382 @@ export class AdminService {
 
   async getDepartments() {
     return this.prisma.department.findMany({
-      include: { _count: { select: { users: true } } },
+      include: {
+        headStaff: { select: { id: true, fullName: true, employeeId: true } },
+        _count: { select: { users: true, staff: true, teamDepartments: true } },
+      },
       orderBy: { name: 'asc' },
     });
+  }
+
+  async getOrganizationStructure() {
+    const departments = await this.prisma.department.findMany({
+      include: {
+        headStaff: { select: { id: true, fullName: true, employeeId: true } },
+        staff: {
+          select: {
+            id: true,
+            fullName: true,
+            employeeId: true,
+            status: true,
+            designation: { select: { name: true } },
+          },
+          orderBy: { fullName: 'asc' },
+        },
+        teams: {
+          include: {
+            leader: { select: { id: true, fullName: true, employeeId: true } },
+            members: {
+              include: {
+                staff: { select: { id: true, fullName: true, employeeId: true } },
+              },
+              orderBy: { staff: { fullName: 'asc' } },
+            },
+            _count: { select: { tasks: true } },
+          },
+          orderBy: { name: 'asc' },
+        },
+        teamDepartments: {
+          include: {
+            team: {
+              include: {
+                department: { select: { id: true, name: true } },
+                departments: {
+                  include: {
+                    department: { select: { id: true, name: true } },
+                  },
+                },
+                leader: { select: { id: true, fullName: true, employeeId: true } },
+                members: {
+                  include: {
+                    staff: {
+                      select: {
+                        id: true,
+                        fullName: true,
+                        employeeId: true,
+                        departmentId: true,
+                        department: { select: { id: true, name: true } },
+                      },
+                    },
+                  },
+                  orderBy: { staff: { fullName: 'asc' } },
+                },
+                _count: { select: { tasks: true } },
+              },
+            },
+          },
+        },
+        _count: { select: { users: true, staff: true, teamDepartments: true } },
+      },
+      orderBy: { name: 'asc' },
+    });
+    return departments.map(({ teamDepartments, teams, ...department }) => {
+      const teamsById = new Map<string, (typeof teams)[number]>();
+      for (const team of teams) teamsById.set(team.id, team);
+      for (const link of teamDepartments) {
+        teamsById.set(link.team.id, link.team);
+      }
+      return { ...department, teams: [...teamsById.values()] };
+    });
+  }
+
+  async updateDepartmentHead(id: string, staffId: string | null) {
+    if (staffId !== null && typeof staffId !== 'string') {
+      throw new BadRequestException('Department head must be a staff ID or null');
+    }
+    const department = await this.prisma.department.findUnique({ where: { id } });
+    if (!department) throw new NotFoundException('Department not found');
+
+    if (staffId) {
+      const staff = await this.prisma.staff.findUnique({ where: { id: staffId } });
+      if (!staff || staff.departmentId !== id) {
+        throw new BadRequestException('Department head must belong to this department');
+      }
+      const existingHeadship = await this.prisma.department.findFirst({
+        where: { headStaffId: staffId, id: { not: id } },
+        select: { id: true },
+      });
+      if (existingHeadship) {
+        throw new ConflictException('This employee is already a department head');
+      }
+    }
+    return this.prisma.department.update({
+      where: { id },
+      data: { headStaffId: staffId },
+      include: { headStaff: { select: { id: true, fullName: true, employeeId: true } } },
+    });
+  }
+
+  async getTeams(departmentId?: string) {
+    return this.prisma.team.findMany({
+      where: departmentId
+        ? {
+            OR: [
+              { departments: { some: { departmentId } } },
+              { departmentId },
+            ],
+          }
+        : undefined,
+      include: {
+        department: { select: { id: true, name: true } },
+        departments: {
+          include: { department: { select: { id: true, name: true } } },
+        },
+        leader: { select: { id: true, fullName: true, employeeId: true } },
+        members: {
+          include: {
+            staff: { select: { id: true, fullName: true, employeeId: true } },
+          },
+          orderBy: { staff: { fullName: 'asc' } },
+        },
+      },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  async createTeam(dto: {
+    name: string;
+    code: string;
+    departmentIds?: string[];
+    departmentId?: string;
+    leaderStaffId?: string | null;
+    memberStaffIds?: string[];
+  }) {
+    this.validateTeamInput(dto, true);
+    if (!dto.name.trim() || !dto.code.trim()) {
+      throw new BadRequestException('Team name and code are required');
+    }
+    const duplicate = await this.prisma.team.findFirst({
+      where: {
+        OR: [
+          { name: { equals: dto.name.trim() } },
+          { code: { equals: dto.code.trim().toUpperCase() } },
+        ],
+      },
+      select: { id: true },
+    });
+    if (duplicate) throw new ConflictException('Team name or code already exists');
+    const departmentIds = this.teamDepartmentIds(dto);
+    const memberStaffIds = [...new Set(dto.memberStaffIds ?? [])];
+    if (dto.leaderStaffId && !memberStaffIds.includes(dto.leaderStaffId)) {
+      memberStaffIds.push(dto.leaderStaffId);
+    }
+    if (!memberStaffIds.length) {
+      throw new BadRequestException('A team needs at least one member or leader');
+    }
+    await this.validateTeamMembers(departmentIds, memberStaffIds);
+
+    return this.prisma.team.create({
+      data: {
+        name: dto.name.trim(),
+        code: dto.code.trim().toUpperCase(),
+        departmentId: departmentIds[0],
+        leaderStaffId: dto.leaderStaffId || null,
+        departments: {
+          create: departmentIds.map((departmentId) => ({ departmentId })),
+        },
+        members: {
+          create: memberStaffIds.map((staffId) => ({
+            staffId,
+            role: staffId === dto.leaderStaffId ? 'LEADER' : 'MEMBER',
+          })),
+        },
+      },
+      include: {
+        department: { select: { id: true, name: true } },
+        departments: {
+          include: { department: { select: { id: true, name: true } } },
+        },
+        leader: { select: { id: true, fullName: true, employeeId: true } },
+        members: {
+          include: { staff: { select: { id: true, fullName: true, employeeId: true } } },
+        },
+      },
+    });
+  }
+
+  async updateTeam(
+    id: string,
+    dto: {
+      name?: string;
+      code?: string;
+      departmentIds?: string[];
+      departmentId?: string;
+      leaderStaffId?: string | null;
+      memberStaffIds?: string[];
+    },
+  ) {
+    this.validateTeamInput(dto, false);
+    const existing = await this.prisma.team.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Team not found');
+    const existingDepartments = await this.prisma.teamDepartment.findMany({
+      where: { teamId: id },
+      select: { departmentId: true },
+    });
+    const currentDepartmentIds = existingDepartments.length
+      ? existingDepartments.map((row) => row.departmentId)
+      : existing.departmentId
+        ? [existing.departmentId]
+        : [];
+    const departmentIds = this.teamDepartmentIds(dto, currentDepartmentIds);
+    if (!departmentIds.length) {
+      throw new BadRequestException('Select at least one department for the team');
+    }
+    const name = dto.name?.trim() ?? existing.name;
+    const code = dto.code?.trim().toUpperCase() ?? existing.code;
+    if (!name || !code) throw new BadRequestException('Team name and code are required');
+    const duplicate = await this.prisma.team.findFirst({
+      where: {
+        id: { not: id },
+        OR: [{ name: { equals: name } }, { code: { equals: code } }],
+      },
+      select: { id: true },
+    });
+    if (duplicate) throw new ConflictException('Team name or code already exists');
+    const leaderStaffId =
+      dto.leaderStaffId === undefined ? existing.leaderStaffId : dto.leaderStaffId;
+    const memberStaffIds = [
+      ...new Set(dto.memberStaffIds ?? (await this.prisma.teamMember
+        .findMany({ where: { teamId: id }, select: { staffId: true } })
+        .then((rows) => rows.map((row) => row.staffId)))),
+    ];
+    if (leaderStaffId && !memberStaffIds.includes(leaderStaffId)) {
+      memberStaffIds.push(leaderStaffId);
+    }
+    if (!memberStaffIds.length) {
+      throw new BadRequestException('A team needs at least one member or leader');
+    }
+    await this.validateTeamMembers(departmentIds, memberStaffIds);
+
+    return this.prisma.$transaction(async (tx) => {
+      if (
+        dto.departmentIds !== undefined ||
+        dto.departmentId !== undefined
+      ) {
+        await tx.teamDepartment.deleteMany({ where: { teamId: id } });
+        await tx.teamDepartment.createMany({
+          data: departmentIds.map((departmentId) => ({
+            teamId: id,
+            departmentId,
+          })),
+        });
+      }
+      if (dto.memberStaffIds !== undefined || dto.departmentId !== undefined ||
+          dto.departmentIds !== undefined || dto.leaderStaffId !== undefined) {
+        await tx.teamMember.deleteMany({ where: { teamId: id } });
+        if (memberStaffIds.length) {
+          await tx.teamMember.createMany({
+            data: memberStaffIds.map((staffId) => ({
+              teamId: id,
+              staffId,
+              role: staffId === leaderStaffId ? 'LEADER' : 'MEMBER',
+            })),
+          });
+        }
+      }
+      return tx.team.update({
+        where: { id },
+        data: {
+          ...(dto.name !== undefined ? { name } : {}),
+          ...(dto.code !== undefined ? { code } : {}),
+          ...(dto.departmentIds !== undefined || dto.departmentId !== undefined
+            ? { departmentId: departmentIds[0] }
+            : {}),
+          ...(dto.leaderStaffId !== undefined || dto.departmentId !== undefined
+            ? { leaderStaffId: leaderStaffId || null }
+            : {}),
+        },
+        include: {
+          department: { select: { id: true, name: true } },
+          departments: {
+            include: { department: { select: { id: true, name: true } } },
+          },
+          leader: { select: { id: true, fullName: true, employeeId: true } },
+          members: {
+            include: { staff: { select: { id: true, fullName: true, employeeId: true } } },
+          },
+        },
+      });
+    });
+  }
+
+  async deleteTeam(id: string) {
+    const team = await this.prisma.team.findUnique({ where: { id } });
+    if (!team) throw new NotFoundException('Team not found');
+    return this.prisma.team.delete({ where: { id } });
+  }
+
+  private teamDepartmentIds(
+    dto: { departmentIds?: string[]; departmentId?: string },
+    fallback: string[] = [],
+  ) {
+    return [
+      ...new Set(
+        dto.departmentIds ??
+          (dto.departmentId ? [dto.departmentId] : fallback),
+      ),
+    ];
+  }
+
+  private async validateTeamMembers(departmentIds: string[], staffIds: string[]) {
+    if (!departmentIds.length) {
+      throw new BadRequestException('Select at least one department for the team');
+    }
+    const departmentCount = await this.prisma.department.count({
+      where: { id: { in: departmentIds } },
+    });
+    if (departmentCount !== departmentIds.length) {
+      throw new BadRequestException('One or more selected departments do not exist');
+    }
+    if (!staffIds.length) return;
+    const count = await this.prisma.staff.count({
+      where: {
+        id: { in: staffIds },
+        departmentId: { in: departmentIds },
+        status: 'ACTIVE',
+      },
+    });
+    if (count !== staffIds.length) {
+      throw new BadRequestException('Team leader and members must be active staff in the selected department');
+    }
+  }
+
+  private validateTeamInput(
+    dto: {
+      name?: string;
+      code?: string;
+      departmentIds?: string[];
+      departmentId?: string;
+      leaderStaffId?: string | null;
+      memberStaffIds?: string[];
+    },
+    creating: boolean,
+  ) {
+    if (!dto || typeof dto !== 'object' || Array.isArray(dto)) {
+      throw new BadRequestException('Team details are required');
+    }
+    if (
+      (creating && (typeof dto.name !== 'string' || typeof dto.code !== 'string')) ||
+      (dto.name !== undefined && typeof dto.name !== 'string') ||
+      (dto.code !== undefined && typeof dto.code !== 'string') ||
+      (creating &&
+        !(
+          (Array.isArray(dto.departmentIds) && dto.departmentIds.length > 0) ||
+          (typeof dto.departmentId === 'string' && dto.departmentId)
+        )) ||
+      (dto.departmentIds !== undefined &&
+        (!Array.isArray(dto.departmentIds) ||
+          dto.departmentIds.some((departmentId) => typeof departmentId !== 'string'))) ||
+      (dto.departmentId !== undefined && typeof dto.departmentId !== 'string') ||
+      (dto.leaderStaffId !== undefined &&
+        dto.leaderStaffId !== null &&
+        typeof dto.leaderStaffId !== 'string') ||
+      (dto.memberStaffIds !== undefined &&
+        (!Array.isArray(dto.memberStaffIds) ||
+          dto.memberStaffIds.some((staffId) => typeof staffId !== 'string')))
+    ) {
+      throw new BadRequestException('Invalid team details');
+    }
   }
 
   async createDepartment(dto: { name: string; code: string }) {
@@ -49,11 +422,19 @@ export class AdminService {
   async deleteDepartment(id: string) {
     const existing = await this.prisma.department.findUnique({
       where: { id },
-      include: { _count: { select: { users: true, staff: true } } },
+      include: {
+        _count: { select: { users: true, staff: true, teamDepartments: true } },
+      },
     });
     if (!existing) throw new NotFoundException('Department not found');
-    if (existing._count.users > 0 || existing._count.staff > 0) {
-      throw new ConflictException('Cannot delete department with active users or staff');
+    if (
+      existing._count.users > 0 ||
+      existing._count.staff > 0 ||
+      existing._count.teamDepartments > 0
+    ) {
+      throw new ConflictException(
+        'Cannot delete a department that still has users, staff, or teams',
+      );
     }
     return this.prisma.department.delete({ where: { id } });
   }

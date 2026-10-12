@@ -128,16 +128,16 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: AppTheme.primary.withOpacity(0.15),
+            color: AppTheme.primary.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppTheme.primary.withOpacity(0.3)),
+            border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3)),
           ),
-          child: Row(
+          child: const Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.calendar_month, size: 14, color: AppTheme.primary),
-              const SizedBox(width: 6),
-              const Text('FY 2025-26', style: TextStyle(color: AppTheme.primary, fontSize: 12, fontWeight: FontWeight.w600)),
+              Icon(Icons.calendar_month, size: 14, color: AppTheme.primary),
+              SizedBox(width: 6),
+              Text('FY 2025-26', style: TextStyle(color: AppTheme.primary, fontSize: 12, fontWeight: FontWeight.w600)),
             ],
           ),
         ),
@@ -291,7 +291,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
                   leading: CircleAvatar(
                     radius: 16,
-                    backgroundColor: AppTheme.primary.withOpacity(0.2),
+                    backgroundColor: AppTheme.primary.withValues(alpha: 0.2),
                     child: Text(c.initials, style: const TextStyle(color: AppTheme.primary, fontSize: 11, fontWeight: FontWeight.bold)),
                   ),
                   title: Text(c.companyName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
@@ -348,7 +348,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 trailing: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: AppTheme.error.withOpacity(0.1),
+                    color: AppTheme.error.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: const Text('DUE', style: TextStyle(fontSize: 9, color: AppTheme.error, fontWeight: FontWeight.bold)),
@@ -369,9 +369,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.error.withOpacity(0.1),
+        color: AppTheme.error.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.error.withOpacity(0.3)),
+        border: Border.all(color: AppTheme.error.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -438,7 +438,7 @@ class _KpiCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: kpi.color.withOpacity(0.15),
+                      color: kpi.color.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(kpi.icon, color: kpi.color, size: 18),

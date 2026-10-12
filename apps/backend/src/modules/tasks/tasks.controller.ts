@@ -36,18 +36,34 @@ export class TasksController {
     return this.tasksService.findMyTasks(req.user?.staffId);
   }
 
+  @Get('my-led-teams')
+  @ApiOperation({ summary: 'List teams led by the logged-in staff member' })
+  findMyLedTeams(@Req() req: any) {
+    return this.tasksService.findMyLedTeams(req.user?.staffId);
+  }
+
+  @Get('assignees')
+  @ApiOperation({ summary: 'List active staff available for task assignment' })
+  getAssignableStaff(@Req() req: any) {
+    return this.tasksService.getAssignableStaff(req.user?.staffId);
+  }
+
   @Get(':id')
-  @RequirePermissions('TASKS:VIEW')
   @ApiOperation({ summary: 'Get full task details with comments, assignees & activity log' })
-  findOne(@Param('id') id: string) {
-    return this.tasksService.findOne(id);
+  findOne(@Param('id') id: string, @Req() req: any) {
+    return this.tasksService.findOne(id, req.user?.staffId, req.user);
   }
 
   @Post()
-  @RequirePermissions('TASKS:CREATE')
   @ApiOperation({ summary: 'Create new task (auto-generates TSK code, records activity)' })
   create(@Body() dto: any, @Req() req: any) {
-    return this.tasksService.create(dto, req.user?.staffId, req.user?.id, req.user?.email);
+    return this.tasksService.create(
+      dto,
+      req.user?.staffId,
+      req.user?.id,
+      req.user?.email,
+      req.user,
+    );
   }
 
   @Put(':id')
@@ -66,6 +82,16 @@ export class TasksController {
     @Req() req: any,
   ) {
     return this.tasksService.updateStatus(id, status, notes, req.user?.staffId, req.user);
+  }
+
+  @Patch(':id/progress')
+  @ApiOperation({ summary: 'Update task completion percentage by the assignee' })
+  updateProgress(
+    @Param('id') id: string,
+    @Body('progress') progress: number,
+    @Req() req: any,
+  ) {
+    return this.tasksService.updateProgress(id, progress, req.user?.staffId);
   }
 
   @Post(':id/comments')

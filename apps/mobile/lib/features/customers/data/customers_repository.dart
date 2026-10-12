@@ -11,6 +11,7 @@ class Customer {
   final String? gstin;
   final String? pan;
   final String customerType;
+  final String? gstStatus;
   final String contactPerson;
   final String? designation;
   final String email;
@@ -28,8 +29,15 @@ class Customer {
   final double customerRating;
   final String status;
   final String? ownerName;
+  final String? salesOwnerName;
+  final String? addedByName;
   final int staffCount;
   final String? turnover;
+  final List<String> products;
+  final double valuationPercentage;
+  final int activityCount;
+  final int enquiryCount;
+  final int opportunityCount;
   final DateTime createdAt;
 
   const Customer({
@@ -39,6 +47,7 @@ class Customer {
     this.gstin,
     this.pan,
     required this.customerType,
+    this.gstStatus,
     required this.contactPerson,
     this.designation,
     required this.email,
@@ -56,12 +65,31 @@ class Customer {
     required this.customerRating,
     required this.status,
     this.ownerName,
+    this.salesOwnerName,
+    this.addedByName,
     required this.staffCount,
     this.turnover,
+    this.products = const [],
+    this.valuationPercentage = 50.0,
+    this.activityCount = 0,
+    this.enquiryCount = 0,
+    this.opportunityCount = 0,
     required this.createdAt,
   });
 
   factory Customer.fromJson(Map<String, dynamic> json) {
+    final createdByUser = json['createdByUser'] as Map<String, dynamic>?;
+    final assignedStaff = json['assignedStaff'] as Map<String, dynamic>?;
+    final valuations = json['valuations'] as Map<String, dynamic>?;
+    final counts = json['_count'] as Map<String, dynamic>? ?? {};
+    final rawInterests = json['productInterests'] as List? ?? [];
+    final prods = rawInterests
+        .map((pi) => pi is Map && pi['productSystem'] is Map
+            ? pi['productSystem']['name']?.toString()
+            : null)
+        .whereType<String>()
+        .toList();
+
     return Customer(
       id: json['id'] ?? '',
       customerCode: json['customerCode'] ?? '',
@@ -69,6 +97,10 @@ class Customer {
       gstin: json['gstin'],
       pan: json['pan'],
       customerType: json['customerType'] ?? 'END_CUSTOMER',
+      gstStatus: json['gstStatus'] ??
+          (json['gstin'] != null && json['gstin'].toString().isNotEmpty
+              ? 'GST_REGISTERED'
+              : 'NO_GST'),
       contactPerson: json['contactPerson'] ?? '',
       designation: json['designation'],
       email: json['email'] ?? '',
@@ -85,9 +117,19 @@ class Customer {
       website: json['website'],
       customerRating: (json['customerRating'] ?? 5.0).toDouble(),
       status: json['status'] ?? 'ACTIVE',
-      ownerName: json['ownerName'],
-      staffCount: json['staffCount'] ?? 0,
+      ownerName: json['ownerName'] ?? assignedStaff?['fullName'],
+      salesOwnerName: assignedStaff?['fullName'] ?? json['ownerName'],
+      addedByName: createdByUser?['fullName'],
+      staffCount: json['staffCount'] ?? json['numEmployees'] ?? 0,
       turnover: json['turnover'],
+      products: prods,
+      valuationPercentage:
+          (valuations?['valuablePercentage'] as num?)?.toDouble() ?? 50.0,
+      activityCount: ((counts['activities'] as int? ?? 0) +
+          (counts['interactions'] as int? ?? 0) +
+          (counts['followUps'] as int? ?? 0)),
+      enquiryCount: counts['enquiries'] as int? ?? 0,
+      opportunityCount: counts['leads'] as int? ?? 0,
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'])
           : DateTime.now(),
@@ -126,15 +168,31 @@ class CustomersRepository {
     String? status,
     int page = 1,
     int limit = 25,
+    String? sortBy,
+    Map<String, dynamic> filters = const {},
   }) async {
     final response = await _dio.get('/customers', queryParameters: {
       if (search != null && search.isNotEmpty) 'search': search,
       if (type != null) 'type': type,
       if (status != null) 'status': status,
+      if (sortBy != null) 'sortBy': sortBy,
+      ...filters,
       'page': page,
       'limit': limit,
     });
     return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getCompanyFilterOptions({String? state}) async {
+    final response = await _dio.get('/customers/filter-options', queryParameters: {
+      if (state != null && state.isNotEmpty) 'state': state,
+    });
+    final data = response.data;
+    if (data is Map && data['data'] is Map) {
+      return Map<String, dynamic>.from(data['data'] as Map);
+    }
+    if (data is Map) return Map<String, dynamic>.from(data);
+    throw const FormatException('Unexpected company filter options response');
   }
 
   Future<Map<String, dynamic>> getCustomer(String id) async {
@@ -147,7 +205,8 @@ class CustomersRepository {
     return response.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> updateCustomer(String id, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> updateCustomer(
+      String id, Map<String, dynamic> data) async {
     final response = await _dio.put('/customers/$id', data: data);
     return response.data as Map<String, dynamic>;
   }
@@ -156,12 +215,15 @@ class CustomersRepository {
     await _dio.delete('/customers/$id');
   }
 
-  Future<Map<String, dynamic>> addContact(String customerId, Map<String, dynamic> data) async {
-    final response = await _dio.post('/customers/$customerId/contacts', data: data);
+  Future<Map<String, dynamic>> addContact(
+      String customerId, Map<String, dynamic> data) async {
+    final response =
+        await _dio.post('/customers/$customerId/contacts', data: data);
     return response.data as Map<String, dynamic>;
   }
 
-  Future<List<dynamic>> getInteractions(String customerId, {String? type}) async {
+  Future<List<dynamic>> getInteractions(String customerId,
+      {String? type}) async {
     final response = await _dio.get(
       '/customers/$customerId/interactions',
       queryParameters: {if (type != null) 'type': type},
@@ -171,10 +233,127 @@ class CustomersRepository {
     return data as List? ?? [];
   }
 
+  Future<Map<String, dynamic>> checkDuplicate(
+    dynamic dataOrGstin, {
+    String? phone,
+    String? email,
+    String? companyName,
+  }) async {
+    Map<String, dynamic> body;
+    if (dataOrGstin is Map<String, dynamic>) {
+      body = dataOrGstin;
+    } else {
+      body = {
+        if (dataOrGstin != null) 'gstin': dataOrGstin,
+        if (phone != null) 'phone': phone,
+        if (email != null) 'email': email,
+        if (companyName != null) 'companyName': companyName,
+      };
+    }
+    final response =
+        await _dio.post('/crm/companies/duplicate-check', data: body);
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> mergeCustomers({
+    required String sourceId,
+    required String targetId,
+  }) async {
+    final response = await _dio.post('/customers/merge', data: {
+      'sourceId': sourceId,
+      'targetId': targetId,
+    });
+    return response.data as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> recordInteraction(
       String customerId, Map<String, dynamic> data) async {
-    final response = await _dio.post('/customers/$customerId/interactions', data: data);
+    final response =
+        await _dio.post('/customers/$customerId/interactions', data: data);
     return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> verifyGst(String gstin) async {
+    final response =
+        await _dio.post('/crm/companies/gst-verify', data: {'gstin': gstin});
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<List<dynamic>> getProductSystems() async {
+    final response = await _dio.get('/crm/product-systems');
+    if (response.data is List) return response.data as List;
+    if (response.data is Map && response.data['data'] is List) {
+      return response.data['data'] as List;
+    }
+    return [];
+  }
+
+  Future<dynamic> updateProductInterests(
+      String customerId, List<String> productSystemIds) async {
+    final response = await _dio.put(
+        '/crm/companies/$customerId/product-interests',
+        data: {'productSystemIds': productSystemIds});
+    return response.data;
+  }
+
+  Future<Map<String, dynamic>> updateValuation(
+      String customerId, Map<String, dynamic> data) async {
+    final response =
+        await _dio.post('/crm/companies/$customerId/valuation', data: data);
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> respondMeeting(
+      String meetingId, Map<String, dynamic> data) async {
+    final response =
+        await _dio.patch('/crm/meetings/$meetingId/respond', data: data);
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> uploadCallRecording(
+      String callId, Map<String, dynamic> data) async {
+    final response =
+        await _dio.post('/crm/calls/$callId/recordings', data: data);
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> uploadDocument({
+    required List<int> bytes,
+    required String fileName,
+    String entityType = 'CUSTOMER',
+    String? entityId,
+    String documentType = 'ATTACHMENT',
+  }) async {
+    final formData = FormData.fromMap({
+      'file': MultipartFile.fromBytes(bytes, filename: fileName),
+      'entityType': entityType,
+      'entityId': entityId ?? 'SYS',
+      'documentType': documentType,
+    });
+    final response = await _dio.post('/documents/upload', data: formData);
+    final responseData = response.data;
+    if (responseData is Map && responseData['data'] is Map) {
+      return Map<String, dynamic>.from(responseData['data'] as Map);
+    }
+    if (responseData is Map) {
+      return Map<String, dynamic>.from(responseData);
+    }
+    throw const FormatException('Unexpected document upload response');
+  }
+
+  Future<List<dynamic>> getCustomerDocuments(String customerId) async {
+    try {
+      final response = await _dio.get('/documents/entity', queryParameters: {
+        'type': 'CUSTOMER',
+        'id': customerId,
+      });
+      final data = response.data;
+      if (data is List) return data;
+      if (data is Map && data['data'] is List) return data['data'] as List;
+      return [];
+    } catch (e) {
+      return [];
+    }
   }
 }
 
@@ -189,6 +368,7 @@ class CustomerListState {
   final bool isLoading;
   final String? error;
   final int total;
+  final int systemTotal;
   final int page;
   final int totalPages;
 
@@ -197,6 +377,7 @@ class CustomerListState {
     this.isLoading = false,
     this.error,
     this.total = 0,
+    this.systemTotal = 0,
     this.page = 1,
     this.totalPages = 1,
   });
@@ -206,6 +387,7 @@ class CustomerListState {
     bool? isLoading,
     String? error,
     int? total,
+    int? systemTotal,
     int? page,
     int? totalPages,
   }) {
@@ -214,6 +396,7 @@ class CustomerListState {
       isLoading: isLoading ?? this.isLoading,
       error: error,
       total: total ?? this.total,
+      systemTotal: systemTotal ?? this.systemTotal,
       page: page ?? this.page,
       totalPages: totalPages ?? this.totalPages,
     );
@@ -229,10 +412,19 @@ class CustomerListNotifier extends StateNotifier<CustomerListState> {
     String? search,
     String? type,
     int page = 1,
+    String? sortBy,
+    Map<String, dynamic> filters = const {},
   }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final result = await _repo.getCustomers(search: search, type: type, page: page);
+      final result =
+          await _repo.getCustomers(
+            search: search,
+            type: type,
+            page: page,
+            sortBy: sortBy,
+            filters: filters,
+          );
       final data = result['data'] as Map<String, dynamic>? ?? result;
       final customers = (data['data'] as List? ?? [])
           .map((c) => Customer.fromJson(c as Map<String, dynamic>))
@@ -243,6 +435,7 @@ class CustomerListNotifier extends StateNotifier<CustomerListState> {
         customers: customers,
         isLoading: false,
         total: meta['total'] as int? ?? customers.length,
+        systemTotal: meta['systemTotal'] as int? ?? meta['total'] as int? ?? customers.length,
         page: meta['page'] as int? ?? page,
         totalPages: meta['totalPages'] as int? ?? 1,
       );
@@ -272,4 +465,3 @@ final customerTimelineProvider =
   if (data is Map) return data['data'] as List? ?? [];
   return data as List? ?? [];
 });
-

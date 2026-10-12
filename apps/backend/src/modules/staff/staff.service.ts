@@ -188,6 +188,20 @@ export class StaffService {
     const existing = await this.prisma.staff.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Staff member not found');
 
+    if (dto.departmentId && dto.departmentId !== existing.departmentId) {
+      const [departmentHeadship, teamMembershipCount, ledTeamCount] =
+        await Promise.all([
+          this.prisma.department.count({ where: { headStaffId: id } }),
+          this.prisma.teamMember.count({ where: { staffId: id } }),
+          this.prisma.team.count({ where: { leaderStaffId: id } }),
+        ]);
+      if (departmentHeadship || teamMembershipCount || ledTeamCount) {
+        throw new ConflictException(
+          'Remove this employee from department-head or team roles before changing departments',
+        );
+      }
+    }
+
     const updateData: any = {};
     if (dto.fullName) updateData.fullName = dto.fullName;
     if (dto.mobile !== undefined) updateData.mobile = dto.mobile;

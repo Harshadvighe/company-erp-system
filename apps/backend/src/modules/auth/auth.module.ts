@@ -10,9 +10,11 @@ import { AuditService } from '../../core/audit/audit.service';
 @Module({
   imports: [
     PassportModule.register({ defaultStrategy: 'jwt' }),
-    JwtModule.register({
-      secret: process.env.JWT_SECRET || 'saark_erp_production_jwt_secret_key_2026_x98123',
-      signOptions: { expiresIn: '1d' },
+    JwtModule.registerAsync({
+      useFactory: () => ({
+        secret: process.env.JWT_SECRET,
+        signOptions: { expiresIn: process.env.JWT_EXPIRES_IN || '1d' },
+      }),
     }),
   ],
   controllers: [AuthController],

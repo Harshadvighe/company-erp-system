@@ -50,8 +50,8 @@ class _EnquiriesListPageState extends ConsumerState<EnquiriesListPage>
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
-            if (Navigator.canPop(context)) {
-              Navigator.pop(context);
+            if (context.canPop()) {
+              context.pop();
             } else {
               context.go('/crm/dashboard');
             }
@@ -330,7 +330,10 @@ class _EnquiryFormSheetState extends ConsumerState<_EnquiryFormSheet> {
                   isExpanded: true,
                   items: [
                     const DropdownMenuItem(value: null, child: Text('Select Customer')),
-                    ...customersState.customers.map((c) => DropdownMenuItem(value: c.id, child: Text(c.companyName, overflow: TextOverflow.ellipsis))),
+                    ...customersState.customers.map((c) => DropdownMenuItem(
+                      value: c.id,
+                      child: Text('${c.companyName} (${c.customerCode ?? 'CUS'})', overflow: TextOverflow.ellipsis),
+                    )),
                   ],
                   onChanged: (v) => setState(() => _customerId = v),
                   validator: (v) => v == null ? 'Please select a customer' : null,
@@ -397,7 +400,7 @@ class _EnquiryFormSheetState extends ConsumerState<_EnquiryFormSheet> {
         'priority': _priority,
       });
       if (mounted) {
-        Navigator.pop(context);
+        context.pop();
         widget.onSuccess();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Enquiry created'), backgroundColor: AppTheme.success),
@@ -414,3 +417,4 @@ class _EnquiryFormSheetState extends ConsumerState<_EnquiryFormSheet> {
     }
   }
 }
+

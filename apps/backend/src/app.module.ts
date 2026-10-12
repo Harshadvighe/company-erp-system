@@ -16,6 +16,10 @@ import { ProjectsModule } from './modules/projects/projects.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { MyWorkModule } from './modules/my-work/my-work.module';
 import { HrModule } from './modules/hr/hr.module';
+import { SalesModule } from './modules/sales/sales.module';
+import { InventoryModule } from './modules/inventory/inventory.module';
+import { ReportsModule } from './modules/reports/reports.module';
+import { BulkImportModule } from './modules/bulk-import/bulk-import.module';
 
 @Module({
   imports: [
@@ -25,6 +29,7 @@ import { HrModule } from './modules/hr/hr.module';
     VendorsModule,
     ProductsModule,
     CrmModule,
+    SalesModule,
     PanelManufacturingModule,
     DocumentsModule,
     NotificationsModule,
@@ -36,6 +41,9 @@ import { HrModule } from './modules/hr/hr.module';
     TasksModule,
     MyWorkModule,
     HrModule,
+    InventoryModule,
+    ReportsModule,
+    BulkImportModule,
   ],
 })
 export class AppModule {}

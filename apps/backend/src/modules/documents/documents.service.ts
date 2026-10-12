@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
+import { SequenceService } from '../../core/database/sequence.service';
 import { FileStorageService } from '../../core/storage/file-storage.service';
 
 @Injectable()
@@ -7,13 +8,13 @@ export class DocumentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly fileStorageService: FileStorageService,
+    private readonly sequenceService: SequenceService,
   ) {}
 
   async uploadDocument(file: Express.Multer.File, entityType: string, entityId: string, documentType: string, uploadedBy: string) {
     const storageResult = await this.fileStorageService.uploadFile(file, entityType, entityId);
 
-    const count = await this.prisma.documentItem.count();
-    const documentCode = `DOC-2026-${String(count + 1).padStart(5, '0')}`;
+    const documentCode = await this.sequenceService.nextDocumentCode();
 
     return this.prisma.documentItem.create({
       data: {

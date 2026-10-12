@@ -122,6 +122,11 @@ class PurchaseRepository {
     return (response.data['data'] as Map<String, dynamic>?) ?? (response.data as Map<String, dynamic>);
   }
 
+  Future<Map<String, dynamic>> verifyGst(String gstin) async {
+    final response = await _dio.post('/vendors/verify-gst', data: {'gstin': gstin});
+    return (response.data['data'] as Map<String, dynamic>?) ?? (response.data as Map<String, dynamic>);
+  }
+
   Future<List<Map<String, dynamic>>> getVendors() async {
     final response = await _dio.get('/vendors');
     final data = response.data['data'] as Map<String, dynamic>? ?? response.data;
