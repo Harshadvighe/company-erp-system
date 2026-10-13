@@ -6,6 +6,7 @@ import 'package:saark_erp_mobile/core/theme/app_theme.dart';
 import 'package:saark_erp_mobile/features/staff/data/staff_repository.dart';
 import 'package:saark_erp_mobile/features/vendors/data/vendors_repository.dart';
 import 'package:saark_erp_mobile/core/widgets/bulk_import_modal.dart';
+import 'package:saark_erp_mobile/core/network/dio_client.dart';
 
 class VendorsListPage extends ConsumerStatefulWidget {
   const VendorsListPage({super.key});
@@ -606,6 +607,7 @@ class _VendorFormSheetState extends ConsumerState<_VendorFormSheet> {
   }
 
   Future<void> _verifyGst() async {
+    if (_isVerifyingGst) return;
     final gstin = _gstCtrl.text.trim().toUpperCase();
     if (!_isValidGstin(gstin)) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -698,10 +700,16 @@ class _VendorFormSheetState extends ConsumerState<_VendorFormSheet> {
       }
     } catch (e) {
       if (mounted) {
+        final errorMsg = parseDioError(e);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('GST Verification Failed: ${e.toString().replaceAll('Exception: ', '')}'),
-            backgroundColor: AppTheme.error,
+            content: Text(errorMsg),
+            backgroundColor: AppTheme.warning,
+            action: SnackBarAction(
+              label: 'RETRY',
+              textColor: Colors.white,
+              onPressed: _verifyGst,
+            ),
           ),
         );
       }

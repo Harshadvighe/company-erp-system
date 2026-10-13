@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { DatabaseModule } from './core/database/database.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { CustomersModule } from './modules/customers/customers.module';
@@ -23,6 +24,7 @@ import { BulkImportModule } from './modules/bulk-import/bulk-import.module';
 
 @Module({
   imports: [
+    DatabaseModule,
     AuthModule,
     AdminModule,
     CustomersModule,

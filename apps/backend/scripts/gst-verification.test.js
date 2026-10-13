@@ -270,3 +270,69 @@ test('auto-resolves State and District when provider returns null fields in addr
   assert.equal(result.city, 'KARVE NAGAR');
   assert.equal(result.pincode, '411052');
 });
+
+test('retries HTTP 503 provider response at most three times and returns user-friendly 503', async (t) => {
+  let requestCount = 0;
+  global.fetch = async () => {
+    requestCount++;
+    return jsonResponse(503, { success: false, error: 'Service Unavailable' });
+  };
+  t.after(() => {
+    global.fetch = originalFetch;
+  });
+
+  await assert.rejects(
+    () => new GstVerificationService().verifyAndFetch(GSTIN),
+    (error) => {
+      assert.equal(error.status, 503);
+      assert.match(error.message, /manually/i);
+      return true;
+    },
+  );
+  assert.equal(requestCount, 3);
+});
+
+test('retries on network fetch timeout or AbortError and throws 503', async (t) => {
+  let requestCount = 0;
+  global.fetch = async () => {
+    requestCount++;
+    const err = new Error('The operation was aborted due to timeout');
+    err.name = 'TimeoutError';
+    throw err;
+  };
+  t.after(() => {
+    global.fetch = originalFetch;
+  });
+
+  await assert.rejects(
+    () => new GstVerificationService().verifyAndFetch(GSTIN),
+    (error) => {
+      assert.equal(error.status, 503);
+      assert.match(error.message, /unavailable or timed out/i);
+      return true;
+    },
+  );
+  assert.equal(requestCount, 3);
+});
+
+test('throws 503 when GST_VERIFICATION_TOKEN_SECRET is missing or too short', async () => {
+  delete process.env.GST_VERIFICATION_TOKEN_SECRET;
+  await assert.rejects(
+    () => new GstVerificationService().verifyAndFetch(GSTIN),
+    (error) => {
+      assert.equal(error.status, 503);
+      assert.match(error.message, /manually/i);
+      return true;
+    },
+  );
+
+  process.env.GST_VERIFICATION_TOKEN_SECRET = 'too-short';
+  await assert.rejects(
+    () => new GstVerificationService().verifyAndFetch(GSTIN),
+    (error) => {
+      assert.equal(error.status, 503);
+      assert.match(error.message, /manually/i);
+      return true;
+    },
+  );
+});

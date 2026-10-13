@@ -73,7 +73,12 @@ String parseDioError(dynamic e) {
     case 403: return 'You do not have permission to perform this action.';
     case 404: return 'Record not found.';
     case 409: return data?['message']?.toString() ?? 'A duplicate record already exists.';
-    case 500: return 'Server error. Please try again later.';
+    case 500: return 'Internal server error. Please try again later.';
+    case 502:
+    case 503:
+    case 504: return (data is Map && data['message'] != null)
+        ? data['message'].toString()
+        : 'Service temporarily unavailable. Please try again later or proceed manually.';
     default: return 'An unexpected error occurred.';
   }
 }

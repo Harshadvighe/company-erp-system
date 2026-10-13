@@ -184,8 +184,9 @@ export class GstVerificationService {
 
     this.getVerificationSigningSecret();
     if (!process.env.GSTIN_API_KEY?.trim()) {
+      this.logger.warn('GSTIN_API_KEY is not configured on the backend.');
       throw new ServiceUnavailableException(
-        'GST verification is not configured. Set GSTIN_API_KEY on the backend.',
+        'GST verification service is not configured. You can enter company details manually.',
       );
     }
 
@@ -385,8 +386,9 @@ export class GstVerificationService {
   private getVerificationSigningSecret(): string {
     const secret = process.env.GST_VERIFICATION_TOKEN_SECRET?.trim();
     if (!secret || Buffer.byteLength(secret) < 32) {
+      this.logger.warn('GST_VERIFICATION_TOKEN_SECRET is not configured or too short (<32 bytes) on the backend.');
       throw new ServiceUnavailableException(
-        'GST verification signing is not configured. Set GST_VERIFICATION_TOKEN_SECRET to at least 32 characters on the backend.',
+        'GST verification service is not configured. You can enter company details manually.',
       );
     }
     return secret;
@@ -397,14 +399,31 @@ export class GstVerificationService {
     const url = `${PROVIDER_BASE_URL}/v1/gstin/${encodeURIComponent(gstin)}`;
 
     for (let attempt = 1; attempt <= MAX_LOOKUP_ATTEMPTS; attempt++) {
-      const response = await this.fetchProvider(url, {
-        method: 'GET',
-        headers: { 'x-api-key': apiKey },
-      });
+      let response: Response;
+      try {
+        response = await this.fetchProvider(url, {
+          method: 'GET',
+          headers: { 'x-api-key': apiKey },
+        });
+      } catch (err: any) {
+        if (attempt < MAX_LOOKUP_ATTEMPTS) {
+          await this.delay(RETRY_DELAY_MS * 2 ** (attempt - 1));
+          continue;
+        }
+        throw new ServiceUnavailableException(
+          'GSTIN Portal is unavailable or timed out. Please try again later or enter company details manually.',
+        );
+      }
+
       const payload = await this.readProviderJson(response);
       this.logLookupUsage(payload);
 
-      if (response.status === 429 || response.status === 502) {
+      if (
+        response.status === 429 ||
+        response.status === 502 ||
+        response.status === 503 ||
+        response.status === 504
+      ) {
         if (attempt < MAX_LOOKUP_ATTEMPTS) {
           await this.delay(RETRY_DELAY_MS * 2 ** (attempt - 1));
           continue;
@@ -414,7 +433,7 @@ export class GstVerificationService {
       this.throwProviderError(response.status, payload);
       if (payload.success !== true) {
         throw new BadGatewayException(
-          'GSTIN Portal returned an unsuccessful response for the taxpayer lookup.',
+          'GSTIN Portal returned an unsuccessful response for the taxpayer lookup. You can enter details manually.',
         );
       }
 
@@ -422,7 +441,7 @@ export class GstVerificationService {
     }
 
     throw new BadGatewayException(
-      'GSTIN Portal did not complete the taxpayer lookup.',
+      'GSTIN Portal did not complete the taxpayer lookup. You can enter details manually.',
     );
   }
 
@@ -437,7 +456,7 @@ export class GstVerificationService {
       });
     } catch {
       throw new ServiceUnavailableException(
-        'GSTIN Portal is unavailable or timed out. Please try again later.',
+        'GSTIN Portal is unavailable or timed out. Please try again later or enter company details manually.',
       );
     }
   }
@@ -492,17 +511,22 @@ export class GstVerificationService {
         );
       case 502:
         throw new BadGatewayException(
-          'The GST provider is temporarily unavailable. Please try again later.',
+          'The GST provider is temporarily unavailable. Please try again later or enter details manually.',
+        );
+      case 503:
+      case 504:
+        throw new ServiceUnavailableException(
+          'GSTIN Portal is temporarily unavailable. Please try again later or enter company details manually.',
         );
       default:
         if (!payload.success && text(payload.error)) {
           throw new BadGatewayException(
-            'GSTIN Portal could not complete the lookup. Please try again later.',
+            'GSTIN Portal could not complete the lookup. Please try again later or enter details manually.',
           );
         }
         if (status >= 500) {
           throw new ServiceUnavailableException(
-            'GSTIN Portal is temporarily unavailable. Please try again later.',
+            'GSTIN Portal is temporarily unavailable. Please try again later or enter company details manually.',
           );
         }
         throw new BadGatewayException(

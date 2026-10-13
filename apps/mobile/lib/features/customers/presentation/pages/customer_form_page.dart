@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:saark_erp_mobile/core/theme/app_theme.dart';
 import 'package:saark_erp_mobile/core/constants/app_constants.dart';
 import 'package:saark_erp_mobile/core/auth/auth_provider.dart';
 import 'package:saark_erp_mobile/features/customers/data/customers_repository.dart';
@@ -307,6 +306,7 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
   }
 
   Future<void> _verifyGst() async {
+    if (_isVerifyingGst) return; // Prevent duplicate requests
     final gstin = _gstinCtrl.text.trim().toUpperCase();
     if (!_isValidGstin(gstin)) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -396,10 +396,28 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
       }
     } catch (e) {
       if (mounted) {
+        final errorMsg = parseDioError(e);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('GST Verification error: $e'),
-            backgroundColor: _errorColor,
+            content: Row(
+              children: [
+                const Icon(Icons.info_outline, color: Colors.white, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    errorMsg,
+                    style: const TextStyle(fontSize: 12.5),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: _warningColor,
+            duration: const Duration(seconds: 6),
+            action: SnackBarAction(
+              label: 'RETRY',
+              textColor: Colors.white,
+              onPressed: _verifyGst,
+            ),
           ),
         );
       }
