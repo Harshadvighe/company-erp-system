@@ -39,8 +39,8 @@ export class CrmController {
   @Get('leads/:id')
   @RequirePermissions('CRM:VIEW')
   @ApiOperation({ summary: 'Get lead detail' })
-  getLead(@Param('id') id: string) {
-    return this.crmService.getLead(id);
+  getLead(@Param('id') id: string, @Req() req: any) {
+    return this.crmService.getLead(id, req.user);
   }
 
   @Post('leads')
@@ -99,6 +99,27 @@ export class CrmController {
   @ApiOperation({ summary: 'Create new opportunity' })
   createOpportunity(@Body() dto: any, @Req() req: any) {
     return this.crmService.createOpportunity(dto, req.user);
+  }
+
+  @Get('opportunities/:id')
+  @RequirePermissions('CRM:VIEW')
+  @ApiOperation({ summary: 'Get single opportunity detail' })
+  getOpportunity(@Param('id') id: string, @Req() req: any) {
+    return this.crmService.getOpportunity(id, req.user);
+  }
+
+  @Put('opportunities/:id')
+  @RequirePermissions('CRM:EDIT')
+  @ApiOperation({ summary: 'Update opportunity details (PUT)' })
+  updateOpportunityPut(@Param('id') id: string, @Body() dto: any, @Req() req: any) {
+    return this.crmService.updateOpportunity(id, dto, req.user);
+  }
+
+  @Patch('opportunities/:id')
+  @RequirePermissions('CRM:EDIT')
+  @ApiOperation({ summary: 'Update opportunity details (PATCH)' })
+  updateOpportunityPatch(@Param('id') id: string, @Body() dto: any, @Req() req: any) {
+    return this.crmService.updateOpportunity(id, dto, req.user);
   }
 
   @Patch('opportunities/:id/stage')
@@ -170,6 +191,24 @@ export class CrmController {
     return this.crmService.completeFollowUp(id, body, req.user);
   }
 
+  @Post('follow-ups/:id/complete')
+  @RequirePermissions('CRM:EDIT')
+  @ApiOperation({ summary: 'Complete a follow-up (POST alias)' })
+  completeFollowUpPost(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+    return this.crmService.completeFollowUp(id, body, req.user);
+  }
+
+  @Patch('follow-ups/:id/reschedule')
+  @RequirePermissions('CRM:EDIT')
+  @ApiOperation({ summary: 'Reschedule an existing pending follow-up' })
+  rescheduleFollowUp(
+    @Param('id') id: string,
+    @Body() dto: { scheduledDate: string; reason?: string },
+    @Req() req: any,
+  ) {
+    return this.crmService.rescheduleFollowUp(id, dto, req.user);
+  }
+
   // ─── ANALYTICS ────────────────────────────────────────────────────────────
   @Get('analytics')
   @RequirePermissions('CRM:VIEW')
@@ -196,8 +235,8 @@ export class CrmController {
   @Get('enquiries/:id')
   @RequirePermissions('CRM:VIEW')
   @ApiOperation({ summary: 'Get enquiry detail' })
-  getEnquiry(@Param('id') id: string) {
-    return this.crmService.getEnquiry(id);
+  getEnquiry(@Param('id') id: string, @Req() req: any) {
+    return this.crmService.getEnquiry(id, req.user);
   }
 
   @Post('enquiries')
@@ -248,15 +287,15 @@ export class CrmController {
   @Get('companies/:id')
   @RequirePermissions('CRM:VIEW')
   @ApiOperation({ summary: 'Aggregated Company 360 profile with all 16 relations' })
-  getCompany360(@Param('id') id: string) {
-    return this.crmService.getCompany360(id);
+  getCompany360(@Param('id') id: string, @Req() req: any) {
+    return this.crmService.getCompany360(id, req.user);
   }
 
   @Get('companies/:id/timeline')
   @RequirePermissions('CRM:VIEW')
   @ApiOperation({ summary: 'Unified chronological activity timeline for company' })
-  getCompanyTimeline(@Param('id') id: string) {
-    return this.crmService.getCompanyTimeline(id);
+  getCompanyTimeline(@Param('id') id: string, @Req() req: any) {
+    return this.crmService.getCompanyTimeline(id, req.user);
   }
 
   @Post('companies')
@@ -279,8 +318,9 @@ export class CrmController {
   updateCompanyProductInterests(
     @Param('id') id: string,
     @Body('productSystemIds') productSystemIds: string[],
+    @Req() req: any,
   ) {
-    return this.crmService.updateCompanyProductInterests(id, productSystemIds || []);
+    return this.crmService.updateCompanyProductInterests(id, productSystemIds || [], req.user);
   }
 
   @Post('companies/:id/valuation')

@@ -2,6 +2,8 @@ import {
   Controller,
   Get,
   Post,
+  Put,
+  Delete,
   Param,
   Query,
   UseGuards,
@@ -18,6 +20,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { DocumentsService } from './documents.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { RequirePermissions } from '../../common/decorators/permissions.decorator';
 
 // Simple mime type resolver without external dependency
 function getMimeType(filePath: string): string {
@@ -55,10 +59,11 @@ export class DocumentsController {
   constructor(private readonly documentsService: DocumentsService) {}
 
   @Get()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('CRM:VIEW', 'CUSTOMERS:VIEW', 'SALES:VIEW', 'DOCUMENTS:VIEW')
   @ApiOperation({ summary: 'List all documents in global repository' })
-  async getAllDocuments() {
-    const docs = await this.documentsService.getAllDocuments();
+  async getAllDocuments(@Req() req: any) {
+    const docs = await this.documentsService.getAllDocuments(req.user);
     return docs.map((doc) => {
       const relativePath = doc.storagePath.replace(/\\/g, '/');
       const encodedPath = relativePath.split('/').map(encodeURIComponent).join('/');
@@ -73,10 +78,15 @@ export class DocumentsController {
   }
 
   @Get('entity')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('CRM:VIEW', 'CUSTOMERS:VIEW', 'SALES:VIEW', 'DOCUMENTS:VIEW')
   @ApiOperation({ summary: 'List documents for specific entity (Customer, Product, Project, etc.)' })
-  async getByEntity(@Query('type') entityType: string, @Query('id') entityId: string) {
-    const docs = await this.documentsService.getDocumentsByEntity(entityType, entityId);
+  async getByEntity(
+    @Query('type') entityType: string,
+    @Query('id') entityId: string,
+    @Req() req: any,
+  ) {
+    const docs = await this.documentsService.getDocumentsByEntity(entityType, entityId, req.user);
     return docs.map((doc) => {
       const relativePath = doc.storagePath.replace(/\\/g, '/');
       const encodedPath = relativePath.split('/').map(encodeURIComponent).join('/');
@@ -94,40 +104,56 @@ export class DocumentsController {
   @ApiOperation({ summary: 'Serve uploaded file by storage path (for media/photo preview)' })
   async serveFile(@Param('0') filePath: string, @Res() res: Response) {
     try {
-      const storageEnvPath = process.env.STORAGE_LOCAL_BASE_PATH;
-      const basePath = storageEnvPath
-        ? (path.isAbsolute(storageEnvPath) ? storageEnvPath : path.resolve(process.cwd(), storageEnvPath))
-        : path.resolve(__dirname, '../../../../../storage');
-
       const decodedPath = decodeURIComponent(filePath).replace(/\\/g, '/');
-      const safeRelativePath = decodedPath.replace(/\.\.\//g, '');
-      const fullPath = path.resolve(basePath, safeRelativePath);
+      const safeRelativePath = decodedPath.replace(/^\/+/, '').replace(/\.\.\//g, '');
+      const provider = (process.env.STORAGE_PROVIDER || 'local').toLowerCase();
 
-      const normalizedBase = path.resolve(basePath).toLowerCase().replace(/\\/g, '/');
-      const normalizedFull = path.resolve(fullPath).toLowerCase().replace(/\\/g, '/');
+      if (provider === 'local') {
+        const storageEnvPath = process.env.STORAGE_LOCAL_BASE_PATH;
+        const basePath = storageEnvPath
+          ? (path.isAbsolute(storageEnvPath) ? storageEnvPath : path.resolve(process.cwd(), storageEnvPath))
+          : path.resolve(__dirname, '../../../../../storage');
 
-      // Ensure resolved path is inside basePath (case-insensitive for Windows)
-      if (!normalizedFull.startsWith(normalizedBase)) {
-        return res.status(403).json({ message: 'Forbidden' });
+        const fullPath = path.resolve(basePath, safeRelativePath);
+        const normalizedBase = path.resolve(basePath).toLowerCase().replace(/\\/g, '/');
+        const normalizedFull = path.resolve(fullPath).toLowerCase().replace(/\\/g, '/');
+
+        // Ensure resolved path is inside basePath (case-insensitive for Windows)
+        if (!normalizedFull.startsWith(normalizedBase)) {
+          return res.status(403).json({ message: 'Forbidden' });
+        }
+
+        if (!fs.existsSync(fullPath)) {
+          return res.status(404).json({ message: 'File not found' });
+        }
+
+        const mimeType = getMimeType(fullPath);
+        res.setHeader('Content-Type', mimeType);
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        const stream = fs.createReadStream(fullPath);
+        return stream.pipe(res);
       }
 
-      if (!fs.existsSync(fullPath)) {
-        return res.status(404).json({ message: 'File not found' });
-      }
-
-      const mimeType = getMimeType(fullPath);
+      // For cloud providers (supabase, s3), fetch buffer through abstracted storage service
+      const mimeType = getMimeType(safeRelativePath);
       res.setHeader('Content-Type', mimeType);
       res.setHeader('Cache-Control', 'public, max-age=86400');
       res.setHeader('Access-Control-Allow-Origin', '*');
-      const stream = fs.createReadStream(fullPath);
-      stream.pipe(res);
-    } catch (e) {
-      res.status(500).json({ message: 'Error serving file' });
+
+      const fileBuffer = await this.documentsService.downloadFileByPath(safeRelativePath);
+      return res.send(fileBuffer);
+    } catch (e: any) {
+      if (e?.message && e.message.includes('not found')) {
+        return res.status(404).json({ message: 'File not found' });
+      }
+      return res.status(500).json({ message: 'Error serving file' });
     }
   }
 
   @Post('upload')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('CRM:CREATE', 'CRM:EDIT', 'CUSTOMERS:EDIT', 'SALES:CREATE', 'SALES:EDIT', 'DOCUMENTS:CREATE')
   @ApiOperation({ summary: 'Upload file document using abstracted FileStorageService' })
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('file'))
@@ -144,6 +170,7 @@ export class DocumentsController {
       entityId || 'SYS',
       documentType || 'ATTACHMENT',
       req.user?.fullName || 'System User',
+      req.user,
     );
     // Return filePath for use in Flutter app (preview URL)
     const relativePath = doc.storagePath.replace(/\\/g, '/');
@@ -158,12 +185,58 @@ export class DocumentsController {
   }
 
   @Get(':id/download')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('CRM:VIEW', 'CUSTOMERS:VIEW', 'SALES:VIEW', 'DOCUMENTS:VIEW')
   @ApiOperation({ summary: 'Download document stream' })
-  async downloadFile(@Param('id') id: string, @Res() res: Response) {
-    const { buffer, doc } = await this.documentsService.getFileBuffer(id);
+  async downloadFile(@Param('id') id: string, @Req() req: any, @Res() res: Response) {
+    const { buffer, doc } = await this.documentsService.getFileBuffer(id, req.user);
     res.setHeader('Content-Type', doc.mimeType);
     res.setHeader('Content-Disposition', `attachment; filename="${doc.fileName}"`);
     res.send(buffer);
+  }
+
+  @Put(':id/replace')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('CRM:EDIT', 'CUSTOMERS:EDIT', 'SALES:EDIT', 'DOCUMENTS:EDIT')
+  @ApiOperation({ summary: 'Replace an existing document file with authorization checks' })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file'))
+  async replaceFile(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: any,
+  ) {
+    const doc = await this.documentsService.replaceDocument(id, file, req.user);
+    const relativePath = doc.storagePath.replace(/\\/g, '/');
+    const encodedPath = relativePath.split('/').map(encodeURIComponent).join('/');
+    const filePreviewUrl = `/api/v1/documents/files/${encodedPath}`;
+    return {
+      ...doc,
+      filePath: filePreviewUrl,
+      fileUrl: filePreviewUrl,
+      url: filePreviewUrl,
+    };
+  }
+
+  @Put(':id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('CRM:EDIT', 'CUSTOMERS:EDIT', 'SALES:EDIT', 'DOCUMENTS:EDIT')
+  @ApiOperation({ summary: 'Replace an existing document' })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file'))
+  async updateFile(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: any,
+  ) {
+    return this.replaceFile(id, file, req);
+  }
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('CRM:DELETE', 'CRM:EDIT', 'CUSTOMERS:DELETE', 'CUSTOMERS:EDIT', 'DOCUMENTS:DELETE')
+  @ApiOperation({ summary: 'Delete document with authorization check' })
+  async deleteDocument(@Param('id') id: string, @Req() req: any) {
+    return this.documentsService.deleteDocument(id, req.user);
   }
 }

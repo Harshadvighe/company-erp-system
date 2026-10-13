@@ -11,7 +11,7 @@ import { ApproveEmployeeRequestDto } from './dto/approve-employee-request.dto';
 
 @ApiTags('Administration')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('api/v1/admin')
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
@@ -19,12 +19,14 @@ export class AdminController {
   // ─── COMPANY ──────────────────────────────────────────────────────────────
 
   @Get('company')
+  @RequirePermissions('ORGANIZATION:VIEW')
   @ApiOperation({ summary: 'Get company profile' })
   getCompanyProfile() {
     return this.adminService.getCompanyProfile();
   }
 
   @Put('company')
+  @RequirePermissions('ORGANIZATION:EDIT')
   @ApiOperation({ summary: 'Create or update company profile' })
   updateCompanyProfile(@Body() dto: any) {
     return this.adminService.updateCompanyProfile(dto);
@@ -33,13 +35,13 @@ export class AdminController {
   // ─── DEPARTMENTS ──────────────────────────────────────────────────────────
 
   @Get('departments')
+  @RequirePermissions('ORGANIZATION:VIEW')
   @ApiOperation({ summary: 'List all departments' })
   getDepartments() {
     return this.adminService.getDepartments();
   }
 
   @Get('organization')
-  @UseGuards(PermissionsGuard)
   @RequirePermissions('STAFF:VIEW')
   @ApiOperation({ summary: 'Get departments, department heads, teams and memberships' })
   getOrganizationStructure() {
@@ -47,19 +49,20 @@ export class AdminController {
   }
 
   @Post('departments')
+  @RequirePermissions('ORGANIZATION:CREATE')
   @ApiOperation({ summary: 'Create department' })
   createDepartment(@Body() dto: { name: string; code: string }) {
     return this.adminService.createDepartment(dto);
   }
 
   @Put('departments/:id')
+  @RequirePermissions('ORGANIZATION:EDIT')
   @ApiOperation({ summary: 'Update department' })
   updateDepartment(@Param('id') id: string, @Body() dto: any) {
     return this.adminService.updateDepartment(id, dto);
   }
 
   @Put('departments/:id/head')
-  @UseGuards(PermissionsGuard)
   @RequirePermissions('ORGANIZATION:EDIT')
   @ApiOperation({ summary: 'Assign or remove the department head' })
   updateDepartmentHead(@Param('id') id: string, @Body() dto: any) {
@@ -70,13 +73,13 @@ export class AdminController {
   }
 
   @Delete('departments/:id')
+  @RequirePermissions('ORGANIZATION:DELETE')
   @ApiOperation({ summary: 'Delete department (only if no users assigned)' })
   deleteDepartment(@Param('id') id: string) {
     return this.adminService.deleteDepartment(id);
   }
 
   @Get('teams')
-  @UseGuards(PermissionsGuard)
   @RequirePermissions('STAFF:VIEW')
   @ApiOperation({ summary: 'List teams, optionally filtered by department' })
   getTeams(@Query('departmentId') departmentId?: string) {
@@ -84,7 +87,6 @@ export class AdminController {
   }
 
   @Post('teams')
-  @UseGuards(PermissionsGuard)
   @RequirePermissions('ORGANIZATION:CREATE')
   @ApiOperation({ summary: 'Create team with leader and members' })
   createTeam(@Body() dto: any) {
@@ -92,7 +94,6 @@ export class AdminController {
   }
 
   @Put('teams/:id')
-  @UseGuards(PermissionsGuard)
   @RequirePermissions('ORGANIZATION:EDIT')
   @ApiOperation({ summary: 'Update team, leader and members' })
   updateTeam(@Param('id') id: string, @Body() dto: any) {
@@ -100,7 +101,6 @@ export class AdminController {
   }
 
   @Delete('teams/:id')
-  @UseGuards(PermissionsGuard)
   @RequirePermissions('ORGANIZATION:DELETE')
   @ApiOperation({ summary: 'Delete team' })
   deleteTeam(@Param('id') id: string) {
@@ -110,24 +110,28 @@ export class AdminController {
   // ─── DESIGNATIONS ──────────────────────────────────────────────────────────
 
   @Get('designations')
+  @RequirePermissions('ORGANIZATION:VIEW')
   @ApiOperation({ summary: 'List all designations' })
   getDesignations() {
     return this.adminService.getDesignations();
   }
 
   @Post('designations')
+  @RequirePermissions('ORGANIZATION:CREATE')
   @ApiOperation({ summary: 'Create designation' })
   createDesignation(@Body() dto: { name: string; code: string; description?: string }) {
     return this.adminService.createDesignation(dto);
   }
 
   @Put('designations/:id')
+  @RequirePermissions('ORGANIZATION:EDIT')
   @ApiOperation({ summary: 'Update designation' })
   updateDesignation(@Param('id') id: string, @Body() dto: any) {
     return this.adminService.updateDesignation(id, dto);
   }
 
   @Delete('designations/:id')
+  @RequirePermissions('ORGANIZATION:DELETE')
   @ApiOperation({ summary: 'Delete designation (only if no staff assigned)' })
   deleteDesignation(@Param('id') id: string) {
     return this.adminService.deleteDesignation(id);
@@ -136,18 +140,21 @@ export class AdminController {
   // ─── FINANCIAL YEARS ──────────────────────────────────────────────────────
 
   @Get('financial-years')
+  @RequirePermissions('ORGANIZATION:VIEW')
   @ApiOperation({ summary: 'List all financial years' })
   getFinancialYears() {
     return this.adminService.getFinancialYears();
   }
 
   @Post('financial-years')
+  @RequirePermissions('ORGANIZATION:CREATE')
   @ApiOperation({ summary: 'Create financial year' })
   createFinancialYear(@Body() dto: any) {
     return this.adminService.createFinancialYear(dto);
   }
 
   @Patch('financial-years/:id/set-current')
+  @RequirePermissions('ORGANIZATION:EDIT')
   @ApiOperation({ summary: 'Set a financial year as current' })
   setCurrentFinancialYear(@Param('id') id: string) {
     return this.adminService.setCurrentFinancialYear(id);
@@ -156,18 +163,21 @@ export class AdminController {
   // ─── TAX RATES ────────────────────────────────────────────────────────────
 
   @Get('tax-rates')
+  @RequirePermissions('ORGANIZATION:VIEW')
   @ApiOperation({ summary: 'List all tax rates (GST slabs)' })
   getTaxRates() {
     return this.adminService.getTaxRates();
   }
 
   @Post('tax-rates')
+  @RequirePermissions('ORGANIZATION:CREATE')
   @ApiOperation({ summary: 'Create tax rate' })
   createTaxRate(@Body() dto: any) {
     return this.adminService.createTaxRate(dto);
   }
 
   @Put('tax-rates/:id')
+  @RequirePermissions('ORGANIZATION:EDIT')
   @ApiOperation({ summary: 'Update tax rate' })
   updateTaxRate(@Param('id') id: string, @Body() dto: any) {
     return this.adminService.updateTaxRate(id, dto);
@@ -176,12 +186,14 @@ export class AdminController {
   // ─── PAYMENT MODES ────────────────────────────────────────────────────────
 
   @Get('payment-modes')
+  @RequirePermissions('ORGANIZATION:VIEW')
   @ApiOperation({ summary: 'List all payment modes' })
   getPaymentModes() {
     return this.adminService.getPaymentModes();
   }
 
   @Post('payment-modes')
+  @RequirePermissions('ORGANIZATION:CREATE')
   @ApiOperation({ summary: 'Create payment mode' })
   createPaymentMode(@Body() dto: any) {
     return this.adminService.createPaymentMode(dto);
@@ -190,52 +202,60 @@ export class AdminController {
   // ─── USERS ────────────────────────────────────────────────────────────────
 
   @Get('users')
+  @RequirePermissions('USERS:VIEW')
   @ApiOperation({ summary: 'List all users with roles' })
   getUsers(@Query() query: any) {
     return this.adminService.getUsers(query);
   }
 
   @Post('users')
+  @RequirePermissions('USERS:CREATE')
   @ApiOperation({ summary: 'Create new user with role assignment' })
-  createUser(@Body() dto: any) {
-    return this.adminService.createUser(dto);
+  createUser(@Body() dto: any, @Req() req: any) {
+    return this.adminService.createUser(dto, req.user);
   }
 
   @Put('users/:id')
+  @RequirePermissions('USERS:EDIT')
   @ApiOperation({ summary: 'Update user details and roles' })
-  updateUser(@Param('id') id: string, @Body() dto: any) {
-    return this.adminService.updateUser(id, dto);
+  updateUser(@Param('id') id: string, @Body() dto: any, @Req() req: any) {
+    return this.adminService.updateUser(id, dto, req.user);
   }
 
   @Patch('users/:id/toggle-status')
+  @RequirePermissions('USERS:EDIT')
   @ApiOperation({ summary: 'Toggle user active/inactive status' })
-  toggleUserStatus(@Param('id') id: string) {
-    return this.adminService.toggleUserStatus(id);
+  toggleUserStatus(@Param('id') id: string, @Req() req: any) {
+    return this.adminService.toggleUserStatus(id, req.user);
   }
 
   // ─── ROLES ────────────────────────────────────────────────────────────────
 
   @Get('roles')
+  @RequirePermissions('ROLES:VIEW')
   @ApiOperation({ summary: 'List all roles with permissions' })
   getRoles() {
     return this.adminService.getRoles();
   }
 
   @Post('roles')
+  @RequirePermissions('ROLES:CREATE')
   @ApiOperation({ summary: 'Create role with permission assignment' })
-  createRole(@Body() dto: any) {
-    return this.adminService.createRole(dto);
+  createRole(@Body() dto: any, @Req() req: any) {
+    return this.adminService.createRole(dto, req.user);
   }
 
   @Put('roles/:id/permissions')
+  @RequirePermissions('ROLES:EDIT')
   @ApiOperation({ summary: 'Update permissions assigned to a role' })
-  updateRolePermissions(@Param('id') id: string, @Body() body: { permissionIds: string[] }) {
-    return this.adminService.updateRolePermissions(id, body.permissionIds);
+  updateRolePermissions(@Param('id') id: string, @Body() body: { permissionIds: string[] }, @Req() req: any) {
+    return this.adminService.updateRolePermissions(id, body.permissionIds, req.user);
   }
 
   // ─── PERMISSIONS ──────────────────────────────────────────────────────────
 
   @Get('permissions')
+  @RequirePermissions('ROLES:VIEW')
   @ApiOperation({ summary: 'List all available permissions (module:action pairs)' })
   getPermissions() {
     return this.adminService.getPermissions();
@@ -244,6 +264,7 @@ export class AdminController {
   // ─── EMPLOYEE REQUESTS & ONBOARDING PROVISIONING ──────────────────────────
 
   @Get('employee-requests')
+  @RequirePermissions('STAFF:VIEW')
   @ApiOperation({ summary: 'List employee onboarding requests awaiting approval' })
   getEmployeeRequests(
     @Query('departmentId') departmentId?: string,
@@ -254,6 +275,7 @@ export class AdminController {
   }
 
   @Post('employee-requests/:id/approve')
+  @RequirePermissions('STAFF:APPROVE')
   @ApiOperation({ summary: 'Approve employee onboarding, assign department/role, and create login credentials' })
   approveEmployeeRequest(
     @Param('id') id: string,
@@ -264,6 +286,7 @@ export class AdminController {
   }
 
   @Post('employee-requests/:id/reject')
+  @RequirePermissions('STAFF:APPROVE')
   @ApiOperation({ summary: 'Reject employee onboarding request' })
   rejectEmployeeRequest(
     @Param('id') id: string,

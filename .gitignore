@@ -26,6 +26,9 @@ apps/mobile/ios/.symlinks/
 # Environment files
 .env
 *.env.local
+.env.staging
+.env.staging.*
+*.env.staging
 
 # Database & Storage
 *.db
@@ -43,8 +46,14 @@ cloudflared.exe
 *.exe
 *.apk
 
-# Temporary tunnel runtime files
-tunnel_output.log
-phone_url.txt
+# Local scratch & backups
+scratch/
+database_backups/
+column_type_census.json
+sqlite_inventory.json
+types_audit.json
+RUN_STAGING_3199.bat
+inspect_sqlite_inventory.py
 phone_access.html
-
+phone_url.txt
+tunnel_output.log

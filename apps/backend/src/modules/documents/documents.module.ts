@@ -7,6 +7,7 @@ import {
   FileStorageService,
   LocalFileStorageService,
   S3FileStorageService,
+  SupabaseFileStorageService,
 } from '../../core/storage/file-storage.service';
 
 @Module({
@@ -18,7 +19,10 @@ import {
     {
       provide: FileStorageService,
       useFactory: () => {
-        const provider = process.env.STORAGE_PROVIDER || 'local';
+        const provider = (process.env.STORAGE_PROVIDER || 'local').toLowerCase();
+        if (provider === 'supabase') {
+          return new SupabaseFileStorageService();
+        }
         if (provider === 's3') {
           return new S3FileStorageService();
         }

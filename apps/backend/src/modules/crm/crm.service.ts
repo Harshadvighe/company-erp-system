@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../core/database/prisma.service';
 import { SequenceService } from '../../core/database/sequence.service';
@@ -14,19 +14,144 @@ export class CrmService {
     private readonly sequenceService: SequenceService,
   ) {}
 
-  // ─── SCOPING HELPER ───────────────────────────────────────────────────────
-  private buildScopeFilter(user?: any, staffField = 'assignedStaffId') {
-    if (!user) return {};
+  // ─── AUTHORIZATION & SCOPING HELPERS ──────────────────────────────────────
+  private isCrmAdminOrManager(user?: any): boolean {
+    if (!user) return false;
     const roles: string[] = user.roles || [];
-    if (roles.includes('ROLE_ADMIN') || roles.includes('ADMIN')) {
+    return (
+      roles.includes('ROLE_ADMIN') ||
+      roles.includes('ADMIN') ||
+      roles.includes('ROLE_SUPER_ADMIN') ||
+      roles.includes('ROLE_SALES_MGR') ||
+      roles.includes('SALES_MANAGER')
+    );
+  }
+
+  private buildScopeFilter(
+    user?: any,
+    staffField = 'assignedStaffId',
+    options?: { allowCreator?: boolean },
+  ): any {
+    if (!user) {
+      // Fail closed if unauthenticated or missing context
+      return { [staffField]: '__UNMAPPED_STAFF_DENIED__' };
+    }
+
+    if (this.isCrmAdminOrManager(user)) {
       return {};
     }
 
-    if (roles.includes('ROLE_SALES_EXEC') && user.staffId) {
-      return { [staffField]: user.staffId };
+    // Authenticated non-admin / non-manager MUST have a valid staffId
+    if (!user.staffId) {
+      // Fail closed: authenticated employee lacks required staff mapping
+      return { [staffField]: '__UNMAPPED_STAFF_DENIED__' };
     }
-    // Sales manager or other roles see team/all
-    return {};
+
+    if (options?.allowCreator && user.id) {
+      return {
+        OR: [
+          { [staffField]: user.staffId },
+          { createdByUserId: user.id },
+        ],
+      };
+    }
+
+    return { [staffField]: user.staffId };
+  }
+
+  private buildMeetingScopeFilter(user?: any): any {
+    if (!user) {
+      return { id: '__UNMAPPED_STAFF_DENIED__' };
+    }
+
+    if (this.isCrmAdminOrManager(user)) {
+      return {};
+    }
+
+    if (!user.staffId) {
+      return { id: '__UNMAPPED_STAFF_DENIED__' };
+    }
+
+    return {
+      OR: [
+        { hostStaffId: user.staffId },
+        { requestedByStaffId: user.staffId },
+        { activity: { staffId: user.staffId } },
+      ],
+    };
+  }
+
+  private buildActivityScopeFilter(user?: any): any {
+    if (!user) {
+      return { id: '__UNMAPPED_STAFF_DENIED__' };
+    }
+
+    if (this.isCrmAdminOrManager(user)) {
+      return {};
+    }
+
+    if (!user.staffId) {
+      return { id: '__UNMAPPED_STAFF_DENIED__' };
+    }
+
+    return { activity: { staffId: user.staffId } };
+  }
+
+  private assertCrmRecordAccess(
+    record: any,
+    user: any,
+    recordType: string,
+    options?: { staffField?: string; managerStaffField?: string; allowCreator?: boolean },
+  ): void {
+    if (!record) {
+      throw new NotFoundException(`${recordType} not found`);
+    }
+
+    if (this.isCrmAdminOrManager(user)) {
+      return;
+    }
+
+    if (!user || !user.staffId) {
+      throw new ForbiddenException(`Access denied: authenticated user lacks staff mapping for ${recordType}`);
+    }
+
+    const staffField = options?.staffField || 'assignedStaffId';
+    const managerStaffField = options?.managerStaffField || 'salesManagerStaffId';
+    const assignedStaffId = record[staffField];
+    const salesManagerStaffId = record[managerStaffField];
+    const createdByUserId = record.createdByUserId;
+
+    const isAssigned = assignedStaffId === user.staffId;
+    const isManager = salesManagerStaffId === user.staffId;
+    const isCreator = options?.allowCreator && createdByUserId && createdByUserId === user.id;
+
+    if (!isAssigned && !isManager && !isCreator) {
+      throw new ForbiddenException(
+        `Access denied: you do not have permission to access this ${recordType}`,
+      );
+    }
+  }
+
+  private assertMeetingAccess(meeting: any, user: any): void {
+    if (!meeting) {
+      throw new NotFoundException('Meeting not found');
+    }
+
+    if (this.isCrmAdminOrManager(user)) {
+      return;
+    }
+
+    if (!user || !user.staffId) {
+      throw new ForbiddenException('Access denied: authenticated user lacks staff mapping for Meeting');
+    }
+
+    const isHost = meeting.hostStaffId === user.staffId;
+    const isRequester = meeting.requestedByStaffId === user.staffId;
+    const isActivityStaff = meeting.activity?.staffId === user.staffId;
+
+    if (!isHost && !isRequester && !isActivityStaff) {
+      throw new ForbiddenException('Access denied: you are not a participant or host of this meeting');
+    }
   }
 
   private async nextCustomerFollowUpNumber(
@@ -108,7 +233,7 @@ export class CrmService {
       this.prisma.lead.count({ where: { ...scope, status: 'QUALIFIED' } }),
       this.prisma.lead.count({ where: { ...scope, status: 'WON' } }),
       this.prisma.lead.count({ where: { ...scope, status: 'LOST' } }),
-      this.prisma.enquiry.count({ where: { status: 'PENDING' } }),
+      this.prisma.enquiry.count({ where: { ...this.buildScopeFilter(user, 'assignedStaffId'), status: 'PENDING' } }),
       this.prisma.opportunity.findMany({
         where: scope,
         select: { stage: true, estimatedValue: true, weightedValue: true },
@@ -129,15 +254,17 @@ export class CrmService {
       }),
       this.prisma.crmMeeting.count({
         where: {
+          ...this.buildMeetingScopeFilter(user),
           startTime: {
             gte: new Date(new Date().setHours(0, 0, 0, 0)),
             lte: new Date(new Date().setHours(23, 59, 59, 999)),
           },
         },
       }),
-      this.prisma.customer.count(),
-      this.prisma.customer.count({ where: { status: 'ACTIVE' } }),
+      this.prisma.customer.count({ where: this.buildScopeFilter(user, 'assignedStaffId', { allowCreator: true }) }),
+      this.prisma.customer.count({ where: { ...this.buildScopeFilter(user, 'assignedStaffId', { allowCreator: true }), status: 'ACTIVE' } }),
       this.prisma.crmMeeting.findMany({
+        where: this.buildMeetingScopeFilter(user),
         take: 8,
         orderBy: { startTime: 'desc' },
         include: {
@@ -211,21 +338,30 @@ export class CrmService {
       return { companies: [], leads: [], enquiries: [], opportunities: [], quotations: [] };
     }
     const q = query.trim();
-    const scope = this.buildScopeFilter(user);
+    const companyScope = this.buildScopeFilter(user, 'assignedStaffId', { allowCreator: true });
+    const leadScope = this.buildScopeFilter(user, 'assignedStaffId');
+    const enquiryScope = this.buildScopeFilter(user, 'assignedStaffId');
+    const opportunityScope = this.buildScopeFilter(user, 'assignedStaffId');
+    const quotationScope = this.buildScopeFilter(user, 'assignedStaffId');
 
     const [companies, leads, enquiries, opportunities, quotations] = await Promise.all([
       this.prisma.customer.findMany({
         where: {
-          OR: [
-            { companyName: { contains: q } },
-            { legalName: { contains: q } },
-            { tradeName: { contains: q } },
-            { gstin: { contains: q } },
-            { pan: { contains: q } },
-            { phone: { contains: q } },
-            { email: { contains: q } },
-            { contactPerson: { contains: q } },
-            { city: { contains: q } },
+          AND: [
+            companyScope,
+            {
+              OR: [
+                { companyName: { contains: q } },
+                { legalName: { contains: q } },
+                { tradeName: { contains: q } },
+                { gstin: { contains: q } },
+                { pan: { contains: q } },
+                { phone: { contains: q } },
+                { email: { contains: q } },
+                { contactPerson: { contains: q } },
+                { city: { contains: q } },
+              ],
+            },
           ],
         },
         take: 8,
@@ -244,12 +380,16 @@ export class CrmService {
       }),
       this.prisma.lead.findMany({
         where: {
-          ...scope,
-          OR: [
-            { companyName: { contains: q } },
-            { contactPerson: { contains: q } },
-            { phone: { contains: q } },
-            { email: { contains: q } },
+          AND: [
+            leadScope,
+            {
+              OR: [
+                { companyName: { contains: q } },
+                { contactPerson: { contains: q } },
+                { phone: { contains: q } },
+                { email: { contains: q } },
+              ],
+            },
           ],
         },
         take: 5,
@@ -265,10 +405,15 @@ export class CrmService {
       }),
       this.prisma.enquiry.findMany({
         where: {
-          OR: [
-            { enquiryNumber: { contains: q } },
-            { requirement: { contains: q } },
-            { customer: { companyName: { contains: q } } },
+          AND: [
+            enquiryScope,
+            {
+              OR: [
+                { enquiryNumber: { contains: q } },
+                { requirement: { contains: q } },
+                { customer: { companyName: { contains: q } } },
+              ],
+            },
           ],
         },
         take: 5,
@@ -283,10 +428,14 @@ export class CrmService {
       }),
       this.prisma.opportunity.findMany({
         where: {
-          ...scope,
-          OR: [
-            { title: { contains: q } },
-            { customer: { companyName: { contains: q } } },
+          AND: [
+            opportunityScope,
+            {
+              OR: [
+                { title: { contains: q } },
+                { customer: { companyName: { contains: q } } },
+              ],
+            },
           ],
         },
         take: 5,
@@ -301,10 +450,15 @@ export class CrmService {
       }),
       this.prisma.quotation.findMany({
         where: {
-          OR: [
-            { quotationNumber: { contains: q } },
-            { subject: { contains: q } },
-            { customer: { companyName: { contains: q } } },
+          AND: [
+            quotationScope,
+            {
+              OR: [
+                { quotationNumber: { contains: q } },
+                { subject: { contains: q } },
+                { customer: { companyName: { contains: q } } },
+              ],
+            },
           ],
         },
         take: 5,
@@ -329,28 +483,40 @@ export class CrmService {
     const limit = Number(query?.limit) || 25;
     const skip = (page - 1) * limit;
 
-    const scope = this.buildScopeFilter(user);
-    const where: any = { ...scope };
+    const conditions: any[] = [];
+    const scope = this.buildScopeFilter(user, 'assignedStaffId');
+    if (scope && Object.keys(scope).length > 0) {
+      conditions.push(scope);
+    }
 
     if (query?.status === 'OVERDUE' || query?.due === 'overdue') {
-      where.status = 'PENDING';
-      where.scheduledDate = { lt: new Date() };
+      conditions.push({ status: 'PENDING', scheduledDate: { lt: new Date() } });
     } else if (query?.status && query.status !== 'ALL') {
-      where.status = query.status;
+      conditions.push({ status: query.status });
     }
-    if (query?.priority) where.priority = query.priority;
-    if (query?.source) where.source = query.source;
-    if (query?.assignedStaffId) where.assignedStaffId = query.assignedStaffId;
+    if (query?.priority) conditions.push({ priority: query.priority });
+    if (query?.source) conditions.push({ source: query.source });
+    if (query?.assignedStaffId) {
+      if (this.isCrmAdminOrManager(user)) {
+        conditions.push({ assignedStaffId: query.assignedStaffId });
+      } else if (query.assignedStaffId !== user?.staffId) {
+        conditions.push({ assignedStaffId: '__FORBIDDEN_MISMATCH__' });
+      }
+    }
     if (query?.search) {
-      where.OR = [
-        { leadNumber: { contains: query.search } },
-        { companyName: { contains: query.search } },
-        { contactPerson: { contains: query.search } },
-        { phone: { contains: query.search } },
-        { email: { contains: query.search } },
-        { productInterest: { contains: query.search } },
-      ];
+      conditions.push({
+        OR: [
+          { leadNumber: { contains: query.search } },
+          { companyName: { contains: query.search } },
+          { contactPerson: { contains: query.search } },
+          { phone: { contains: query.search } },
+          { email: { contains: query.search } },
+          { productInterest: { contains: query.search } },
+        ],
+      });
     }
+
+    const where: any = conditions.length > 0 ? { AND: conditions } : {};
 
     const [data, total] = await Promise.all([
       this.prisma.lead.findMany({
@@ -369,7 +535,7 @@ export class CrmService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async getLead(id: string) {
+  async getLead(id: string, user?: any) {
     const lead = await this.prisma.lead.findUnique({
       where: { id },
       include: {
@@ -379,7 +545,7 @@ export class CrmService {
         activities: { include: { staff: true, call: true, meeting: true, siteVisit: true } },
       },
     });
-    if (!lead) throw new NotFoundException('Lead not found');
+    this.assertCrmRecordAccess(lead, user, 'Lead');
     return lead;
   }
 
@@ -425,7 +591,7 @@ export class CrmService {
 
   async updateLead(id: string, dto: any, user?: any) {
     const existing = await this.prisma.lead.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException('Lead not found');
+    this.assertCrmRecordAccess(existing, user, 'Lead');
 
     const updateData: any = {};
     const fields = [
@@ -459,7 +625,7 @@ export class CrmService {
 
   async qualifyLead(id: string, dto: any, user?: any) {
     const lead = await this.prisma.lead.findUnique({ where: { id } });
-    if (!lead) throw new NotFoundException('Lead not found');
+    this.assertCrmRecordAccess(lead, user, 'Lead');
 
     const isQualified = dto.isQualified === true;
     const updated = await this.prisma.lead.update({
@@ -491,7 +657,7 @@ export class CrmService {
   // ─── ATOMIC LEAD CONVERSION ───────────────────────────────────────────────
   async convertLead(id: string, dto: any, user?: any) {
     const lead = await this.prisma.lead.findUnique({ where: { id } });
-    if (!lead) throw new NotFoundException('Lead not found');
+    this.assertCrmRecordAccess(lead, user, 'Lead');
 
     return this.prisma.$transaction(async (tx) => {
       let customerId = lead.customerId;
@@ -579,18 +745,31 @@ export class CrmService {
 
   // ─── OPPORTUNITIES & PIPELINE ─────────────────────────────────────────────
   async getOpportunities(query?: any, user?: any) {
-    const scope = this.buildScopeFilter(user);
-    const where: any = { ...scope };
-
-    if (query?.stage && query.stage !== 'ALL') where.stage = query.stage;
-    if (query?.assignedStaffId) where.assignedStaffId = query.assignedStaffId;
-    if (query?.search) {
-      where.OR = [
-        { opportunityNumber: { contains: query.search } },
-        { title: { contains: query.search } },
-        { customer: { companyName: { contains: query.search } } },
-      ];
+    const conditions: any[] = [];
+    const scope = this.buildScopeFilter(user, 'assignedStaffId');
+    if (scope && Object.keys(scope).length > 0) {
+      conditions.push(scope);
     }
+
+    if (query?.stage && query.stage !== 'ALL') conditions.push({ stage: query.stage });
+    if (query?.assignedStaffId) {
+      if (this.isCrmAdminOrManager(user)) {
+        conditions.push({ assignedStaffId: query.assignedStaffId });
+      } else if (query.assignedStaffId !== user?.staffId) {
+        conditions.push({ assignedStaffId: '__FORBIDDEN_MISMATCH__' });
+      }
+    }
+    if (query?.search) {
+      conditions.push({
+        OR: [
+          { opportunityNumber: { contains: query.search } },
+          { title: { contains: query.search } },
+          { customer: { companyName: { contains: query.search } } },
+        ],
+      });
+    }
+
+    const where: any = conditions.length > 0 ? { AND: conditions } : {};
 
     return this.prisma.opportunity.findMany({
       where,
@@ -670,6 +849,24 @@ export class CrmService {
   }
 
   async createOpportunity(dto: any, user?: any) {
+    if (!this.isCrmAdminOrManager(user)) {
+      if (!user?.staffId) {
+        throw new ForbiddenException('Access denied: unmapped employee cannot create opportunities');
+      }
+      if (dto.customerId) {
+        const customer = await this.prisma.customer.findUnique({ where: { id: dto.customerId } });
+        this.assertCrmRecordAccess(customer, user, 'Company', { allowCreator: true });
+      }
+      if (dto.leadId) {
+        const lead = await this.prisma.lead.findUnique({ where: { id: dto.leadId } });
+        this.assertCrmRecordAccess(lead, user, 'Lead');
+      }
+      if (dto.enquiryId) {
+        const enquiry = await this.prisma.enquiry.findUnique({ where: { id: dto.enquiryId } });
+        this.assertCrmRecordAccess(enquiry, user, 'Enquiry');
+      }
+    }
+
     const opportunityNumber = await this.sequenceService.nextOpportunityNumber();
     const probability = Number(dto.probability || 10);
     const estimatedValue = Number(dto.estimatedValue || 0);
@@ -695,9 +892,66 @@ export class CrmService {
     });
   }
 
+  async getOpportunity(id: string, user?: any) {
+    const opp = await this.prisma.opportunity.findUnique({
+      where: { id },
+      include: {
+        customer: true,
+        assignedStaff: true,
+        salesManagerStaff: true,
+        lead: true,
+        enquiry: true,
+        quotations: true,
+        activities: true,
+      },
+    });
+    this.assertCrmRecordAccess(opp, user, 'Opportunity', { managerStaffField: 'salesManagerStaffId' });
+    return opp;
+  }
+
+  async updateOpportunity(id: string, dto: any, user?: any) {
+    const opp = await this.prisma.opportunity.findUnique({ where: { id } });
+    this.assertCrmRecordAccess(opp, user, 'Opportunity', { managerStaffField: 'salesManagerStaffId' });
+
+    const updateData: any = {};
+    if (dto.title !== undefined) updateData.title = dto.title;
+    if (dto.priority !== undefined) updateData.priority = dto.priority;
+    if (dto.expectedCloseDate !== undefined) {
+      updateData.expectedCloseDate = dto.expectedCloseDate ? new Date(dto.expectedCloseDate) : null;
+    }
+    if (dto.contactId !== undefined) updateData.contactId = dto.contactId;
+    if (dto.estimatedValue !== undefined) {
+      updateData.estimatedValue = Number(dto.estimatedValue);
+      const prob = dto.probability !== undefined ? Number(dto.probability) : opp.probability;
+      updateData.weightedValue = (Number(dto.estimatedValue) * prob) / 100;
+    }
+    if (dto.probability !== undefined) {
+      updateData.probability = Number(dto.probability);
+      const est = dto.estimatedValue !== undefined ? Number(dto.estimatedValue) : opp.estimatedValue;
+      updateData.weightedValue = (est * Number(dto.probability)) / 100;
+    }
+    if (dto.stage !== undefined) updateData.stage = dto.stage;
+
+    // Only Admin or Manager can reassign staff
+    if (dto.assignedStaffId !== undefined && this.isCrmAdminOrManager(user)) {
+      updateData.assignedStaffId = dto.assignedStaffId;
+    }
+    if (dto.salesManagerStaffId !== undefined && this.isCrmAdminOrManager(user)) {
+      updateData.salesManagerStaffId = dto.salesManagerStaffId;
+    }
+
+    const updated = await this.prisma.opportunity.update({
+      where: { id },
+      data: updateData,
+      include: { customer: true, assignedStaff: true },
+    });
+
+    return updated;
+  }
+
   async updateOpportunityStage(id: string, stage: string, probability?: number, user?: any) {
     const opp = await this.prisma.opportunity.findUnique({ where: { id } });
-    if (!opp) throw new NotFoundException('Opportunity not found');
+    this.assertCrmRecordAccess(opp, user, 'Opportunity');
 
     const stageProbabilities: Record<string, number> = {
       QUALIFICATION: 10,
@@ -734,7 +988,7 @@ export class CrmService {
     if (!lostReason) throw new BadRequestException('Lost reason is mandatory');
 
     const opp = await this.prisma.opportunity.findUnique({ where: { id } });
-    if (!opp) throw new NotFoundException('Opportunity not found');
+    this.assertCrmRecordAccess(opp, user, 'Opportunity');
 
     return this.prisma.opportunity.update({
       where: { id },
@@ -886,6 +1140,15 @@ export class CrmService {
   }
 
   async createFollowUp(dto: any, user?: any) {
+    if (!this.isCrmAdminOrManager(user)) {
+      if (!user?.staffId) {
+        throw new ForbiddenException('Access denied: unmapped employee cannot create follow-ups');
+      }
+      if (dto.assignedStaffId && dto.assignedStaffId !== user.staffId) {
+        throw new ForbiddenException('Access denied: cannot assign follow-up to another employee');
+      }
+    }
+
     const staffId = dto.assignedStaffId || user?.staffId;
     if (!staffId) throw new BadRequestException('assignedStaffId is required');
 
@@ -927,9 +1190,19 @@ export class CrmService {
     return this.prisma.$transaction(async (tx) => {
       const customer = await tx.customer.findUnique({
         where: { id: dto.customerId },
-        select: { id: true },
       });
       if (!customer) throw new NotFoundException('Company not found');
+      this.assertCrmRecordAccess(customer, user, 'Company', { allowCreator: true });
+
+      if (dto.leadId) {
+        const lead = await tx.lead.findUnique({ where: { id: dto.leadId } });
+        this.assertCrmRecordAccess(lead, user, 'Lead');
+      }
+
+      if (dto.opportunityId) {
+        const opp = await tx.opportunity.findUnique({ where: { id: dto.opportunityId } });
+        this.assertCrmRecordAccess(opp, user, 'Opportunity', { managerStaffField: 'salesManagerStaffId' });
+      }
 
       const followUpNumber = await this.nextCustomerFollowUpNumber(tx, customer.id);
 
@@ -1130,9 +1403,24 @@ export class CrmService {
   }
 
   async completeFollowUp(id: string, dto: any, user?: any) {
-    const followUp = await this.prisma.crmFollowUp.findUnique({ where: { id } });
+    const followUp = await this.prisma.crmFollowUp.findUnique({
+      where: { id },
+      include: { customer: true },
+    });
     if (!followUp) throw new NotFoundException('Follow-up not found');
     if (followUp.status === 'COMPLETED') throw new BadRequestException('Follow-up is already completed');
+
+    if (!this.isCrmAdminOrManager(user)) {
+      if (!user?.staffId) {
+        throw new ForbiddenException('Access denied: unmapped employee cannot complete follow-ups');
+      }
+      const isAssignedFollowUp = followUp.assignedStaffId === user.staffId;
+      const isAssignedCustomer = followUp.customer?.assignedStaffId === user.staffId;
+      if (!isAssignedFollowUp && !isAssignedCustomer) {
+        throw new ForbiddenException('Access denied: you do not have permission to complete this follow-up');
+      }
+    }
+
     if (!dto?.discussion?.trim() && !dto?.notes?.trim()) {
       throw new BadRequestException('Discussion is required to complete a follow-up');
     }
@@ -1186,6 +1474,48 @@ export class CrmService {
       }
 
       return completed;
+    });
+  }
+
+  async rescheduleFollowUp(id: string, dto: { scheduledDate: string; reason?: string }, user?: any) {
+    const followUp = await this.prisma.crmFollowUp.findUnique({
+      where: { id },
+      include: { customer: true },
+    });
+    if (!followUp) throw new NotFoundException('Follow-up not found');
+    if (followUp.status === 'COMPLETED') {
+      throw new BadRequestException('Cannot reschedule a completed follow-up');
+    }
+    if (!dto.scheduledDate) {
+      throw new BadRequestException('scheduledDate is required to reschedule');
+    }
+    const newDate = new Date(dto.scheduledDate);
+    if (Number.isNaN(newDate.getTime())) {
+      throw new BadRequestException('scheduledDate must be a valid date');
+    }
+
+    if (!this.isCrmAdminOrManager(user)) {
+      if (!user?.staffId) {
+        throw new ForbiddenException('Access denied: unmapped employee cannot reschedule follow-ups');
+      }
+      const isAssignedFollowUp = followUp.assignedStaffId === user.staffId;
+      const isAssignedCustomer = followUp.customer?.assignedStaffId === user.staffId;
+      if (!isAssignedFollowUp && !isAssignedCustomer) {
+        throw new ForbiddenException('Access denied: you do not have permission to reschedule this follow-up');
+      }
+    }
+
+    const updatedNotes = dto.reason?.trim()
+      ? `${followUp.notes ? `${followUp.notes}\n` : ''}[RESCHEDULED]: ${dto.reason.trim()}`
+      : followUp.notes;
+
+    return this.prisma.crmFollowUp.update({
+      where: { id },
+      data: {
+        scheduledDate: newDate,
+        notes: updatedNotes,
+      },
+      include: { customer: true, assignedStaff: true },
     });
   }
 
@@ -1284,17 +1614,33 @@ export class CrmService {
     const limit = Number(query?.limit) || 25;
     const skip = (page - 1) * limit;
 
-    const where: any = {};
-    if (query?.customerId) where.customerId = query.customerId;
-    if (query?.status && query.status !== 'ALL') where.status = query.status;
-    if (query?.search) {
-      where.OR = [
-        { enquiryNumber: { contains: query.search } },
-        { productInterest: { contains: query.search } },
-        { requirement: { contains: query.search } },
-        { customer: { companyName: { contains: query.search } } },
-      ];
+    const conditions: any[] = [];
+    const scope = this.buildScopeFilter(user, 'assignedStaffId');
+    if (scope && Object.keys(scope).length > 0) {
+      conditions.push(scope);
     }
+
+    if (query?.customerId) conditions.push({ customerId: query.customerId });
+    if (query?.status && query.status !== 'ALL') conditions.push({ status: query.status });
+    if (query?.assignedStaffId) {
+      if (this.isCrmAdminOrManager(user)) {
+        conditions.push({ assignedStaffId: query.assignedStaffId });
+      } else if (query.assignedStaffId !== user?.staffId) {
+        conditions.push({ assignedStaffId: '__FORBIDDEN_MISMATCH__' });
+      }
+    }
+    if (query?.search) {
+      conditions.push({
+        OR: [
+          { enquiryNumber: { contains: query.search } },
+          { productInterest: { contains: query.search } },
+          { requirement: { contains: query.search } },
+          { customer: { companyName: { contains: query.search } } },
+        ],
+      });
+    }
+
+    const where: any = conditions.length > 0 ? { AND: conditions } : {};
 
     const [data, total] = await Promise.all([
       this.prisma.enquiry.findMany({
@@ -1312,12 +1658,12 @@ export class CrmService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async getEnquiry(id: string) {
+  async getEnquiry(id: string, user?: any) {
     const enquiry = await this.prisma.enquiry.findUnique({
       where: { id },
       include: { customer: true, opportunities: true },
     });
-    if (!enquiry) throw new NotFoundException('Enquiry not found');
+    this.assertCrmRecordAccess(enquiry, user, 'Enquiry');
     return enquiry;
   }
 
@@ -1356,7 +1702,7 @@ export class CrmService {
 
   async updateEnquiry(id: string, dto: any, user?: any) {
     const existing = await this.prisma.enquiry.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException('Enquiry not found');
+    this.assertCrmRecordAccess(existing, user, 'Enquiry');
 
     const updateData: any = {};
     const fields = ['productInterest', 'quantity', 'requirement', 'expectedValue', 'assignedStaffId', 'priority', 'status', 'remarks'];
@@ -1423,29 +1769,44 @@ export class CrmService {
     const limit = Math.max(1, Math.min(100, Number(query?.limit) || 25));
     const skip = (page - 1) * limit;
 
-    const where: any = {};
-    if (query?.status) where.status = query.status;
-    if (query?.customerType || query?.type) where.customerType = query.customerType || query.type;
-    if (query?.customerCategory || query?.category) where.customerCategory = query.customerCategory || query.category;
-    if (query?.customerSegment) where.customerSegment = query.customerSegment;
-    if (query?.state) where.state = query.state;
-    if (query?.assignedStaffId) where.assignedStaffId = query.assignedStaffId;
+    const conditions: any[] = [];
+    const scope = this.buildScopeFilter(user, 'assignedStaffId', { allowCreator: true });
+    if (scope && Object.keys(scope).length > 0) {
+      conditions.push(scope);
+    }
+
+    if (query?.status) conditions.push({ status: query.status });
+    if (query?.customerType || query?.type) conditions.push({ customerType: query.customerType || query.type });
+    if (query?.customerCategory || query?.category) conditions.push({ customerCategory: query.customerCategory || query.category });
+    if (query?.customerSegment) conditions.push({ customerSegment: query.customerSegment });
+    if (query?.state) conditions.push({ state: query.state });
+    if (query?.assignedStaffId) {
+      if (this.isCrmAdminOrManager(user)) {
+        conditions.push({ assignedStaffId: query.assignedStaffId });
+      } else if (query.assignedStaffId !== user?.staffId) {
+        conditions.push({ assignedStaffId: '__FORBIDDEN_MISMATCH__' });
+      }
+    }
 
     if (query?.search) {
       const search = query.search.trim();
-      where.OR = [
-        { companyName: { contains: search } },
-        { customerCode: { contains: search } },
-        { legalName: { contains: search } },
-        { gstin: { contains: search } },
-        { pan: { contains: search } },
-        { contactPerson: { contains: search } },
-        { email: { contains: search } },
-        { phone: { contains: search } },
-        { city: { contains: search } },
-        { state: { contains: search } },
-      ];
+      conditions.push({
+        OR: [
+          { companyName: { contains: search } },
+          { customerCode: { contains: search } },
+          { legalName: { contains: search } },
+          { gstin: { contains: search } },
+          { pan: { contains: search } },
+          { contactPerson: { contains: search } },
+          { email: { contains: search } },
+          { phone: { contains: search } },
+          { city: { contains: search } },
+          { state: { contains: search } },
+        ],
+      });
     }
+
+    const where: any = conditions.length > 0 ? { AND: conditions } : {};
 
     const [data, total] = await Promise.all([
       this.prisma.customer.findMany({
@@ -1483,7 +1844,7 @@ export class CrmService {
     };
   }
 
-  async getCompany360(id: string) {
+  async getCompany360(id: string, user?: any) {
     const customer = await this.prisma.customer.findUnique({
       where: { id },
       include: {
@@ -1531,11 +1892,16 @@ export class CrmService {
       },
     });
 
-    if (!customer) throw new NotFoundException(`Company / Customer with ID ${id} not found`);
+    this.assertCrmRecordAccess(customer, user, 'Company', { allowCreator: true });
     return customer;
   }
 
-  async getCompanyTimeline(customerId: string) {
+  async getCompanyTimeline(customerId: string, user?: any) {
+    const customer = await this.prisma.customer.findUnique({
+      where: { id: customerId },
+      select: { id: true, assignedStaffId: true, salesManagerStaffId: true, createdByUserId: true },
+    });
+    this.assertCrmRecordAccess(customer, user, 'Company', { allowCreator: true });
     const [activities, followUps, enquiries, opportunities, panelSpecs, projects, documents, media] = await Promise.all([
       this.prisma.crmActivity.findMany({
         where: { customerId },
@@ -1976,7 +2342,7 @@ export class CrmService {
 
   async updateCompany(id: string, dto: any, user?: any) {
     const existing = await this.prisma.customer.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException(`Company ${id} not found`);
+    this.assertCrmRecordAccess(existing, user, 'Company', { allowCreator: true });
     if (dto.pan != null && typeof dto.pan !== 'string') {
       throw new BadRequestException('PAN must be provided as text.');
     }
@@ -2075,9 +2441,9 @@ export class CrmService {
     return updated;
   }
 
-  async updateCompanyProductInterests(customerId: string, productSystemIds: string[]) {
+  async updateCompanyProductInterests(customerId: string, productSystemIds: string[], user?: any) {
     const customer = await this.prisma.customer.findUnique({ where: { id: customerId } });
-    if (!customer) throw new NotFoundException('Company not found');
+    this.assertCrmRecordAccess(customer, user, 'Company', { allowCreator: true });
 
     return this.prisma.$transaction(async (tx) => {
       await tx.companyProductInterest.deleteMany({ where: { customerId } });
@@ -2099,7 +2465,7 @@ export class CrmService {
       where: { id: customerId },
       include: { valuations: true },
     });
-    if (!customer) throw new NotFoundException('Company not found');
+    this.assertCrmRecordAccess(customer, user, 'Company', { allowCreator: true });
 
     const oldRating = customer.customerRating;
     const oldValueScore = customer.valuations?.valuablePercentage || 50.0;
@@ -2159,7 +2525,7 @@ export class CrmService {
       where: { id: meetingId },
       include: { activity: true },
     });
-    if (!meeting) throw new NotFoundException('Meeting not found');
+    this.assertMeetingAccess(meeting, user);
 
     const staffId = user?.staffId || 'SYSTEM';
 
@@ -2210,8 +2576,13 @@ export class CrmService {
   }
 
   async uploadCallRecording(callId: string, dto: any, user?: any) {
-    const call = await this.prisma.crmCall.findUnique({ where: { id: callId } });
+    const call = await this.prisma.crmCall.findUnique({ where: { id: callId }, include: { activity: true } });
     if (!call) throw new NotFoundException('Call activity not found');
+    if (!this.isCrmAdminOrManager(user)) {
+      if (!user?.staffId || call.activity?.staffId !== user.staffId) {
+        throw new ForbiddenException('Access denied: you can only upload recordings for your own call activities');
+      }
+    }
 
     const recording = await this.prisma.callRecording.create({
       data: {
@@ -2235,6 +2606,20 @@ export class CrmService {
 
   async getMyWork(user: any) {
     const staffId = user?.staffId;
+    if (!staffId && !this.isCrmAdminOrManager(user)) {
+      return {
+        pendingFollowUps: [],
+        todayMeetings: [],
+        openLeads: [],
+        activeOpportunities: [],
+        stats: {
+          pendingFollowUpsCount: 0,
+          todayMeetingsCount: 0,
+          openLeadsCount: 0,
+          activeOpportunitiesCount: 0,
+        },
+      };
+    }
     const filter = staffId ? { assignedStaffId: staffId } : {};
 
     const [pendingFollowUps, todayMeetings, openLeads, activeOpportunities] = await Promise.all([
@@ -2249,11 +2634,15 @@ export class CrmService {
       }),
       this.prisma.crmMeeting.findMany({
         where: {
-          OR: [
-            { hostStaffId: staffId },
-            { requestedByStaffId: staffId },
-            { activity: { staffId } },
-          ],
+          ...(staffId
+            ? {
+                OR: [
+                  { hostStaffId: staffId },
+                  { requestedByStaffId: staffId },
+                  { activity: { staffId } },
+                ],
+              }
+            : {}),
           startTime: {
             gte: new Date(new Date().setHours(0, 0, 0, 0)),
             lte: new Date(new Date().setHours(23, 59, 59, 999)),
@@ -2311,18 +2700,35 @@ export class CrmService {
     const skip = (Number(page) - 1) * Number(limit);
     const take = Number(limit);
 
-    const where: any = {};
-    if (customerId) where.activity = { customerId };
-    if (status) where.meetingStatus = status;
-    if (hostStaffId) where.hostStaffId = hostStaffId;
-    if (search) {
-      where.OR = [
-        { agenda: { contains: search } },
-        { location: { contains: search } },
-        { activity: { subject: { contains: search } } },
-        { activity: { customer: { companyName: { contains: search } } } },
-      ];
+    const conditions: any[] = [];
+    const scope = this.buildMeetingScopeFilter(user);
+    if (scope && Object.keys(scope).length > 0) {
+      conditions.push(scope);
     }
+
+    if (customerId) conditions.push({ activity: { customerId } });
+    if (status) conditions.push({ meetingStatus: status });
+    if (hostStaffId) {
+      if (this.isCrmAdminOrManager(user)) {
+        conditions.push({ hostStaffId });
+      } else if (hostStaffId !== user?.staffId) {
+        conditions.push({ hostStaffId: '__FORBIDDEN_MISMATCH__' });
+      } else {
+        conditions.push({ hostStaffId });
+      }
+    }
+    if (search) {
+      conditions.push({
+        OR: [
+          { agenda: { contains: search } },
+          { location: { contains: search } },
+          { activity: { subject: { contains: search } } },
+          { activity: { customer: { companyName: { contains: search } } } },
+        ],
+      });
+    }
+
+    const where: any = conditions.length > 0 ? { AND: conditions } : {};
 
     const [items, total] = await Promise.all([
       this.prisma.crmMeeting.findMany({
@@ -2407,17 +2813,26 @@ export class CrmService {
     const skip = (Number(page) - 1) * Number(limit);
     const take = Number(limit);
 
-    const where: any = {};
-    if (customerId) where.activity = { customerId };
-    if (callOutcome) where.callOutcome = callOutcome;
-    if (callType) where.callType = callType;
-    if (search) {
-      where.OR = [
-        { activity: { subject: { contains: search } } },
-        { activity: { description: { contains: search } } },
-        { activity: { customer: { companyName: { contains: search } } } },
-      ];
+    const conditions: any[] = [];
+    const scope = this.buildActivityScopeFilter(user);
+    if (scope && Object.keys(scope).length > 0) {
+      conditions.push(scope);
     }
+
+    if (customerId) conditions.push({ activity: { customerId } });
+    if (callOutcome) conditions.push({ callOutcome });
+    if (callType) conditions.push({ callType });
+    if (search) {
+      conditions.push({
+        OR: [
+          { activity: { subject: { contains: search } } },
+          { activity: { description: { contains: search } } },
+          { activity: { customer: { companyName: { contains: search } } } },
+        ],
+      });
+    }
+
+    const where: any = conditions.length > 0 ? { AND: conditions } : {};
 
     const [items, total] = await Promise.all([
       this.prisma.crmCall.findMany({
@@ -2510,15 +2925,24 @@ export class CrmService {
     const skip = (Number(page) - 1) * Number(limit);
     const take = Number(limit);
 
-    const where: any = {};
-    if (customerId) where.activity = { customerId };
-    if (search) {
-      where.OR = [
-        { location: { contains: search } },
-        { inspectionNotes: { contains: search } },
-        { activity: { customer: { companyName: { contains: search } } } },
-      ];
+    const conditions: any[] = [];
+    const scope = this.buildActivityScopeFilter(user);
+    if (scope && Object.keys(scope).length > 0) {
+      conditions.push(scope);
     }
+
+    if (customerId) conditions.push({ activity: { customerId } });
+    if (search) {
+      conditions.push({
+        OR: [
+          { location: { contains: search } },
+          { inspectionNotes: { contains: search } },
+          { activity: { customer: { companyName: { contains: search } } } },
+        ],
+      });
+    }
+
+    const where: any = conditions.length > 0 ? { AND: conditions } : {};
 
     const [items, total] = await Promise.all([
       this.prisma.crmSiteVisit.findMany({

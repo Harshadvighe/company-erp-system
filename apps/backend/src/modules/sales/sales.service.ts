@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
 import { SequenceService } from '../../core/database/sequence.service';
 
@@ -8,6 +8,31 @@ export class SalesService {
     private readonly prisma: PrismaService,
     private readonly sequenceService: SequenceService,
   ) {}
+
+  private isSalesAdminOrManager(user?: any): boolean {
+    if (!user) return false;
+    const roles: string[] = user.roles || [];
+    return (
+      roles.includes('ROLE_ADMIN') ||
+      roles.includes('ADMIN') ||
+      roles.includes('ROLE_SUPER_ADMIN') ||
+      roles.includes('ROLE_SALES_MGR') ||
+      roles.includes('SALES_MANAGER')
+    );
+  }
+
+  private assertQuotationAccess(quotation: any, user: any) {
+    if (!quotation) throw new NotFoundException('Quotation not found');
+    if (this.isSalesAdminOrManager(user)) return;
+    if (!user || !user.staffId) {
+      throw new ForbiddenException('Access denied: unmapped employee cannot access quotations');
+    }
+    const isAssigned = quotation.assignedStaffId === user.staffId;
+    const isCustomerAssigned = quotation.customer?.assignedStaffId === user.staffId;
+    if (!isAssigned && !isCustomerAssigned) {
+      throw new ForbiddenException('Access denied: you do not have permission to access this quotation');
+    }
+  }
 
   private getCurrentFinancialYear(): string {
     const now = new Date();
@@ -21,30 +46,47 @@ export class SalesService {
   // 1. QUOTATIONS LIST & DETAILS
   // ─────────────────────────────────────────────────────────────────────────────
 
-  async getQuotations(query: {
-    customerId?: string;
-    opportunityId?: string;
-    status?: string;
-    search?: string;
-    page?: number;
-    limit?: number;
-  }) {
+  async getQuotations(
+    query: {
+      customerId?: string;
+      opportunityId?: string;
+      status?: string;
+      search?: string;
+      page?: number;
+      limit?: number;
+    },
+    user?: any,
+  ) {
     const { customerId, opportunityId, status, search, page = 1, limit = 50 } = query;
     const skip = (Number(page) - 1) * Number(limit);
     const take = Number(limit);
 
-    const where: any = {};
-    if (customerId) where.customerId = customerId;
-    if (opportunityId) where.opportunityId = opportunityId;
-    if (status) where.status = status;
-    if (search) {
-      where.OR = [
-        { quotationNumber: { contains: search } },
-        { code: { contains: search } },
-        { subject: { contains: search } },
-        { customer: { companyName: { contains: search } } },
-      ];
+    if (!this.isSalesAdminOrManager(user)) {
+      if (!user?.staffId) {
+        return { items: [], total: 0, page: Number(page), limit: Number(limit), totalPages: 0 };
+      }
     }
+
+    const conditions: any[] = [];
+    if (!this.isSalesAdminOrManager(user)) {
+      conditions.push({ assignedStaffId: user.staffId });
+    }
+
+    if (customerId) conditions.push({ customerId });
+    if (opportunityId) conditions.push({ opportunityId });
+    if (status) conditions.push({ status });
+    if (search) {
+      conditions.push({
+        OR: [
+          { quotationNumber: { contains: search } },
+          { code: { contains: search } },
+          { subject: { contains: search } },
+          { customer: { companyName: { contains: search } } },
+        ],
+      });
+    }
+
+    const where: any = conditions.length > 0 ? { AND: conditions } : {};
 
     const [items, total] = await Promise.all([
       this.prisma.quotation.findMany({
@@ -68,7 +110,7 @@ export class SalesService {
     return { items, total, page: Number(page), limit: Number(limit), totalPages: Math.ceil(total / Number(limit)) };
   }
 
-  async getQuotationById(id: string) {
+  async getQuotationById(id: string, user?: any) {
     const quotation = await this.prisma.quotation.findUnique({
       where: { id },
       include: {
@@ -84,6 +126,7 @@ export class SalesService {
     });
 
     if (!quotation) throw new NotFoundException(`Quotation with ID "${id}" not found`);
+    this.assertQuotationAccess(quotation, user);
 
     const revisions = await this.prisma.quotation.findMany({
       where: { quotationNumber: quotation.quotationNumber },
@@ -98,8 +141,26 @@ export class SalesService {
   // 2. CREATE QUOTATION
   // ─────────────────────────────────────────────────────────────────────────────
 
-  async createQuotation(dto: any, userId?: string) {
+  async createQuotation(dto: any, user?: any) {
     if (!dto.customerId) throw new BadRequestException('customerId is required');
+
+    if (!this.isSalesAdminOrManager(user)) {
+      if (!user?.staffId) {
+        throw new ForbiddenException('Access denied: unmapped employee cannot create quotations');
+      }
+      const customer = await this.prisma.customer.findUnique({ where: { id: dto.customerId } });
+      if (!customer) throw new NotFoundException('Customer not found');
+      if (customer.assignedStaffId !== user.staffId && customer.createdByUserId !== user.id) {
+        throw new ForbiddenException('Access denied: cannot generate quotation for unassigned customer');
+      }
+      if (dto.opportunityId) {
+        const opp = await this.prisma.opportunity.findUnique({ where: { id: dto.opportunityId } });
+        if (!opp) throw new NotFoundException('Opportunity not found');
+        if (opp.assignedStaffId !== user.staffId && opp.salesManagerStaffId !== user.staffId) {
+          throw new ForbiddenException('Access denied: cannot generate quotation for unassigned opportunity');
+        }
+      }
+    }
 
     const quotationNumber = dto.quotationNumber || (await this.sequenceService.nextQuotationNumber());
     const revisionNumber = dto.revisionNumber ?? 0;
@@ -159,9 +220,10 @@ export class SalesService {
     const grandTotal = taxableAmount + cgstAmount + sgstAmount + igstAmount - overallDiscountAmount;
 
     let assignedStaffId = dto.assignedStaffId;
-    if (!assignedStaffId && userId) {
-      const staff = await this.prisma.staff.findFirst({ where: { userId } });
-      if (staff) assignedStaffId = staff.id;
+    if (!this.isSalesAdminOrManager(user)) {
+      assignedStaffId = user?.staffId;
+    } else if (!assignedStaffId && user?.staffId) {
+      assignedStaffId = user.staffId;
     }
 
     const quotation = await this.prisma.quotation.create({
@@ -221,13 +283,23 @@ export class SalesService {
   // 3. AUTO-BUILD QUOTATION FROM PANEL SPECIFICATION
   // ─────────────────────────────────────────────────────────────────────────────
 
-  async createFromPanelSpec(panelSpecId: string, dto: any, userId?: string) {
+  async createFromPanelSpec(panelSpecId: string, dto: any, user?: any) {
     const panelSpec = await this.prisma.panelSpecification.findUnique({
       where: { id: panelSpecId },
       include: { customer: true, bomItems: { include: { product: true } } },
     });
 
     if (!panelSpec) throw new NotFoundException(`Panel Specification "${panelSpecId}" not found`);
+
+    if (!this.isSalesAdminOrManager(user)) {
+      if (!user?.staffId) {
+        throw new ForbiddenException('Access denied: unmapped employee cannot create quotations from panel spec');
+      }
+      if (panelSpec.customer && panelSpec.customer.assignedStaffId !== user.staffId && panelSpec.customer.createdByUserId !== user.id) {
+        throw new ForbiddenException('Access denied: cannot generate quotation for unassigned customer');
+      }
+    }
+    const userId = user?.id;
 
     const quotationNumber = dto?.quotationNumber || (await this.sequenceService.nextQuotationNumber());
     const code = `${quotationNumber}-REV-0`;
@@ -282,7 +354,9 @@ export class SalesService {
     const grandTotal = subtotal + cgstAmount + sgstAmount;
 
     let assignedStaffId = dto?.assignedStaffId;
-    if (!assignedStaffId && userId) {
+    if (!this.isSalesAdminOrManager(user)) {
+      assignedStaffId = user?.staffId;
+    } else if (!assignedStaffId && userId) {
       const staff = await this.prisma.staff.findFirst({ where: { userId } });
       if (staff) assignedStaffId = staff.id;
     }
@@ -324,9 +398,13 @@ export class SalesService {
   // 4. REVISION CONTROL
   // ─────────────────────────────────────────────────────────────────────────────
 
-  async createRevision(id: string, dto: any, userId?: string) {
-    const baseQuotation = await this.prisma.quotation.findUnique({ where: { id }, include: { items: true } });
+  async createRevision(id: string, dto: any, user?: any) {
+    const baseQuotation = await this.prisma.quotation.findUnique({
+      where: { id },
+      include: { items: true, customer: true },
+    });
     if (!baseQuotation) throw new NotFoundException(`Base Quotation with ID "${id}" not found`);
+    this.assertQuotationAccess(baseQuotation, user);
 
     const latest = await this.prisma.quotation.findFirst({
       where: { quotationNumber: baseQuotation.quotationNumber },
@@ -390,9 +468,10 @@ export class SalesService {
     const grandTotal = taxableAmount + cgstAmount + sgstAmount + igstAmount - overallDiscountAmount;
 
     let assignedStaffId = dto.assignedStaffId || baseQuotation.assignedStaffId;
-    if (!assignedStaffId && userId) {
-      const staff = await this.prisma.staff.findFirst({ where: { userId } });
-      if (staff) assignedStaffId = staff.id;
+    if (!this.isSalesAdminOrManager(user)) {
+      assignedStaffId = user?.staffId;
+    } else if (!assignedStaffId && user?.staffId) {
+      assignedStaffId = user.staffId;
     }
 
     return this.prisma.quotation.create({
@@ -436,9 +515,11 @@ export class SalesService {
   // 5. STATUS UPDATE & CRM TIMELINE SYNC
   // ─────────────────────────────────────────────────────────────────────────────
 
-  async updateQuotationStatus(id: string, dto: { status: string; notes?: string }, userId?: string) {
+  async updateQuotationStatus(id: string, dto: { status: string; notes?: string }, user?: any) {
     const quotation = await this.prisma.quotation.findUnique({ where: { id }, include: { customer: true } });
     if (!quotation) throw new NotFoundException(`Quotation with ID "${id}" not found`);
+
+    await this.assertQuotationAccess(quotation, user);
 
     const updated = await this.prisma.quotation.update({
       where: { id },
@@ -466,18 +547,20 @@ export class SalesService {
   // 6. CONVERT TO SALES ORDER
   // ─────────────────────────────────────────────────────────────────────────────
 
-  async convertToSalesOrder(quotationId: string, dto: any, userId?: string) {
+  async convertToSalesOrder(quotationId: string, dto: any, user?: any) {
     const quotation = await this.prisma.quotation.findUnique({
       where: { id: quotationId },
       include: { customer: true, items: true },
     });
     if (!quotation) throw new NotFoundException(`Quotation with ID "${quotationId}" not found`);
 
+    await this.assertQuotationAccess(quotation, user);
+
     const orderNumber = dto.orderNumber || (await this.sequenceService.nextSalesOrderNumber());
 
     let assignedStaffId = dto.assignedStaffId || quotation.assignedStaffId;
-    if (!assignedStaffId && userId) {
-      const staff = await this.prisma.staff.findFirst({ where: { userId } });
+    if (!assignedStaffId && user?.id) {
+      const staff = await this.prisma.staff.findFirst({ where: { userId: user.id } });
       if (staff) assignedStaffId = staff.id;
     }
 

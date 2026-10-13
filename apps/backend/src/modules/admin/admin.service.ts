@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
 import { ApproveEmployeeRequestDto } from './dto/approve-employee-request.dto';
 import * as bcrypt from 'bcryptjs';
@@ -557,20 +557,51 @@ export class AdminService {
     });
   }
 
-  async createUser(dto: {
-    username: string;
-    email: string;
-    password: string;
-    fullName: string;
-    phone?: string;
-    designation?: string;
-    departmentId?: string;
-    roleIds?: string[];
-  }) {
+  private isAdministratorUser(user?: any): boolean {
+    if (!user) return false;
+    const roles: string[] = user.roles || [];
+    return roles.some((r) => ['ROLE_ADMIN', 'ADMIN', 'SUPER_ADMIN'].includes(r));
+  }
+
+  private async assertAdminRoleAssignmentSafe(roleIds: string[] | undefined, currentUser?: any) {
+    if (!roleIds || roleIds.length === 0) return;
+    const isCurrentAdmin = this.isAdministratorUser(currentUser);
+    const targetRoles = await this.prisma.role.findMany({
+      where: { id: { in: roleIds } },
+    });
+    const containsAdminRole = targetRoles.some(
+      (r) =>
+        ['ROLE_ADMIN', 'ADMIN', 'SUPER_ADMIN'].includes(r.code) ||
+        r.isSystem === true,
+    );
+    if (containsAdminRole && !isCurrentAdmin) {
+      throw new ForbiddenException(
+        'Privilege escalation denied: Only administrators can assign administrator or system roles.',
+      );
+    }
+  }
+
+  async createUser(
+    dto: {
+      username: string;
+      email: string;
+      password: string;
+      fullName: string;
+      phone?: string;
+      designation?: string;
+      departmentId?: string;
+      roleIds?: string[];
+    },
+    currentUser?: any,
+  ) {
     const existingEmail = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (existingEmail) throw new ConflictException('Email already in use');
     const existingUsername = await this.prisma.user.findUnique({ where: { username: dto.username } });
     if (existingUsername) throw new ConflictException('Username already in use');
+
+    if (dto.roleIds?.length) {
+      await this.assertAdminRoleAssignmentSafe(dto.roleIds, currentUser);
+    }
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
 
@@ -604,9 +635,34 @@ export class AdminService {
     });
   }
 
-  async updateUser(id: string, dto: any) {
-    const existing = await this.prisma.user.findUnique({ where: { id } });
+  async updateUser(id: string, dto: any, currentUser?: any) {
+    const existing = await this.prisma.user.findUnique({
+      where: { id },
+      include: { userRoles: { include: { role: true } } },
+    });
     if (!existing) throw new NotFoundException('User not found');
+
+    const isCurrentAdmin = this.isAdministratorUser(currentUser);
+
+    // Prevent non-admin user from modifying their own roles (self-privilege elevation)
+    if (dto.roleIds !== undefined && currentUser?.id === id && !isCurrentAdmin) {
+      throw new ForbiddenException('Privilege escalation denied: Users cannot modify their own roles.');
+    }
+
+    // Prevent non-admin user from assigning admin or system roles to anyone
+    if (dto.roleIds !== undefined) {
+      await this.assertAdminRoleAssignmentSafe(dto.roleIds, currentUser);
+
+      // Prevent non-admin user from modifying or removing roles of an existing administrator
+      const targetIsAdmin = existing.userRoles.some((ur) =>
+        ['ROLE_ADMIN', 'ADMIN', 'SUPER_ADMIN'].includes(ur.role.code),
+      );
+      if (targetIsAdmin && !isCurrentAdmin) {
+        throw new ForbiddenException(
+          'Privilege escalation denied: Only administrators can modify roles for administrator accounts.',
+        );
+      }
+    }
 
     const updateData: any = {};
     if (dto.fullName) updateData.fullName = dto.fullName;
@@ -630,9 +686,26 @@ export class AdminService {
     return user;
   }
 
-  async toggleUserStatus(id: string) {
-    const user = await this.prisma.user.findUnique({ where: { id } });
+  async toggleUserStatus(id: string, currentUser?: any) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      include: { userRoles: { include: { role: true } } },
+    });
     if (!user) throw new NotFoundException('User not found');
+
+    const isCurrentAdmin = this.isAdministratorUser(currentUser);
+    const targetIsAdmin = user.userRoles.some((ur) =>
+      ['ROLE_ADMIN', 'ADMIN', 'SUPER_ADMIN'].includes(ur.role.code),
+    );
+    if (targetIsAdmin && !isCurrentAdmin) {
+      throw new ForbiddenException(
+        'Privilege escalation denied: Only administrators can modify status for administrator accounts.',
+      );
+    }
+    if (currentUser?.id === id) {
+      throw new ForbiddenException('Cannot modify status of currently active session account.');
+    }
+
     const newStatus = user.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
     return this.prisma.user.update({ where: { id }, data: { status: newStatus } });
   }
@@ -649,7 +722,11 @@ export class AdminService {
     });
   }
 
-  async createRole(dto: { name: string; code: string; description?: string; permissionIds?: string[] }) {
+  async createRole(dto: { name: string; code: string; description?: string; permissionIds?: string[] }, currentUser?: any) {
+    if (['ROLE_ADMIN', 'ADMIN', 'SUPER_ADMIN'].includes(dto.code?.toUpperCase()) && !this.isAdministratorUser(currentUser)) {
+      throw new ForbiddenException('Privilege escalation denied: Only administrators can create administrator roles.');
+    }
+
     const exists = await this.prisma.role.findFirst({
       where: { OR: [{ name: dto.name }, { code: dto.code }] },
     });
@@ -671,10 +748,13 @@ export class AdminService {
     });
   }
 
-  async updateRolePermissions(roleId: string, permissionIds: string[]) {
+  async updateRolePermissions(roleId: string, permissionIds: string[], currentUser?: any) {
     const role = await this.prisma.role.findUnique({ where: { id: roleId } });
     if (!role) throw new NotFoundException('Role not found');
     if (role.isSystem) throw new ConflictException('Cannot modify system role permissions');
+    if (['ROLE_ADMIN', 'ADMIN', 'SUPER_ADMIN'].includes(role.code?.toUpperCase()) && !this.isAdministratorUser(currentUser)) {
+      throw new ForbiddenException('Privilege escalation denied: Only administrators can modify administrator role permissions.');
+    }
 
     await this.prisma.rolePermission.deleteMany({ where: { roleId } });
     if (permissionIds.length > 0) {
@@ -807,6 +887,7 @@ export class AdminService {
     );
 
     if (validRoleIds.length > 0) {
+      await this.assertAdminRoleAssignmentSafe(validRoleIds, adminUser);
       await this.prisma.userRole.createMany({
         data: validRoleIds.map((roleId) => ({ userId: user.id, roleId })),
       });
