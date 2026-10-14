@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:saark_erp_mobile/features/admin/data/admin_repository.dart';
 import 'package:saark_erp_mobile/features/admin/presentation/pages/admin_organization_page.dart';
 import 'package:saark_erp_mobile/features/admin/presentation/pages/admin_employee_access_page.dart';
+import 'package:saark_erp_mobile/features/admin/presentation/pages/admin_audit_logs_page.dart';
 import 'package:saark_erp_mobile/features/hr/models/hr_models.dart';
 
 class AdminDashboardPage extends ConsumerStatefulWidget {
@@ -33,7 +34,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _loadInitialData();
   }
 
@@ -634,6 +635,16 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                     ],
                   ),
                 ),
+                const Tab(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.shield_outlined, size: 18),
+                      SizedBox(width: 8),
+                      Text('Security & Audit Logs'),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -666,6 +677,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                           const AdminEmployeeAccessPage(),
                           _buildUsersTabContent(),
                           const AdminOrganizationPage(),
+                          const AdminAuditLogsPage(),
                         ],
                       ),
           ),

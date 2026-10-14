@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 
 export interface AuditActorSnapshot {
@@ -286,12 +286,139 @@ export class AuditService {
   }
 
   /**
-   * Retrieves recent audit logs with parsed details and actor relations.
+   * Helper to construct Prisma where clause for audit filtering across SQLite and PostgreSQL.
    */
-  async getRecentLogs(limit = 50) {
-    const logs = await this.prisma.auditLog.findMany({
-      orderBy: { timestamp: 'desc' },
-      take: Math.min(limit, 200),
+  private buildWhereClause(filter: any) {
+    const where: any = {};
+
+    if (filter.module && filter.module !== 'ALL') {
+      where.module = filter.module.toUpperCase();
+    }
+
+    if (filter.action && filter.action !== 'ALL') {
+      where.action = filter.action.toUpperCase();
+    }
+
+    if (filter.entityId) {
+      where.entityId = { contains: filter.entityId };
+    }
+
+    if (filter.userId) {
+      where.userId = filter.userId;
+    }
+
+    if (filter.startDate || filter.endDate) {
+      where.timestamp = {};
+      if (filter.startDate) {
+        where.timestamp.gte = new Date(filter.startDate);
+      }
+      if (filter.endDate) {
+        const end = new Date(filter.endDate);
+        if (typeof filter.endDate === 'string' && filter.endDate.length <= 10) {
+          end.setHours(23, 59, 59, 999);
+        }
+        where.timestamp.lte = end;
+      }
+    }
+
+    if (filter.outcome && filter.outcome !== 'ALL') {
+      const outcomeVal = filter.outcome.toUpperCase();
+      if (outcomeVal === 'DENIED') {
+        where.OR = [
+          { action: 'AUTHORIZATION_DENIED' },
+          { details: { contains: '"outcome":"DENIED"' } },
+        ];
+      } else {
+        where.details = { contains: `"outcome":"${outcomeVal}"` };
+      }
+    }
+
+    if (filter.search) {
+      const term = filter.search.trim();
+      const searchConditions = [
+        { userEmail: { contains: term } },
+        { entityId: { contains: term } },
+        { details: { contains: term } },
+        { user: { fullName: { contains: term } } },
+      ];
+      if (where.OR) {
+        where.AND = [{ OR: where.OR }, { OR: searchConditions }];
+        delete where.OR;
+      } else {
+        where.OR = searchConditions;
+      }
+    }
+
+    return where;
+  }
+
+  /**
+   * Safe CSV cell escaping complying with RFC 4180.
+   */
+  private escapeCsvCell(val: any): string {
+    if (val === null || val === undefined) return '""';
+    const str = String(val).replace(/"/g, '""');
+    return `"${str}"`;
+  }
+
+  /**
+   * Paginated retrieval of audit logs matching rich enterprise filters.
+   */
+  async getLogs(filter: any = {}) {
+    const page = Math.max(1, Number(filter.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(filter.limit) || 25));
+    const skip = (page - 1) * limit;
+
+    const where = this.buildWhereClause(filter);
+
+    const [total, records] = await Promise.all([
+      this.prisma.auditLog.count({ where }),
+      this.prisma.auditLog.findMany({
+        where,
+        orderBy: { timestamp: 'desc' },
+        skip,
+        take: limit,
+        include: {
+          user: {
+            select: { id: true, fullName: true, email: true, designation: true },
+          },
+        },
+      }),
+    ]);
+
+    const data = records.map((log) => {
+      let parsed = null;
+      if (log.details) {
+        try {
+          parsed = JSON.parse(log.details);
+        } catch {
+          parsed = { raw: log.details };
+        }
+      }
+      return {
+        ...log,
+        details: parsed,
+      };
+    });
+
+    return {
+      success: true,
+      data,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    };
+  }
+
+  /**
+   * Detailed view of a single audit log event by ID.
+   */
+  async getLogById(id: string) {
+    const log = await this.prisma.auditLog.findUnique({
+      where: { id },
       include: {
         user: {
           select: { id: true, fullName: true, email: true, designation: true },
@@ -299,19 +426,127 @@ export class AuditService {
       },
     });
 
-    return logs.map((log) => {
-      let parsedDetails = null;
+    if (!log) {
+      throw new NotFoundException(`Audit log event with ID ${id} not found`);
+    }
+
+    let parsed = null;
+    if (log.details) {
+      try {
+        parsed = JSON.parse(log.details);
+      } catch {
+        parsed = { raw: log.details };
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        ...log,
+        details: parsed,
+      },
+    };
+  }
+
+  /**
+   * Generates CSV export with active filter criteria and records an EXPORT audit event.
+   */
+  async exportLogsToCsv(filter: any = {}, actor?: any, req?: any): Promise<string> {
+    const where = this.buildWhereClause(filter);
+    const logs = await this.prisma.auditLog.findMany({
+      where,
+      orderBy: { timestamp: 'desc' },
+      take: 5000,
+      include: {
+        user: {
+          select: { id: true, fullName: true, email: true, designation: true },
+        },
+      },
+    });
+
+    const headers = [
+      'Log ID',
+      'Timestamp (UTC)',
+      'Actor User ID',
+      'Actor Email',
+      'Actor Name',
+      'Actor Roles',
+      'Module',
+      'Action',
+      'Entity Type',
+      'Entity ID',
+      'Outcome',
+      'Request ID',
+      'IP Address',
+      'Changed Fields',
+      'Reason',
+    ];
+
+    const rows = [headers.map((h) => this.escapeCsvCell(h)).join(',')];
+
+    for (const log of logs) {
+      let parsed: any = {};
       if (log.details) {
         try {
-          parsedDetails = JSON.parse(log.details);
+          parsed = JSON.parse(log.details);
         } catch {
-          parsedDetails = log.details;
+          parsed = { raw: log.details };
         }
       }
-      return {
-        ...log,
-        details: parsedDetails,
-      };
+
+      const row = [
+        log.id,
+        log.timestamp.toISOString(),
+        parsed.actor?.userId || log.userId || '',
+        parsed.actor?.userEmail || log.userEmail || log.user?.email || '',
+        parsed.actor?.fullName || log.user?.fullName || '',
+        Array.isArray(parsed.actor?.roles)
+          ? parsed.actor.roles.join(';')
+          : (log.user?.designation || ''),
+        log.module,
+        log.action,
+        log.entityType || '',
+        log.entityId || '',
+        parsed.outcome || (log.action === 'AUTHORIZATION_DENIED' ? 'DENIED' : 'SUCCESS'),
+        parsed.requestId || '',
+        log.ipAddress || '',
+        Array.isArray(parsed.changedFields) ? parsed.changedFields.join('; ') : '',
+        parsed.reason || '',
+      ];
+
+      rows.push(row.map((cell) => this.escapeCsvCell(cell)).join(','));
+    }
+
+    // Record audit event for export execution
+    await this.recordAction({
+      req,
+      actor: actor || req?.user,
+      action: 'EXPORT',
+      module: 'AUDIT',
+      entityType: 'AuditLog',
+      details: {
+        filterCriteria: {
+          module: filter.module,
+          action: filter.action,
+          outcome: filter.outcome,
+          search: filter.search,
+          startDate: filter.startDate,
+          endDate: filter.endDate,
+        },
+        exportedCount: logs.length,
+      },
+      outcome: 'SUCCESS',
+      reason: 'Admin CSV export of audit logs',
     });
+
+    return rows.join('\r\n');
+  }
+
+  /**
+   * Backward-compatible legacy recent logs fetcher.
+   */
+  async getRecentLogs(limit = 50) {
+    const res = await this.getLogs({ limit });
+    return res.data;
   }
 }

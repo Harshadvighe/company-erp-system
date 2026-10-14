@@ -36,6 +36,7 @@ import 'package:saark_erp_mobile/features/staff/presentation/pages/staff_directo
 import 'package:saark_erp_mobile/features/hr/presentation/pages/hr_dashboard_page.dart';
 import 'package:saark_erp_mobile/features/admin/presentation/pages/admin_dashboard_page.dart';
 import 'package:saark_erp_mobile/features/admin/presentation/pages/admin_employee_access_page.dart';
+import 'package:saark_erp_mobile/features/admin/presentation/pages/admin_audit_logs_page.dart';
 import 'package:saark_erp_mobile/features/crm/presentation/pages/invoices_list_page.dart';
 import 'package:saark_erp_mobile/features/crm/presentation/pages/accounts_dashboard_page.dart';
 import 'package:saark_erp_mobile/features/inventory/presentation/pages/inventory_dashboard_page.dart';
@@ -359,6 +360,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/admin/access',
             builder: (_, __) => const AdminEmployeeAccessPage(),
+          ),
+          GoRoute(
+            path: '/admin/audit',
+            builder: (_, __) => const AdminAuditLogsPage(),
           ),
 
         ],
