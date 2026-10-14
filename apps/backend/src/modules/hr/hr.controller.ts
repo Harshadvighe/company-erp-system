@@ -9,8 +9,11 @@ import {
   Query,
   UseGuards,
   Req,
+  Res,
+  HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { Response } from 'express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
@@ -128,6 +131,25 @@ export class HrController {
     return this.hrService.getMusterRoll(month, year);
   }
 
+  @Get('muster-roll/export')
+  @RequirePermissions('HR:EXPORT', 'REPORTS:EXPORT')
+  @ApiOperation({ summary: 'Export Form 25 Muster Roll in statutory CSV or JSON format with audit logging' })
+  async exportMusterRoll(
+    @Query('month') month: string,
+    @Query('year') year: number,
+    @Query('format') format: string,
+    @Req() req: any,
+    @Res() res: Response,
+  ) {
+    const result = await this.hrService.exportMusterRoll(month, year, format || 'csv', req.user, req);
+    if (result.format === 'json') {
+      return res.status(HttpStatus.OK).json(result.data);
+    }
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${result.fileName}"`);
+    return res.status(HttpStatus.OK).send('\uFEFF' + result.csvContent);
+  }
+
   // -------------------------------------------------------------
   // EMPLOYEES
   // -------------------------------------------------------------
@@ -141,6 +163,20 @@ export class HrController {
     @Query('workerCategory') workerCategory?: string,
   ) {
     return this.hrService.getEmployees(search, departmentId, status, workerCategory);
+  }
+
+  @Get('employees/export')
+  @RequirePermissions('HR:EXPORT')
+  @ApiOperation({ summary: 'Export sanitized employee directory to CSV with PII redaction and audit logging' })
+  async exportEmployees(
+    @Query() query: any,
+    @Req() req: any,
+    @Res() res: Response,
+  ) {
+    const result = await this.hrService.exportEmployeesToCsv(query, req.user, req);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${result.fileName}"`);
+    return res.status(HttpStatus.OK).send('\uFEFF' + result.csvContent);
   }
 
   @Get('employees/:id')

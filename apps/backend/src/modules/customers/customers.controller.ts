@@ -1,8 +1,9 @@
 import {
   Controller, Get, Post, Put, Delete,
-  Body, Param, Query, UseGuards, Req,
+  Body, Param, Query, UseGuards, Req, Res, HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { Response } from 'express';
 import { CustomersService } from './customers.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -21,6 +22,16 @@ export class CustomersController {
   @ApiOperation({ summary: 'List customers with search, filters & pagination' })
   findAll(@Query() query: any) {
     return this.customersService.findAll(query);
+  }
+
+  @Get('export')
+  @RequirePermissions('CUSTOMERS:EXPORT')
+  @ApiOperation({ summary: 'Export customers to RFC 4180 CSV with audit trail' })
+  async exportCustomers(@Query() query: any, @Req() req: any, @Res() res: Response) {
+    const result = await this.customersService.exportCustomersToCsv(query, req.user, req);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${result.fileName}"`);
+    return res.status(HttpStatus.OK).send('\uFEFF' + result.csvContent);
   }
 
   @Get('filter-options')

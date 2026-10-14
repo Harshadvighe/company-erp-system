@@ -106,4 +106,91 @@ export class PanelManufacturingService {
 
     return created;
   }
+
+  /**
+   * Export Panel Specification BOM with Centralized Audit Logging
+   */
+  async exportBom(id: string, format = 'csv', actor?: any, req?: any) {
+    const spec = await this.findOne(id);
+
+    await this.auditService.recordAction({
+      req,
+      actor,
+      action: 'EXPORT',
+      module: 'PRODUCTION',
+      entityType: 'PanelSpecification',
+      entityId: id,
+      outcome: 'SUCCESS',
+      details: {
+        format: format.toUpperCase(),
+        panelCode: spec.panelCode,
+        itemCount: spec.bomItems?.length || 0,
+        finalPrice: spec.finalPrice,
+      },
+    });
+
+    if (format.toLowerCase() === 'json') {
+      return {
+        format: 'json',
+        data: {
+          panelCode: spec.panelCode,
+          panelType: spec.panelType,
+          voltage: spec.voltage,
+          currentRating: spec.currentRating,
+          status: spec.status,
+          finalPrice: spec.finalPrice,
+          materialCost: spec.materialCost,
+          labourCost: spec.labourCost,
+          overheadCost: spec.overheadCost,
+          marginPercent: spec.marginPercent,
+          bomItems: spec.bomItems,
+        },
+      };
+    }
+
+    const headers = [
+      'Item No',
+      'Component Name',
+      'Specification',
+      'Manufacturer',
+      'Quantity',
+      'Unit Price (INR)',
+      'Total Price (INR)',
+    ];
+
+    const escapeCsv = (val: any) => {
+      if (val === null || val === undefined) return '';
+      const str = String(val);
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) return `"${str.replace(/"/g, '""')}"`;
+      return str;
+    };
+
+    const rows = (spec.bomItems || []).map((item, idx) =>
+      [
+        idx + 1,
+        item.componentName,
+        item.specification || '',
+        item.manufacturer || '',
+        item.quantity,
+        item.unitPrice,
+        item.totalPrice,
+      ]
+        .map(escapeCsv)
+        .join(','),
+    );
+
+    const csvContent = [
+      `"SAARK EXPLORATION - PANEL BILL OF MATERIALS (BOM) SPECIFICATION"`,
+      `"Panel Code: ${spec.panelCode} | Type: ${spec.panelType} | Voltage: ${spec.voltage} | Current: ${spec.currentRating}"`,
+      `"Final Configured Price: INR ${spec.finalPrice}"`,
+      headers.join(','),
+      ...rows,
+    ].join('\r\n');
+
+    return {
+      format: 'csv',
+      csvContent,
+      fileName: `saark_panel_bom_${spec.panelCode}.csv`,
+    };
+  }
 }

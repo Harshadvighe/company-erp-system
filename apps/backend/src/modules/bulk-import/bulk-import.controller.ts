@@ -16,6 +16,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { Response } from 'express';
 import { BulkImportService } from './bulk-import.service';
+import { AuditService } from '../../core/audit/audit.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
@@ -31,7 +32,10 @@ import {
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('api/v1/bulk-import')
 export class BulkImportController {
-  constructor(private readonly bulkImportService: BulkImportService) {}
+  constructor(
+    private readonly bulkImportService: BulkImportService,
+    private readonly auditService: AuditService,
+  ) {}
 
   @Post('parse-preview')
   @RequirePermissions('CUSTOMERS:CREATE', 'PURCHASE:CREATE', 'CUSTOMERS:VIEW', 'VENDORS:CREATE')
@@ -85,10 +89,11 @@ export class BulkImportController {
   }
 
   @Get('template/:target')
-  @RequirePermissions('CUSTOMERS:VIEW', 'PURCHASE:VIEW', 'VENDORS:VIEW')
+  @RequirePermissions('CUSTOMERS:EXPORT', 'VENDORS:EXPORT', 'PURCHASE:EXPORT', 'CUSTOMERS:VIEW', 'VENDORS:VIEW')
   @ApiOperation({ summary: 'Download standard sample import template CSV' })
-  downloadTemplate(
+  async downloadTemplate(
     @Param('target') targetParam: string,
+    @Req() req: any,
     @Res() res: Response,
   ) {
     const target =
@@ -99,20 +104,41 @@ export class BulkImportController {
     const csvContent = this.bulkImportService.getSampleTemplate(target);
     const fileName = `saark_${target.toLowerCase()}_sample_template.csv`;
 
+    await this.auditService.recordAction({
+      req,
+      actor: req.user,
+      action: 'EXPORT',
+      module: 'BULK_IMPORT',
+      entityType: 'ImportTemplate',
+      outcome: 'SUCCESS',
+      details: { target, templateName: fileName },
+    });
+
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     res.status(HttpStatus.OK).send('\uFEFF' + csvContent);
   }
 
   @Post('error-report')
-  @RequirePermissions('CUSTOMERS:VIEW', 'PURCHASE:VIEW', 'VENDORS:VIEW')
+  @RequirePermissions('CUSTOMERS:EXPORT', 'VENDORS:EXPORT', 'PURCHASE:EXPORT', 'CUSTOMERS:VIEW', 'VENDORS:VIEW')
   @ApiOperation({ summary: 'Generate and download sanitized CSV error report' })
-  downloadErrorReport(
+  async downloadErrorReport(
     @Body() dto: GenerateErrorReportDto,
+    @Req() req: any,
     @Res() res: Response,
   ) {
     const csvContent = this.bulkImportService.generateErrorReport(dto);
     const fileName = `saark_${dto.target.toLowerCase()}_import_errors_${Date.now()}.csv`;
+
+    await this.auditService.recordAction({
+      req,
+      actor: req.user,
+      action: 'EXPORT',
+      module: 'BULK_IMPORT',
+      entityType: 'ErrorReport',
+      outcome: 'SUCCESS',
+      details: { target: dto.target, errorCount: dto.errors?.length || 0 },
+    });
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);

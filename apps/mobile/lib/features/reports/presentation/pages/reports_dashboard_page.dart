@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:saark_erp_mobile/core/theme/app_theme.dart';
+import 'package:saark_erp_mobile/core/utils/web_utils.dart';
 import 'package:saark_erp_mobile/features/reports/data/reports_repository.dart';
 
 class ReportsDashboardPage extends ConsumerStatefulWidget {
@@ -112,11 +113,103 @@ class _ReportsDashboardPageState extends ConsumerState<ReportsDashboardPage>
             onPressed: _loadAllReports,
           ),
           IconButton(
-            icon: const Icon(Icons.print_outlined),
-            tooltip: 'Export / Print Summary',
+            icon: const Icon(Icons.download_rounded),
+            tooltip: 'Export Reports & GST Returns',
             onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Executive Report exported successfully.')),
+              showDialog<void>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  backgroundColor: const Color(0xFF1E2024),
+                  title: const Row(
+                    children: [
+                      Icon(Icons.file_download_outlined, color: Color(0xFFF26522)),
+                      SizedBox(width: 8),
+                      Text('Export Reports & Statutory Data', style: TextStyle(color: Colors.white, fontSize: 16)),
+                    ],
+                  ),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ListTile(
+                        leading: const Icon(Icons.table_chart_outlined, color: Colors.blueAccent),
+                        title: const Text('Executive Summary (CSV)', style: TextStyle(color: Colors.white, fontSize: 14)),
+                        subtitle: const Text('Financial & operational consolidated metrics', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                        onTap: () async {
+                          Navigator.pop(ctx);
+                          try {
+                            final csv = await ref.read(reportsRepositoryProvider).exportExecutiveSummaryCsv();
+                            downloadExcelFile(csv, 'saark_executive_summary_${DateTime.now().year}_${DateTime.now().month}.csv');
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Executive summary exported with audit logging.')),
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Export failed: $e')),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                      const Divider(color: Colors.white12),
+                      ListTile(
+                        leading: const Icon(Icons.receipt_long_outlined, color: Colors.greenAccent),
+                        title: const Text('GST GSTR-1 Invoices (JSON)', style: TextStyle(color: Colors.white, fontSize: 14)),
+                        subtitle: const Text('Indian GST Portal upload format with audit trail', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                        onTap: () async {
+                          Navigator.pop(ctx);
+                          try {
+                            final jsonStr = await ref.read(reportsRepositoryProvider).exportGstJson();
+                            downloadExcelFile(jsonStr, 'saark_gstr1_return_${DateTime.now().year}_${DateTime.now().month}.json');
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('GSTR-1 JSON exported with audit logging.')),
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Export failed: $e')),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                      const Divider(color: Colors.white12),
+                      ListTile(
+                        leading: const Icon(Icons.receipt_outlined, color: Colors.amberAccent),
+                        title: const Text('GST B2B Invoices (CSV)', style: TextStyle(color: Colors.white, fontSize: 14)),
+                        subtitle: const Text('Detailed tax breakdown per line item', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                        onTap: () async {
+                          Navigator.pop(ctx);
+                          try {
+                            final csv = await ref.read(reportsRepositoryProvider).exportGstCsv();
+                            downloadExcelFile(csv, 'saark_gst_invoices_${DateTime.now().year}_${DateTime.now().month}.csv');
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('GST CSV exported with audit logging.')),
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Export failed: $e')),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Close', style: TextStyle(color: Colors.white70)),
+                    ),
+                  ],
+                ),
               );
             },
           ),

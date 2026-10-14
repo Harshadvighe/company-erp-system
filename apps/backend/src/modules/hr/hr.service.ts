@@ -378,6 +378,105 @@ export class HrService {
     });
   }
 
+  /**
+   * Statutory Form 25 Muster Roll Export with Centralized Audit Logging
+   */
+  async exportMusterRoll(month?: string, year?: number, format = 'csv', actor?: any, req?: any) {
+    const data = await this.getMusterRoll(month, year);
+    const targetMonth = month || String(new Date().getMonth() + 1);
+    const targetYear = year || new Date().getFullYear();
+
+    await this.auditService?.recordAction({
+      req,
+      actor,
+      action: 'EXPORT',
+      module: 'HR',
+      entityType: 'MusterRoll',
+      outcome: 'SUCCESS',
+      details: {
+        format: format.toUpperCase(),
+        month: targetMonth,
+        year: targetYear,
+        recordCount: data.length,
+      },
+    });
+
+    if (format.toLowerCase() === 'json') {
+      return {
+        format: 'json',
+        data: {
+          form: 'Form 25 (Rule 104) Muster Roll - Factories Act 1948',
+          period: { month: targetMonth, year: targetYear },
+          generatedAt: new Date().toISOString(),
+          totalEmployees: data.length,
+          records: data,
+        },
+      };
+    }
+
+    const headers = [
+      'Employee Code',
+      'Full Name',
+      'Designation',
+      'Department',
+      'Worker Category',
+      'Skill Level',
+      'Assigned Bay',
+      'Shift',
+      'Contractor Agency',
+      'Electrical License No',
+      'Present Days',
+      'Late Days',
+      'Overtime Hours',
+      'Overtime Earnings (INR - 2x Ordinary Rate)',
+    ];
+
+    const escapeCsv = (val: any) => {
+      if (val === null || val === undefined) return '';
+      const str = String(val);
+      if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const rows = data.map((d) =>
+      [
+        d.employeeCode,
+        d.fullName,
+        d.designation,
+        d.department,
+        d.workerCategory,
+        d.skillLevel || '',
+        d.assignedBay || '',
+        d.shiftCode || '',
+        d.contractorAgency || '',
+        d.electricalLicenseNo || '',
+        d.presentDays,
+        d.lateDays,
+        d.overtimeHours,
+        d.otEarnings,
+      ]
+        .map(escapeCsv)
+        .join(','),
+    );
+
+    const csvContent = [
+      `"FACTORIES ACT 1948 - FORM 25 (RULE 104) REGISTER OF ADULT WORKERS / MUSTER ROLL"`,
+      `"Factory: Saark Exploration Private Limited - Survey No 42 Chakan MIDC Phase II Pune"`,
+      `"Wage / Muster Period: Month ${targetMonth} Year ${targetYear}"`,
+      headers.join(','),
+      ...rows,
+    ].join('\r\n');
+
+    return {
+      format: 'csv',
+      csvContent,
+      recordCount: data.length,
+      fileName: `saark_form25_muster_roll_${targetYear}_${targetMonth}.csv`,
+    };
+  }
+
   // -------------------------------------------------------------
   // 7. EMPLOYEES DIRECTORY & PROFILE
   // -------------------------------------------------------------
@@ -405,6 +504,119 @@ export class HrService {
       },
       orderBy: { employeeCode: 'asc' },
     });
+  }
+
+  /**
+   * Sanitized Employee Directory CSV Export with Strict PII Redaction
+   */
+  async exportEmployeesToCsv(query: any, actor: any, req?: any) {
+    const where: any = {};
+    if (query?.departmentId) where.departmentId = query.departmentId;
+    if (query?.status) where.status = query.status;
+    if (query?.workerCategory) where.workerCategory = query.workerCategory;
+    if (query?.search?.trim()) {
+      const search = query.search.trim();
+      where.OR = [
+        { firstName: { contains: search } },
+        { lastName: { contains: search } },
+        { email: { contains: search } },
+        { employeeCode: { contains: search } },
+        { designation: { contains: search } },
+      ];
+    }
+
+    const employees = await this.prisma.employee.findMany({
+      where,
+      take: 5000,
+      include: { department: true },
+      orderBy: { employeeCode: 'asc' },
+    });
+
+    const headers = [
+      'Employee Code',
+      'First Name',
+      'Last Name',
+      'Email',
+      'Phone',
+      'Designation',
+      'Department',
+      'Worker Category',
+      'Skill Level',
+      'Shift',
+      'Assigned Bay',
+      'Employment Type',
+      'Status',
+      'PAN (Masked)',
+      'Aadhaar (Masked)',
+      'Bank Account (Masked)',
+      'Joined Date',
+    ];
+
+    const escapeCsv = (val: any) => {
+      if (val === null || val === undefined) return '';
+      const str = val instanceof Date ? val.toISOString() : String(val);
+      if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const maskSensitive = (str?: string | null, visibleChars = 4) => {
+      if (!str) return '';
+      const clean = str.trim();
+      if (clean.length <= visibleChars) return '****';
+      return '*'.repeat(Math.max(4, clean.length - visibleChars)) + clean.slice(-visibleChars);
+    };
+
+    const rows = employees.map((e) =>
+      [
+        e.employeeCode,
+        e.firstName,
+        e.lastName,
+        e.email,
+        e.phone || '',
+        e.designation,
+        e.department?.name || '',
+        e.workerCategory,
+        e.skillLevel || '',
+        e.shiftCode || '',
+        e.assignedBay || '',
+        e.employmentType,
+        e.status,
+        maskSensitive(e.panNo),
+        maskSensitive(e.aadhaarNo),
+        maskSensitive(e.bankAccountNo),
+        e.createdAt,
+      ]
+        .map(escapeCsv)
+        .join(','),
+    );
+
+    const csvContent = [headers.join(','), ...rows].join('\r\n');
+
+    await this.auditService?.recordAction({
+      req,
+      actor,
+      action: 'EXPORT',
+      module: 'HR',
+      entityType: 'Employee',
+      outcome: 'SUCCESS',
+      details: {
+        format: 'CSV',
+        recordCount: employees.length,
+        filterCriteria: {
+          search: query?.search,
+          departmentId: query?.departmentId,
+          status: query?.status,
+        },
+      },
+    });
+
+    return {
+      csvContent,
+      recordCount: employees.length,
+      fileName: `saark_employees_${Date.now()}.csv`,
+    };
   }
 
   async getEmployeeById(idOrCode: string) {

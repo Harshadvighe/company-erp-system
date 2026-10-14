@@ -2,10 +2,11 @@ import { Module } from '@nestjs/common';
 import { HrController } from './hr.controller';
 import { HrService } from './hr.service';
 import { SequenceService } from '../../core/database/sequence.service';
+import { AuditService } from '../../core/audit/audit.service';
 
 @Module({
   controllers: [HrController],
-  providers: [HrService, SequenceService],
+  providers: [HrService, SequenceService, AuditService],
   exports: [HrService],
 })
 export class HrModule {}

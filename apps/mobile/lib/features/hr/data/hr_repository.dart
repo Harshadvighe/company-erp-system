@@ -176,6 +176,32 @@ class HrRepository {
       return list.map((i) => DepartmentItem.fromJson(i)).toList();
     }
   }
+
+  Future<String> exportMusterRollCsv({String? month, int? year}) async {
+    final response = await _dio.get(
+      '/hr/muster-roll/export',
+      queryParameters: {
+        if (month != null) 'month': month,
+        if (year != null) 'year': year,
+        'format': 'csv',
+      },
+      options: Options(responseType: ResponseType.plain),
+    );
+    return response.data.toString();
+  }
+
+  Future<String> exportEmployeesCsv({String? search, String? departmentId, String? status}) async {
+    final response = await _dio.get(
+      '/hr/employees/export',
+      queryParameters: {
+        if (search != null) 'search': search,
+        if (departmentId != null) 'departmentId': departmentId,
+        if (status != null) 'status': status,
+      },
+      options: Options(responseType: ResponseType.plain),
+    );
+    return response.data.toString();
+  }
 }
 
 

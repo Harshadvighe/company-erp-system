@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { DocumentsController } from './documents.controller';
 import { DocumentsService } from './documents.service';
 import { SequenceService } from '../../core/database/sequence.service';
+import { AuditService } from '../../core/audit/audit.service';
 import {
   FileStorageService,
   LocalFileStorageService,
@@ -14,6 +15,7 @@ import {
   providers: [
     DocumentsService,
     SequenceService,
+    AuditService,
     {
       provide: FileStorageService,
       useFactory: () => {

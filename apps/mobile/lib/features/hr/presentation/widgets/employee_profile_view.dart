@@ -486,9 +486,25 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
             child: const Text('Close', style: TextStyle(color: Colors.white70)),
           ),
           ElevatedButton.icon(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(ctx);
-              
+
+              try {
+                final csv = await ref.read(hrRepositoryProvider).exportEmployeesCsv();
+                downloadExcelFile(csv, 'saark_employees_${DateTime.now().year}_${DateTime.now().month}.csv');
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Employee records exported successfully with audit trail.'),
+                      backgroundColor: Color(0xFFF26522),
+                    ),
+                  );
+                }
+                return;
+              } catch (_) {
+                // Fallback to local memory export if server request fails
+              }
+
               final htmlBuffer = StringBuffer();
               htmlBuffer.writeln('<html xmlns:x="urn:schemas-microsoft-com:office:excel">');
               htmlBuffer.writeln('<head><meta charset="utf-8"></head><body>');
@@ -522,12 +538,14 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
 
               downloadExcelFile(htmlBuffer.toString(), 'saark_employees.xls');
 
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Employee records exported successfully.'),
-                  backgroundColor: Color(0xFFF26522),
-                ),
-              );
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Employee records exported successfully.'),
+                    backgroundColor: Color(0xFFF26522),
+                  ),
+                );
+              }
             },
             icon: const Icon(Icons.download_rounded, size: 16),
             label: const Text('Download Excel'),

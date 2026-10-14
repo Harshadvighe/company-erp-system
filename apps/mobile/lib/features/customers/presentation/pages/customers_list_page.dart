@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:saark_erp_mobile/core/theme/app_theme.dart';
 import 'package:saark_erp_mobile/core/utils/web_utils.dart';
+import 'package:saark_erp_mobile/core/network/dio_client.dart';
 import 'package:saark_erp_mobile/features/customers/data/customers_repository.dart';
 import 'package:saark_erp_mobile/features/crm/data/crm_repository.dart';
 import 'package:saark_erp_mobile/features/staff/data/staff_repository.dart';
@@ -367,13 +368,27 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
 
     downloadExcelFile(buffer.toString(), filename);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content:
-            Text('✓ Exported ${state.customers.length} customers to $filename'),
-        backgroundColor: AppTheme.success,
-      ),
-    );
+    // Sync with backend audit trail
+    try {
+      await ref.read(dioProvider).get(
+        '/customers/export',
+        queryParameters: {
+          if (_searchController.text.isNotEmpty) 'search': _searchController.text,
+        },
+      );
+    } catch (_) {
+      // Gracefully allow offline or network error fallback
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content:
+              Text('✓ Exported ${state.customers.length} customers to $filename'),
+          backgroundColor: AppTheme.success,
+        ),
+      );
+    }
   }
 
   void _onBulkImportComplete() {
@@ -1604,6 +1619,7 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
                           Text('Please select an Admin or Employee host')));
                   return;
                 }
+                final messenger = ScaffoldMessenger.of(context);
                 Navigator.pop(ctx);
                 try {
                   final repo = ref.read(customersRepositoryProvider);
@@ -1614,7 +1630,7 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
                   });
                   _loadCompanies(page: ref.read(customerListProvider).page);
                   if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    messenger.showSnackBar(
                       SnackBar(
                         content: Text(
                             'Assigned host for ${customer.companyName} updated to "${selectedStaff!.fullName}" ✓'),
@@ -1625,7 +1641,7 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
                 } catch (e) {
                   _loadCompanies(page: ref.read(customerListProvider).page);
                   if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    messenger.showSnackBar(
                       SnackBar(
                         content: Text(
                             'Assigned host updated to "${selectedStaff!.fullName}" ✓'),

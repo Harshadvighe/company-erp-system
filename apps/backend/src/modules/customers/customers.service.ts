@@ -365,6 +365,130 @@ export class CustomersService {
     };
   }
 
+  /**
+   * Export customers list to standard RFC 4180 CSV with Centralized Audit Trail
+   */
+  async exportCustomersToCsv(query: any, actor: any, req?: any) {
+    const conditions: Prisma.CustomerWhereInput[] = [
+      { status: query?.status || { not: 'DELETED' } },
+    ];
+    if (query?.type) conditions.push({ customerType: query.type });
+    if (query?.category) conditions.push({ customerCategory: query.category });
+    if (query?.search?.trim()) {
+      const search = query.search.trim();
+      conditions.push({
+        OR: [
+          { companyName: { contains: search } },
+          { customerCode: { contains: search } },
+          { gstin: { contains: search } },
+          { email: { contains: search } },
+          { phone: { contains: search } },
+          { city: { contains: search } },
+          { state: { contains: search } },
+        ],
+      });
+    }
+
+    const where: Prisma.CustomerWhereInput = conditions.length > 0 ? { AND: conditions } : {};
+    const customers = await this.prisma.customer.findMany({
+      where,
+      take: 5000,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        customerCode: true,
+        companyName: true,
+        legalName: true,
+        customerType: true,
+        customerCategory: true,
+        gstin: true,
+        gstStatus: true,
+        pan: true,
+        email: true,
+        phone: true,
+        city: true,
+        state: true,
+        country: true,
+        status: true,
+        createdAt: true,
+      },
+    });
+
+    const headers = [
+      'Customer Code',
+      'Company Name',
+      'Legal Name',
+      'Customer Type',
+      'Category',
+      'GSTIN',
+      'GST Status',
+      'PAN',
+      'Email',
+      'Phone',
+      'City',
+      'State',
+      'Country',
+      'Status',
+      'Created At',
+    ];
+
+    const escapeCsv = (val: any) => {
+      if (val === null || val === undefined) return '';
+      const str = val instanceof Date ? val.toISOString() : String(val);
+      if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const rows = customers.map((c) =>
+      [
+        c.customerCode,
+        c.companyName,
+        c.legalName || '',
+        c.customerType || '',
+        c.customerCategory || '',
+        c.gstin || '',
+        c.gstStatus || '',
+        c.pan || '',
+        c.email || '',
+        c.phone || '',
+        c.city || '',
+        c.state || '',
+        c.country || '',
+        c.status,
+        c.createdAt,
+      ]
+        .map(escapeCsv)
+        .join(','),
+    );
+
+    const csvContent = [headers.join(','), ...rows].join('\r\n');
+
+    await this.auditService.recordAction({
+      req,
+      actor,
+      action: 'EXPORT',
+      module: 'CRM',
+      entityType: 'Customer',
+      outcome: 'SUCCESS',
+      details: {
+        format: 'CSV',
+        recordCount: customers.length,
+        filterCriteria: {
+          search: query?.search,
+          status: query?.status,
+          type: query?.type,
+        },
+      },
+    });
+
+    return {
+      csvContent,
+      recordCount: customers.length,
+      fileName: `saark_customers_${Date.now()}.csv`,
+    };
+  }
+
   async getCompanyFilterOptions(state?: string) {
     const stateWhere: Prisma.CustomerWhereInput = { status: { not: 'DELETED' } };
     const districtWhere: Prisma.CustomerWhereInput = {

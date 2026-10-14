@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:saark_erp_mobile/core/utils/web_utils.dart';
 import 'package:saark_erp_mobile/features/hr/data/hr_repository.dart';
 import 'package:saark_erp_mobile/features/hr/models/hr_models.dart';
 
@@ -211,7 +212,26 @@ class AttendanceLeaveView extends ConsumerWidget {
           icon: Icons.calendar_month_outlined,
           actions: [
             OutlinedButton.icon(
-              onPressed: () {},
+              onPressed: () async {
+                try {
+                  final csv = await ref.read(hrRepositoryProvider).exportMusterRollCsv();
+                  downloadExcelFile(
+                    csv,
+                    'saark_form25_muster_roll_${DateTime.now().year}_${DateTime.now().month}.csv',
+                  );
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Form 25 Muster Roll exported successfully.')),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to export Form 25 Muster Roll: $e')),
+                    );
+                  }
+                }
+              },
               icon: const Icon(Icons.download, size: 14),
               label: const Text('Export Form 25 Muster Roll'),
               style: OutlinedButton.styleFrom(

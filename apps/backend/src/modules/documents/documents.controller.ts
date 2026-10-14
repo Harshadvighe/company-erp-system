@@ -19,6 +19,7 @@ import { Response } from 'express';
 import * as path from 'path';
 import * as fs from 'fs';
 import { DocumentsService } from './documents.service';
+import { AuditService } from '../../core/audit/audit.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
@@ -56,7 +57,10 @@ function getMimeType(filePath: string): string {
 @ApiTags('Documents')
 @Controller('api/v1/documents')
 export class DocumentsController {
-  constructor(private readonly documentsService: DocumentsService) {}
+  constructor(
+    private readonly documentsService: DocumentsService,
+    private readonly auditService: AuditService,
+  ) {}
 
   @Get()
   @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -187,10 +191,28 @@ export class DocumentsController {
 
   @Get(':id/download')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('CRM:VIEW', 'CUSTOMERS:VIEW', 'SALES:VIEW', 'DOCUMENTS:VIEW', 'HR:VIEW', 'STAFF:VIEW')
-  @ApiOperation({ summary: 'Download document stream' })
+  @RequirePermissions('DOCUMENTS:EXPORT', 'DOCUMENTS:VIEW', 'CRM:VIEW', 'CUSTOMERS:VIEW', 'SALES:VIEW', 'HR:VIEW', 'STAFF:VIEW')
+  @ApiOperation({ summary: 'Download document stream with audit logging' })
   async downloadFile(@Param('id') id: string, @Req() req: any, @Res() res: Response) {
     const { buffer, doc } = await this.documentsService.getFileBuffer(id, req.user);
+
+    await this.auditService.recordAction({
+      req,
+      actor: req.user,
+      action: 'DOWNLOAD',
+      module: 'DOCUMENTS',
+      entityType: doc.entityType || 'DocumentItem',
+      entityId: doc.id,
+      outcome: 'SUCCESS',
+      details: {
+        documentCode: doc.documentCode,
+        fileName: doc.fileName,
+        fileSize: doc.fileSize,
+        mimeType: doc.mimeType,
+        documentType: doc.documentType,
+      },
+    });
+
     res.setHeader('Content-Type', doc.mimeType);
     res.setHeader('Content-Disposition', `attachment; filename="${doc.fileName}"`);
     res.send(buffer);

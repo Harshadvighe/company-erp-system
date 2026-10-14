@@ -41,6 +41,40 @@ class ReportsRepository {
     }
     return data as Map<String, dynamic>;
   }
+
+  Future<String> exportExecutiveSummaryCsv() async {
+    final response = await _dio.get(
+      '/reports/summary/export',
+      options: Options(responseType: ResponseType.plain),
+    );
+    return response.data.toString();
+  }
+
+  Future<String> exportGstJson({String? month, int? year}) async {
+    final response = await _dio.get(
+      '/reports/gst/export',
+      queryParameters: {
+        if (month != null) 'month': month,
+        if (year != null) 'year': year,
+        'format': 'json',
+      },
+      options: Options(responseType: ResponseType.plain),
+    );
+    return response.data.toString();
+  }
+
+  Future<String> exportGstCsv({String? month, int? year}) async {
+    final response = await _dio.get(
+      '/reports/gst/export',
+      queryParameters: {
+        if (month != null) 'month': month,
+        if (year != null) 'year': year,
+        'format': 'csv',
+      },
+      options: Options(responseType: ResponseType.plain),
+    );
+    return response.data.toString();
+  }
 }
 
 final reportsRepositoryProvider = Provider<ReportsRepository>((ref) {

@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
+import { AuditService } from '../../core/audit/audit.service';
 
 @Injectable()
 export class ReportsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService,
+  ) {}
 
   /**
    * 1. Consolidated Executive Summary
@@ -306,6 +310,244 @@ export class ReportsService {
         status: s.status,
         finalPrice: s.finalPrice,
       })),
+    };
+  }
+
+  /**
+   * 5. GST Return Export (GSTR-1 JSON & CSV Format) with Centralized Audit Trail
+   */
+  async exportGstReport(month?: string, year?: number, format = 'json', actor?: any, req?: any) {
+    const currentYear = year || new Date().getFullYear();
+    const currentMonth = month ? Number(month) : undefined;
+
+    let startDate: Date;
+    let endDate: Date;
+    if (currentMonth) {
+      startDate = new Date(currentYear, currentMonth - 1, 1);
+      endDate = new Date(currentYear, currentMonth, 1);
+    } else {
+      startDate = new Date(currentYear, 0, 1);
+      endDate = new Date(currentYear + 1, 0, 1);
+    }
+
+    const [company, invoices] = await Promise.all([
+      this.prisma.company.findFirst(),
+      this.prisma.salesInvoice.findMany({
+        where: {
+          createdAt: {
+            gte: startDate,
+            lt: endDate,
+          },
+        },
+        include: {
+          customer: {
+            select: {
+              companyName: true,
+              gstin: true,
+              state: true,
+              pan: true,
+            },
+          },
+        },
+        orderBy: { invoiceDate: 'asc' },
+      }),
+    ]);
+
+    const fp = `${String(currentMonth || 1).padStart(2, '0')}${currentYear}`;
+    let totalTaxableValue = 0;
+    let totalCgst = 0;
+    let totalSgst = 0;
+    let totalIgst = 0;
+    let totalInvoiceValue = 0;
+
+    const b2bInvoices = invoices.map((inv) => {
+      const grandTotal = Number(inv.grandTotal) || 0;
+      const taxAmount = Number(inv.taxAmount) || 0;
+      const subTotal = Number((inv as any).subtotal || (inv as any).subTotal) || grandTotal - taxAmount;
+
+      totalInvoiceValue += grandTotal;
+      totalTaxableValue += subTotal;
+
+      const isInterState = inv.customer?.state && !inv.customer.state.toLowerCase().includes('maharashtra');
+      let cgst = 0;
+      let sgst = 0;
+      let igst = 0;
+
+      if (isInterState) {
+        igst = taxAmount;
+        totalIgst += igst;
+      } else {
+        cgst = Math.round((taxAmount / 2) * 100) / 100;
+        sgst = Math.round((taxAmount / 2) * 100) / 100;
+        totalCgst += cgst;
+        totalSgst += sgst;
+      }
+
+      return {
+        inum: inv.invoiceNumber,
+        idt: inv.invoiceDate ? new Date(inv.invoiceDate).toISOString().slice(0, 10) : new Date(inv.createdAt).toISOString().slice(0, 10),
+        val: grandTotal,
+        pos: isInterState ? '27' : '27',
+        rchrg: 'N',
+        inv_typ: 'R',
+        ctin: inv.customer?.gstin || 'URP',
+        cname: inv.customer?.companyName || 'Cash Sale',
+        itms: [
+          {
+            num: 1,
+            itm_det: {
+              txval: subTotal,
+              rt: 18.0,
+              camt: cgst,
+              samt: sgst,
+              iamt: igst,
+              csamt: 0,
+            },
+          },
+        ],
+      };
+    });
+
+    const gstPayload = {
+      gstin: company?.gstin || '27AABCS1429B1Z1',
+      fp,
+      version: 'GSTR-1_JSON_V2.0',
+      cur_gt: totalInvoiceValue,
+      b2b: b2bInvoices,
+      summary: {
+        totalInvoices: invoices.length,
+        totalInvoiceValue,
+        totalTaxableValue,
+        totalCgst,
+        totalSgst,
+        totalIgst,
+        totalTax: totalCgst + totalSgst + totalIgst,
+      },
+    };
+
+    await this.auditService.recordAction({
+      req,
+      actor,
+      action: 'EXPORT',
+      module: 'REPORTS',
+      entityType: 'GST_RETURN',
+      outcome: 'SUCCESS',
+      details: {
+        format: format.toUpperCase(),
+        fp,
+        invoiceCount: invoices.length,
+        totalTaxableValue,
+        totalTax: totalCgst + totalSgst + totalIgst,
+      },
+    });
+
+    if (format.toLowerCase() === 'csv') {
+      const headers = [
+        'GSTIN of Recipient',
+        'Receiver Name',
+        'Invoice Number',
+        'Invoice Date',
+        'Invoice Value',
+        'Place Of Supply',
+        'Reverse Charge',
+        'Invoice Type',
+        'Rate (%)',
+        'Taxable Value',
+        'Integrated Tax (IGST)',
+        'Central Tax (CGST)',
+        'State/UT Tax (SGST)',
+        'Cess',
+      ];
+      const escapeCsv = (val: any) => {
+        if (val === null || val === undefined) return '';
+        const str = String(val);
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) return `"${str.replace(/"/g, '""')}"`;
+        return str;
+      };
+
+      const rows = b2bInvoices.map((inv) =>
+        [
+          inv.ctin,
+          inv.cname,
+          inv.inum,
+          inv.idt,
+          inv.val,
+          inv.pos,
+          inv.rchrg,
+          inv.inv_typ,
+          inv.itms[0].itm_det.rt,
+          inv.itms[0].itm_det.txval,
+          inv.itms[0].itm_det.iamt,
+          inv.itms[0].itm_det.camt,
+          inv.itms[0].itm_det.samt,
+          0,
+        ]
+          .map(escapeCsv)
+          .join(','),
+      );
+
+      const csvContent = [headers.join(','), ...rows].join('\r\n');
+      return {
+        format: 'csv',
+        csvContent,
+        fileName: `saark_gstr1_export_${fp}.csv`,
+        recordCount: invoices.length,
+      };
+    }
+
+    return {
+      format: 'json',
+      jsonData: gstPayload,
+      fileName: `saark_gstr1_export_${fp}.json`,
+      recordCount: invoices.length,
+    };
+  }
+
+  /**
+   * 6. Consolidated Executive ERP Summary Export
+   */
+  async exportExecutiveSummaryCsv(actor?: any, req?: any) {
+    const summary = await this.getExecutiveSummary();
+
+    const lines = [
+      `"SAARK EXPLORATION ERP - EXECUTIVE MANAGEMENT SUMMARY REPORT"`,
+      `"Generated At: ${new Date().toISOString()}"`,
+      `""`,
+      `"FINANCIAL INDICATORS","AMOUNT (INR)"`,
+      `"Total Billed Sales Revenue","${summary.financials.totalRevenue}"`,
+      `"Collected Revenue","${summary.financials.collectedRevenue}"`,
+      `"Pending Receivables (Debtors)","${summary.financials.pendingReceivables}"`,
+      `"Total Procurement (Purchases)","${summary.financials.totalProcurement}"`,
+      `"Pending Payables (Creditors)","${summary.financials.pendingPayables}"`,
+      `"Net Operating Cashflow Estimate","${summary.financials.netCashFlowEstimate}"`,
+      `"GST Collected","${summary.financials.totalGstCollected}"`,
+      `""`,
+      `"OPERATIONAL INDICATORS","COUNT / VALUE"`,
+      `"Active Industrial Customers","${summary.operations.totalCustomers}"`,
+      `"Active Approved Vendors","${summary.operations.totalVendors}"`,
+      `"Total Workforce Staff","${summary.operations.activeStaff}"`,
+      `"Stock Material Units","${summary.operations.totalStockUnits}"`,
+      `"Inventory Valuation (INR)","${summary.operations.totalStockValuation}"`,
+      `"Critical Low Stock SKUs","${summary.operations.lowStockCount}"`,
+      `"Panel Manufacturing Jobs","${summary.operations.panelSpecsCount}"`,
+    ];
+
+    await this.auditService.recordAction({
+      req,
+      actor,
+      action: 'EXPORT',
+      module: 'REPORTS',
+      entityType: 'ExecutiveSummary',
+      outcome: 'SUCCESS',
+      details: {
+        format: 'CSV',
+        totalRevenue: summary.financials.totalRevenue,
+      },
+    });
+
+    return {
+      csvContent: lines.join('\r\n'),
+      fileName: `saark_executive_summary_${Date.now()}.csv`,
     };
   }
 }
