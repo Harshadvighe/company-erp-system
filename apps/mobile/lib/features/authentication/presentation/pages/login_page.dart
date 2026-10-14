@@ -24,7 +24,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   @override
   void initState() {
     super.initState();
-    _emailController.text = 'admin';
+    final initialUser = Uri.base.queryParameters['user'];
+    _emailController.text = (initialUser != null && initialUser.isNotEmpty)
+        ? initialUser
+        : 'admin';
     _passwordController.text = 'Saark@2026';
   }
 
@@ -341,6 +344,26 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             style: TextStyle(
                                 fontSize: 11,
                                 color: Colors.blue,
+                                fontWeight: FontWeight.bold)),
+                      ),
+                      const SizedBox(width: 4),
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          visualDensity: VisualDensity.compact,
+                          backgroundColor: Colors.teal.withValues(alpha: 0.15),
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _emailController.text = 'harshadvighe';
+                            _passwordController.text = 'Saark@2026';
+                          });
+                        },
+                        child: const Text('Employee',
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.teal,
                                 fontWeight: FontWeight.bold)),
                       ),
                     ],

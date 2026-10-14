@@ -17,7 +17,7 @@ class AppConstants {
       return '$clean/api/v1';
     }
     if (kIsWeb) {
-      if (Uri.base.scheme == 'https' || Uri.base.port == 3000) {
+      if (Uri.base.origin.isNotEmpty && Uri.base.origin != 'null') {
         return '${Uri.base.origin}/api/v1';
       }
       final host = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
