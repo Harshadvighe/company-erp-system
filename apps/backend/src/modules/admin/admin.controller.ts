@@ -8,6 +8,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
 import { ApproveEmployeeRequestDto } from './dto/approve-employee-request.dto';
+import { UpdateEmployeeAccessDto } from './dto/update-employee-access.dto';
 
 @ApiTags('Administration')
 @ApiBearerAuth()
@@ -275,7 +276,7 @@ export class AdminController {
   }
 
   @Post('employee-requests/:id/approve')
-  @RequirePermissions('STAFF:APPROVE')
+  @RequirePermissions('USERS:CREATE')
   @ApiOperation({ summary: 'Approve employee onboarding, assign department/role, and create login credentials' })
   approveEmployeeRequest(
     @Param('id') id: string,
@@ -286,7 +287,7 @@ export class AdminController {
   }
 
   @Post('employee-requests/:id/reject')
-  @RequirePermissions('STAFF:APPROVE')
+  @RequirePermissions('USERS:CREATE')
   @ApiOperation({ summary: 'Reject employee onboarding request' })
   rejectEmployeeRequest(
     @Param('id') id: string,
@@ -295,4 +296,42 @@ export class AdminController {
   ) {
     return this.adminService.rejectEmployeeRequest(id, reason, req.user);
   }
+
+  // ─── EMPLOYEE ACCESS MANAGEMENT (PHASE 2 & 3) ─────────────────────────────
+
+  @Get('employees/access')
+  @RequirePermissions('USERS:VIEW')
+  @ApiOperation({ summary: 'List employees with their role and override count for access management' })
+  getEmployeesAccess(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('departmentId') departmentId?: string,
+  ) {
+    return this.adminService.getEmployeesAccessList({
+      page: page ? parseInt(page, 10) : 1,
+      limit: limit ? parseInt(limit, 10) : 25,
+      search,
+      departmentId,
+    });
+  }
+
+  @Get('employees/:id/access')
+  @RequirePermissions('USERS:VIEW')
+  @ApiOperation({ summary: 'Get full permission matrix and overrides for an employee' })
+  getEmployeeAccessDetail(@Param('id') id: string) {
+    return this.adminService.getEmployeeAccessDetail(id);
+  }
+
+  @Put('employees/:id/access')
+  @RequirePermissions('USERS:EDIT')
+  @ApiOperation({ summary: 'Update employee permission overrides (ALLOW, DENY, INHERIT) with audit logging' })
+  updateEmployeeAccess(
+    @Param('id') id: string,
+    @Body() dto: UpdateEmployeeAccessDto,
+    @Req() req: any,
+  ) {
+    return this.adminService.updateEmployeeAccess(id, dto, req.user);
+  }
+
 }

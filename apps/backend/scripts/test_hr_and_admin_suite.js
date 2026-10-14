@@ -1,5 +1,6 @@
 require('reflect-metadata');
 const { PrismaService } = require('../dist/src/core/database/prisma.service');
+const { SequenceService } = require('../dist/src/core/database/sequence.service');
 const { AdminService } = require('../dist/src/modules/admin/admin.service');
 const { HrService } = require('../dist/src/modules/hr/hr.service');
 const bcrypt = require('bcryptjs');
@@ -11,8 +12,9 @@ async function runTestSuite() {
 
   const prisma = new PrismaService();
   await prisma.$connect();
+  const sequenceService = new SequenceService(prisma);
   const adminService = new AdminService(prisma);
-  const hrService = new HrService(prisma);
+  const hrService = new HrService(prisma, sequenceService);
 
   let totalTests = 0;
   let passedTests = 0;
@@ -295,8 +297,9 @@ async function runTestSuite() {
     assert(typeof musterRow.otEarnings === 'number', 'Muster roll calculates 2x ordinary rate OT earnings');
 
     section('12. HR: Employee Directory & 360 Profile');
-    const empList = await hrService.getEmployees('Vikram');
-    assert(Array.isArray(empList) && empList.length >= 1, 'Search employee by name returns matching results');
+    const searchTarget = testEmployee.firstName || 'Vikram';
+    const empList = await hrService.getEmployees(searchTarget);
+    assert(Array.isArray(empList) && empList.length >= 1, `Search employee by name (${searchTarget}) returns matching results`);
 
     const fullProfile = await hrService.getEmployeeById(testEmployee.id);
     assert(!!fullProfile.department, 'Employee 360 profile includes department relation');
@@ -368,9 +371,27 @@ async function runTestSuite() {
     const targetRequest = pendingRequests.find(r => r.id === onboardedTech.id);
     assert(!!targetRequest, 'Step 2: Admin employee-requests endpoint lists pending technician');
 
+    // Step 2b: Verify HR user cannot approve employee request (Privilege Escalation Protection)
+    const hrUser = { email: 'hr@saark.in', username: 'hr', roles: ['ROLE_HR_MGR'] };
+    let hrApprovalBlocked = false;
+    try {
+      await adminService.approveEmployeeRequest(
+        onboardedTech.id,
+        {
+          username: techUsername,
+          password: 'TechPassword@2026',
+          roleIds: [roles[0].id],
+        },
+        hrUser,
+      );
+    } catch (e) {
+      if (e.status === 403) hrApprovalBlocked = true;
+    }
+    assert(hrApprovalBlocked, 'Step 2b: Non-admin (HR) approval blocked with 403 ForbiddenException');
+
     // Step 3: Admin approves technician and provisions credentials
     const realAdminUser = await prisma.user.findFirst({ where: { username: 'admin' } });
-    const adminUser = realAdminUser ? { id: realAdminUser.id, email: realAdminUser.email } : { email: 'admin@saark.in' };
+    const adminUser = realAdminUser ? { id: realAdminUser.id, email: realAdminUser.email, username: realAdminUser.username, roles: ['ROLE_ADMIN'] } : { email: 'admin@saark.in', username: 'admin', roles: ['ROLE_ADMIN'] };
     const empRole = roles.find(r => r.code === 'ROLE_EMPLOYEE') || roles[0];
 
     const approvalResult = await adminService.approveEmployeeRequest(

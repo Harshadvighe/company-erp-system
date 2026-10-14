@@ -129,8 +129,14 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
       final adminRepo = ref.read(adminRepositoryProvider);
       final hrRepo = ref.read(hrRepositoryProvider);
 
-      final depts = await adminRepo.getDepartments();
+      List<DepartmentItem> depts = [];
+      try {
+        depts = await hrRepo.getDepartments();
+      } catch (_) {
+        depts = await adminRepo.getDepartments();
+      }
       final employees = await hrRepo.getEmployees();
+
 
       if (mounted) {
         setState(() {

@@ -37,6 +37,8 @@ model User {
   updatedCustomers Customer[] @relation("CustomerUpdater")
   createdVendors   Vendor[]   @relation("VendorCreator")
   updatedVendors   Vendor[]   @relation("VendorUpdater")
+  userPermissions  UserPermission[] @relation("UserPermissions")
+  grantedPermissions UserPermission[] @relation("UserPermissionGranter")
 
   @@map("users")
   @@index([status])
@@ -64,9 +66,30 @@ model Permission {
   description String?
 
   rolePermissions RolePermission[]
+  userPermissions UserPermission[]
 
   @@unique([module, action])
   @@map("permissions")
+}
+
+model UserPermission {
+  id           String      @id @default(uuid())
+  userId       String
+  permissionId String
+  effect       String      @default("ALLOW") // ALLOW or DENY
+  grantedById  String?
+  reason       String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  user         User        @relation("UserPermissions", fields: [userId], references: [id], onDelete: Cascade)
+  permission   Permission  @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  grantedBy    User?       @relation("UserPermissionGranter", fields: [grantedById], references: [id], onDelete: SetNull)
+
+  @@unique([userId, permissionId])
+  @@index([userId])
+  @@index([permissionId])
+  @@map("user_permissions")
 }
 
 model UserRole {
@@ -826,7 +849,7 @@ model PanelSpecification {
   starterType   String?  @default("VFD")
   ipRating      String   @default("IP55")
   enclosureType String   @default("POWDER_COATED_MS")
-
+  
   // Costing & Formula Breakdown
   materialCost  Float    @default(0)
   labourCost    Float    @default(0)

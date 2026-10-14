@@ -60,7 +60,7 @@ export class DocumentsController {
 
   @Get()
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('CRM:VIEW', 'CUSTOMERS:VIEW', 'SALES:VIEW', 'DOCUMENTS:VIEW')
+  @RequirePermissions('CRM:VIEW', 'CUSTOMERS:VIEW', 'SALES:VIEW', 'DOCUMENTS:VIEW', 'HR:VIEW', 'STAFF:VIEW')
   @ApiOperation({ summary: 'List all documents in global repository' })
   async getAllDocuments(@Req() req: any) {
     const docs = await this.documentsService.getAllDocuments(req.user);
@@ -79,13 +79,14 @@ export class DocumentsController {
 
   @Get('entity')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('CRM:VIEW', 'CUSTOMERS:VIEW', 'SALES:VIEW', 'DOCUMENTS:VIEW')
+  @RequirePermissions('CRM:VIEW', 'CUSTOMERS:VIEW', 'SALES:VIEW', 'DOCUMENTS:VIEW', 'HR:VIEW', 'STAFF:VIEW')
   @ApiOperation({ summary: 'List documents for specific entity (Customer, Product, Project, etc.)' })
   async getByEntity(
     @Query('type') entityType: string,
     @Query('id') entityId: string,
     @Req() req: any,
   ) {
+
     const docs = await this.documentsService.getDocumentsByEntity(entityType, entityId, req.user);
     return docs.map((doc) => {
       const relativePath = doc.storagePath.replace(/\\/g, '/');
@@ -153,7 +154,7 @@ export class DocumentsController {
 
   @Post('upload')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('CRM:CREATE', 'CRM:EDIT', 'CUSTOMERS:EDIT', 'SALES:CREATE', 'SALES:EDIT', 'DOCUMENTS:CREATE')
+  @RequirePermissions('CRM:CREATE', 'CRM:EDIT', 'CUSTOMERS:EDIT', 'SALES:CREATE', 'SALES:EDIT', 'DOCUMENTS:CREATE', 'HR:CREATE', 'STAFF:CREATE')
   @ApiOperation({ summary: 'Upload file document using abstracted FileStorageService' })
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('file'))
@@ -186,7 +187,7 @@ export class DocumentsController {
 
   @Get(':id/download')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('CRM:VIEW', 'CUSTOMERS:VIEW', 'SALES:VIEW', 'DOCUMENTS:VIEW')
+  @RequirePermissions('CRM:VIEW', 'CUSTOMERS:VIEW', 'SALES:VIEW', 'DOCUMENTS:VIEW', 'HR:VIEW', 'STAFF:VIEW')
   @ApiOperation({ summary: 'Download document stream' })
   async downloadFile(@Param('id') id: string, @Req() req: any, @Res() res: Response) {
     const { buffer, doc } = await this.documentsService.getFileBuffer(id, req.user);
@@ -197,7 +198,8 @@ export class DocumentsController {
 
   @Put(':id/replace')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('CRM:EDIT', 'CUSTOMERS:EDIT', 'SALES:EDIT', 'DOCUMENTS:EDIT')
+  @RequirePermissions('CRM:EDIT', 'CUSTOMERS:EDIT', 'SALES:EDIT', 'DOCUMENTS:EDIT', 'HR:EDIT', 'STAFF:EDIT')
+
   @ApiOperation({ summary: 'Replace an existing document file with authorization checks' })
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('file'))

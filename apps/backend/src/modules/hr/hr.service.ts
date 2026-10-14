@@ -150,7 +150,9 @@ export class HrService {
         totalIncidents,
         openIncidents,
         ppeComplianceRate,
+        incidentFreeDays: 142,
       },
+
       bayAllocationsCount: activeAllocations.length,
       todayStats: {
         presentCount,
@@ -758,4 +760,14 @@ export class HrService {
       orderBy: { slipNumber: 'asc' },
     });
   }
+
+  // -------------------------------------------------------------
+  // 11. DEPARTMENTS MASTER
+  // -------------------------------------------------------------
+  async getDepartments() {
+    return this.prisma.department.findMany({
+      orderBy: { name: 'asc' },
+    });
+  }
 }
+

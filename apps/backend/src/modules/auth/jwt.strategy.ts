@@ -2,10 +2,14 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../../core/database/prisma.service';
+import { PermissionResolverService } from '../../core/permissions/permission-resolver.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly permissionResolverService: PermissionResolverService,
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -19,17 +23,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       include: {
         department: true,
         staff: true,
-        userRoles: {
-          include: {
-            role: {
-              include: {
-                rolePermissions: {
-                  include: { permission: true },
-                },
-              },
-            },
-          },
-        },
       },
     });
 
@@ -37,14 +30,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('User session invalid or account inactive');
     }
 
-    // Flatten permissions list for quick PBAC checks
-    const permissions = new Set<string>();
-    const roles = user.userRoles.map((ur) => {
-      ur.role.rolePermissions.forEach((rp) => {
-        permissions.add(`${rp.permission.module}:${rp.permission.action}`);
-      });
-      return ur.role.code;
-    });
+    // Resolve dynamic effective permissions (Roles + Custom ALLOWs - Explicit DENYs)
+    const permResult = await this.permissionResolverService.resolveUserPermissions(user.id);
 
     // Resolve staffId — read-only lookup, no writes on every request
     let staffId = user.staff?.id;
@@ -72,8 +59,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       designation: user.designation,
       department: user.department?.name,
       staffId,
-      roles,
-      permissions: Array.from(permissions),
+      roles: permResult.roles,
+      permissions: permResult.effectivePermissions,
     };
   }
 }

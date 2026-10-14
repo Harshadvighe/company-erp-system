@@ -170,7 +170,7 @@ List<_NavItem> _getAuthorizedNavItems(AuthUser? user) {
     ));
   }
 
-  if (user.canView('HR') || user.isAdmin) {
+  if (user.canView('HR') || user.isHr || user.isAdmin) {
     items.add(const _NavItem(
       label: 'Human Resources',
       icon: Icons.people_alt_outlined,
@@ -178,6 +178,7 @@ List<_NavItem> _getAuthorizedNavItems(AuthUser? user) {
       route: '/hr',
     ));
   }
+
 
   if (user.canView('ACCOUNTS') || user.isAdmin) {
     items.add(const _NavItem(

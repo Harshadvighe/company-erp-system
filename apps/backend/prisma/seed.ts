@@ -121,8 +121,9 @@ async function main() {
     'MY_WORK', 'STAFF', 'ORGANIZATION', 'USERS', 'ROLES',
     'CUSTOMERS', 'CRM', 'SALES', 'PURCHASE', 'VENDORS',
     'INVENTORY', 'PRODUCTION', 'PROJECTS', 'PROJECT_TEAM',
-    'PROJECT_BUDGET', 'TASKS', 'REPORTS', 'AUDIT'
+    'PROJECT_BUDGET', 'TASKS', 'REPORTS', 'AUDIT', 'HR'
   ];
+
   const actions = ['VIEW', 'CREATE', 'EDIT', 'DELETE', 'APPROVE', 'ASSIGN', 'REVIEW', 'EXPORT', 'PRINT'];
 
   const permMap: Record<string, any> = {};
@@ -209,10 +210,12 @@ async function main() {
   // HR MANAGER
   await assignRolePerms('ROLE_HR_MGR', [
     'MY_WORK:VIEW',
-    'STAFF:VIEW', 'STAFF:CREATE', 'STAFF:EDIT', 'STAFF:APPROVE',
+    'STAFF:VIEW', 'STAFF:CREATE', 'STAFF:EDIT',
+    'HR:VIEW', 'HR:CREATE', 'HR:EDIT', 'HR:APPROVE', 'HR:ASSIGN', 'HR:REVIEW', 'HR:EXPORT', 'HR:PRINT',
     'ORGANIZATION:VIEW',
     'REPORTS:VIEW', 'REPORTS:EXPORT',
   ]);
+
 
   // EMPLOYEE
   await assignRolePerms('ROLE_EMPLOYEE', [

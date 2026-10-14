@@ -1,11 +1,25 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
+import { PermissionResolverService } from '../../core/permissions/permission-resolver.service';
+import { AuditService } from '../../core/audit/audit.service';
 import { ApproveEmployeeRequestDto } from './dto/approve-employee-request.dto';
+import { UpdateEmployeeAccessDto, PermissionOverrideEffect } from './dto/update-employee-access.dto';
 import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class AdminService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private permissionResolverService?: PermissionResolverService,
+    private auditService?: AuditService,
+  ) {
+    if (!this.permissionResolverService) {
+      this.permissionResolverService = new PermissionResolverService(this.prisma);
+    }
+    if (!this.auditService) {
+      this.auditService = new AuditService(this.prisma);
+    }
+  }
 
   // ─── COMPANY ────────────────────────────────────────────────────────────────
 
@@ -559,7 +573,17 @@ export class AdminService {
 
   private isAdministratorUser(user?: any): boolean {
     if (!user) return false;
-    const roles: string[] = user.roles || [];
+    if (user.username === 'admin' || user.email === 'admin@saark.in') return true;
+    const roles: string[] = Array.isArray(user.roles)
+      ? user.roles.map((r: any) => (typeof r === 'string' ? r : r.code || r.role?.code || ''))
+      : [];
+    if (typeof user.role === 'string') roles.push(user.role);
+    if (user.role?.code) roles.push(user.role.code);
+    if (Array.isArray(user.userRoles)) {
+      user.userRoles.forEach((ur: any) => {
+        if (ur.role?.code) roles.push(ur.role.code);
+      });
+    }
     return roles.some((r) => ['ROLE_ADMIN', 'ADMIN', 'SUPER_ADMIN'].includes(r));
   }
 
@@ -811,6 +835,10 @@ export class AdminService {
     dto: ApproveEmployeeRequestDto,
     adminUser?: any,
   ) {
+    if (adminUser && !this.isAdministratorUser(adminUser)) {
+      throw new ForbiddenException('Only administrators can approve employee onboarding and provision accounts.');
+    }
+
     const employee = await this.prisma.employee.findFirst({
       where: {
         OR: [{ id: employeeId }, { employeeCode: employeeId }],
@@ -823,6 +851,7 @@ export class AdminService {
     if (employee.userId) {
       throw new BadRequestException('This employee already has a linked user account');
     }
+
 
     const targetDeptId = dto.departmentId || employee.departmentId;
     const passwordHash = await bcrypt.hash(dto.password, 12);
@@ -1002,11 +1031,16 @@ export class AdminService {
   }
 
   async rejectEmployeeRequest(employeeId: string, reason?: string, adminUser?: any) {
+    if (adminUser && !this.isAdministratorUser(adminUser)) {
+      throw new ForbiddenException('Only administrators can reject employee onboarding requests.');
+    }
+
     const employee = await this.prisma.employee.findFirst({
       where: {
         OR: [{ id: employeeId }, { employeeCode: employeeId }],
       },
     });
+
     if (!employee) throw new NotFoundException(`Employee '${employeeId}' not found`);
 
     const updated = await this.prisma.employee.update({
@@ -1042,5 +1076,381 @@ export class AdminService {
       message: `Employee request ${employee.employeeCode} rejected`,
       employee: updated,
     };
+  }
+
+  // ─── EMPLOYEE ACCESS MANAGEMENT & PERMISSION OVERRIDES ──────────────────────
+
+  async getEmployeesAccessList(query: {
+    search?: string;
+    departmentId?: string;
+    roleId?: string;
+    page?: number | string;
+    limit?: number | string;
+  }) {
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.max(1, Math.min(100, Number(query.limit) || 20));
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+    if (query.departmentId && query.departmentId !== 'ALL') {
+      where.departmentId = query.departmentId;
+    }
+    if (query.roleId && query.roleId !== 'ALL') {
+      where.userRoles = { some: { roleId: query.roleId } };
+    }
+    if (query.search) {
+      const q = query.search.trim();
+      where.OR = [
+        { fullName: { contains: q } },
+        { email: { contains: q } },
+        { username: { contains: q } },
+        { staff: { employeeId: { contains: q } } },
+      ];
+    }
+
+    const [total, users] = await Promise.all([
+      this.prisma.user.count({ where }),
+      this.prisma.user.findMany({
+        where,
+        skip,
+        take: limit,
+        include: {
+          department: { select: { id: true, name: true, code: true } },
+          staff: { select: { id: true, employeeId: true } },
+          userRoles: {
+            include: {
+              role: {
+                include: {
+                  rolePermissions: { include: { permission: true } },
+                },
+              },
+            },
+          },
+          userPermissions: {
+            include: { permission: true },
+          },
+        },
+        orderBy: { fullName: 'asc' },
+      }),
+    ]);
+
+    // Preload system permissions in case of admin user
+    const allPerms = await this.prisma.permission.findMany({
+      select: { module: true, action: true },
+    });
+    const allPermCodes = allPerms.map((p) => `${p.module}:${p.action}`);
+
+    const data = users.map((user) => {
+      const effective = this.permissionResolverService!.calculateEffective(user, allPermCodes);
+      const modules = Array.from(
+        new Set(effective.effectivePermissions.map((p) => p.split(':')[0])),
+      ).sort();
+
+      return {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        fullName: user.fullName,
+        designation: user.designation,
+        status: user.status,
+        department: user.department,
+        employeeId: user.staff?.employeeId || null,
+        staffId: user.staff?.id || null,
+        roles: user.userRoles.map((ur) => ({
+          id: ur.role.id,
+          name: ur.role.name,
+          code: ur.role.code,
+        })),
+        inheritedCount: effective.inheritedPermissions.length,
+        customAllowCount: effective.customAllows.length,
+        explicitDenyCount: effective.explicitDenies.length,
+        effectiveCount: effective.effectivePermissions.length,
+        modules,
+      };
+    });
+
+    return {
+      success: true,
+      data,
+      employees: data,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    };
+  }
+
+  async getEmployeeAccessDetail(id: string) {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          { id },
+          { username: id },
+          { email: id },
+          { staff: { id } },
+          { staff: { employeeId: id } },
+        ],
+      },
+      include: {
+        department: true,
+        staff: {
+          include: {
+            department: true,
+            designation: true,
+          },
+        },
+        userRoles: {
+          include: {
+            role: {
+              include: {
+                rolePermissions: { include: { permission: true } },
+              },
+            },
+          },
+        },
+        userPermissions: {
+          include: {
+            permission: true,
+            grantedBy: { select: { id: true, fullName: true, email: true } },
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`Employee / User '${id}' not found`);
+    }
+
+    const allPermissions = await this.prisma.permission.findMany({
+      orderBy: [{ module: 'asc' }, { action: 'asc' }],
+    });
+    const allPermCodes = allPermissions.map((p) => `${p.module}:${p.action}`);
+
+    const effective = this.permissionResolverService!.calculateEffective(user, allPermCodes);
+    const inheritedSet = new Set(effective.inheritedPermissions);
+    const overrideMap = new Map<string, any>();
+    for (const up of user.userPermissions) {
+      overrideMap.set(up.permissionId, up);
+    }
+
+    // Group permissions by module
+    const modules: Record<string, any[]> = {};
+    for (const p of allPermissions) {
+      if (!modules[p.module]) {
+        modules[p.module] = [];
+      }
+      const permCode = `${p.module}:${p.action}`;
+      const isInherited = inheritedSet.has(permCode);
+      const override = overrideMap.get(p.id);
+      const isEffective = effective.effectivePermissions.includes(permCode);
+
+      modules[p.module].push({
+        permissionId: p.id,
+        module: p.module,
+        action: p.action,
+        description: p.description,
+        inherited: isInherited,
+        override: override ? override.effect : null,
+        effective: isEffective,
+        grantedBy: override?.grantedBy || null,
+        reason: override?.reason || null,
+        updatedAt: override?.updatedAt || null,
+      });
+    }
+
+    const moduleList = Object.keys(modules).map((modName) => ({
+      name: modName,
+      permissions: modules[modName].map((p) => ({
+        id: p.permissionId,
+        permissionId: p.permissionId,
+        module: p.module,
+        action: p.action,
+        name: p.description || `${p.module}:${p.action}`,
+        description: p.description,
+        inherited: p.inherited,
+        override: p.override,
+        effective: p.effective,
+        grantedBy: p.grantedBy,
+        reason: p.reason,
+        updatedAt: p.updatedAt,
+      })),
+    }));
+
+    return {
+      success: true,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        fullName: user.fullName,
+        designation: user.designation,
+        status: user.status,
+        department: user.department,
+        employeeId: user.staff?.employeeId || null,
+        staffId: user.staff?.id || null,
+      },
+      employee: {
+        id: user.staff?.id || user.id,
+        employeeCode: user.staff?.employeeId || user.username,
+        fullName: user.fullName || user.staff?.fullName || user.username,
+        email: user.email,
+        department: user.department?.name || user.staff?.department?.name || 'General',
+        designation: user.designation || user.staff?.designation?.name || 'Staff',
+        user: {
+          id: user.id,
+          username: user.username,
+        },
+      },
+      roles: user.userRoles.map((ur) => ({
+        id: ur.role.id,
+        name: ur.role.name,
+        code: ur.role.code,
+        description: ur.role.description,
+        isSystem: ur.role.isSystem,
+      })),
+      modules: moduleList,
+      modulesMap: modules,
+      effectivePermissions: effective.effectivePermissions,
+      summary: {
+        totalInherited: effective.inheritedPermissions.length,
+        totalCustomAllows: effective.customAllows.length,
+        totalExplicitDenies: effective.explicitDenies.length,
+        totalEffective: effective.effectivePermissions.length,
+      },
+    };
+  }
+
+  async updateEmployeeAccess(
+    id: string,
+    dto: UpdateEmployeeAccessDto,
+    currentUser: any,
+  ) {
+    if (!currentUser) {
+      throw new ForbiddenException('User context missing');
+    }
+
+    const isCurrentAdmin = this.isAdministratorUser(currentUser);
+    if (!isCurrentAdmin) {
+      throw new ForbiddenException(
+        'Privilege escalation denied: Only administrators can modify employee access overrides.',
+      );
+    }
+
+    const targetUser = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          { id },
+          { username: id },
+          { email: id },
+          { staff: { id } },
+          { staff: { employeeId: id } },
+        ],
+      },
+      include: {
+        userRoles: { include: { role: true } },
+        userPermissions: { include: { permission: true } },
+      },
+    });
+
+    if (!targetUser) {
+      throw new NotFoundException(`Employee / User '${id}' not found`);
+    }
+
+    // Prevent non-admin modification of administrator permissions
+    const targetIsAdmin = targetUser.userRoles.some((ur) =>
+      ['ROLE_ADMIN', 'ADMIN', 'SUPER_ADMIN'].includes(ur.role.code),
+    );
+    if (targetIsAdmin && !isCurrentAdmin) {
+      throw new ForbiddenException(
+        'Privilege escalation denied: Only administrators can modify access for administrator accounts.',
+      );
+    }
+
+    // Validate permission IDs
+    const permissionIds = dto.overrides.map((o) => o.permissionId);
+    if (permissionIds.length > 0) {
+      const existingPerms = await this.prisma.permission.findMany({
+        where: { id: { in: permissionIds } },
+      });
+      if (existingPerms.length !== permissionIds.length) {
+        const foundSet = new Set(existingPerms.map((p) => p.id));
+        const missing = permissionIds.filter((pId) => !foundSet.has(pId));
+        throw new BadRequestException(`Invalid permission ID(s) provided: ${missing.join(', ')}`);
+      }
+    }
+
+    // Snapshot previous overrides for audit
+    const previousOverrides = targetUser.userPermissions.map((up) => ({
+      permissionId: up.permissionId,
+      code: `${up.permission.module}:${up.permission.action}`,
+      effect: up.effect,
+      reason: up.reason,
+    }));
+
+    // Atomic transaction for overrides and audit logging
+    await this.prisma.$transaction(async (tx) => {
+      for (const override of dto.overrides) {
+        if (override.effect === PermissionOverrideEffect.INHERIT) {
+          await tx.userPermission.deleteMany({
+            where: {
+              userId: targetUser.id,
+              permissionId: override.permissionId,
+            },
+          });
+        } else {
+          await tx.userPermission.upsert({
+            where: {
+              userId_permissionId: {
+                userId: targetUser.id,
+                permissionId: override.permissionId,
+              },
+            },
+            create: {
+              userId: targetUser.id,
+              permissionId: override.permissionId,
+              effect: override.effect,
+              grantedById: currentUser.id || null,
+              reason: override.reason || dto.reason || null,
+            },
+            update: {
+              effect: override.effect,
+              grantedById: currentUser.id || null,
+              reason: override.reason || dto.reason || null,
+              updatedAt: new Date(),
+            },
+          });
+        }
+      }
+
+      await tx.auditLog.create({
+        data: {
+          userId: currentUser.id || null,
+          userEmail: currentUser.email || 'admin@saark.in',
+          action: 'PERMISSION_OVERRIDE',
+          module: 'ADMIN_RBAC',
+          entityType: 'USER_PERMISSION',
+          entityId: targetUser.id,
+          details: JSON.stringify({
+            targetUserId: targetUser.id,
+            targetUsername: targetUser.username,
+            targetFullName: targetUser.fullName,
+            overridesCount: dto.overrides.length,
+            reason: dto.reason || 'Administrative access override update',
+            previousOverrides,
+            newOverrides: dto.overrides,
+          }),
+        },
+      });
+    });
+
+    return this.getEmployeeAccessDetail(targetUser.id);
   }
 }

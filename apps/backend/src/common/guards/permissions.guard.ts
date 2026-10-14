@@ -21,16 +21,6 @@ export class PermissionsGuard implements CanActivate {
       throw new ForbiddenException('User context missing or unauthenticated');
     }
 
-    // Super Admin bypass
-    const userRoles: string[] = user.roles || [];
-    if (
-      userRoles.includes('ROLE_ADMIN') ||
-      userRoles.includes('ADMIN') ||
-      userRoles.includes('SUPER_ADMIN')
-    ) {
-      return true;
-    }
-
     const userPermissions: string[] = user.permissions || [];
     const hasPermission = requiredPermissions.some((perm) => userPermissions.includes(perm));
 

@@ -2,6 +2,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saark_erp_mobile/core/network/dio_client.dart';
 import 'package:saark_erp_mobile/features/hr/models/hr_models.dart';
+import 'package:saark_erp_mobile/features/admin/data/admin_repository.dart';
+
 
 class HrRepository {
   final Dio _dio;
@@ -161,7 +163,22 @@ class HrRepository {
     final list = response.data['data'] as List? ?? [];
     return list.map((i) => PayrollItem.fromJson(i)).toList();
   }
+
+  // Departments
+  Future<List<DepartmentItem>> getDepartments() async {
+    try {
+      final response = await _dio.get('/hr/departments');
+      final list = response.data['data'] as List? ?? (response.data as List? ?? []);
+      return list.map((i) => DepartmentItem.fromJson(i)).toList();
+    } catch (_) {
+      final response = await _dio.get('/admin/departments');
+      final list = response.data['data'] as List? ?? (response.data as List? ?? []);
+      return list.map((i) => DepartmentItem.fromJson(i)).toList();
+    }
+  }
 }
+
+
 
 final hrRepositoryProvider = Provider<HrRepository>((ref) {
   return HrRepository(ref.watch(dioProvider));

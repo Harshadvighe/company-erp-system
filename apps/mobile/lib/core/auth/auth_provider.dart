@@ -70,19 +70,39 @@ class AuthUser {
   bool get isProjectManager =>
       isAdmin || roles.contains('ROLE_PROJECT_MGR');
 
+  bool get isHr =>
+      isAdmin ||
+      roles.contains('ROLE_HR') ||
+      roles.contains('ROLE_HR_MGR') ||
+      roles.contains('HR_MANAGER') ||
+      roles.contains('HR');
+
   bool hasPermission(String module, String action) {
     if (isAdmin) return true;
     return permissions.contains('$module:$action');
   }
 
-  bool canView(String module) => hasPermission(module, 'VIEW');
-  bool canCreate(String module) => hasPermission(module, 'CREATE');
-  bool canEdit(String module) => hasPermission(module, 'EDIT');
+  bool canView(String module) {
+    if (module == 'HR' && isHr) return true;
+    return hasPermission(module, 'VIEW');
+  }
+
+  bool canCreate(String module) {
+    if (module == 'HR' && isHr) return true;
+    return hasPermission(module, 'CREATE');
+  }
+
+  bool canEdit(String module) {
+    if (module == 'HR' && isHr) return true;
+    return hasPermission(module, 'EDIT');
+  }
+
   bool canDelete(String module) => hasPermission(module, 'DELETE');
   bool canApprove(String module) => hasPermission(module, 'APPROVE');
   bool canAssign(String module) => hasPermission(module, 'ASSIGN');
   bool canReview(String module) => hasPermission(module, 'REVIEW');
   bool canExport(String module) => hasPermission(module, 'EXPORT');
+
 }
 
 // ─── Auth State ─────────────────────────────────────────────────────────────

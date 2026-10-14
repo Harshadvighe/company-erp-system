@@ -211,8 +211,46 @@ class AdminRepository {
   Future<void> toggleUserStatus(String userId) async {
     await _dio.patch('/admin/users/$userId/toggle-status');
   }
+
+  // ─── EMPLOYEE ACCESS MANAGEMENT (PHASE 2 & 3) ─────────────────────────────
+
+  Future<Map<String, dynamic>> getEmployeesAccessList({
+    int page = 1,
+    int limit = 25,
+    String? search,
+    String? departmentId,
+  }) async {
+    final response = await _dio.get('/admin/employees/access', queryParameters: {
+      'page': page,
+      'limit': limit,
+      if (search != null && search.isNotEmpty) 'search': search,
+      if (departmentId != null && departmentId.isNotEmpty && departmentId != 'ALL') 'departmentId': departmentId,
+    });
+    final payload = _payload(response.data);
+    return Map<String, dynamic>.from(payload is Map ? payload : response.data);
+  }
+
+  Future<Map<String, dynamic>> getEmployeeAccessDetail(String employeeId) async {
+    final response = await _dio.get('/admin/employees/$employeeId/access');
+    final payload = _payload(response.data);
+    return Map<String, dynamic>.from(payload is Map ? payload : response.data);
+  }
+
+  Future<Map<String, dynamic>> updateEmployeeAccess(
+    String employeeId, {
+    required List<Map<String, dynamic>> overrides,
+    String? reason,
+  }) async {
+    final response = await _dio.put('/admin/employees/$employeeId/access', data: {
+      'overrides': overrides,
+      if (reason != null && reason.isNotEmpty) 'reason': reason,
+    });
+    final payload = _payload(response.data);
+    return Map<String, dynamic>.from(payload is Map ? payload : response.data);
+  }
 }
 
 final adminRepositoryProvider = Provider<AdminRepository>((ref) {
   return AdminRepository(ref.watch(dioProvider));
 });
+

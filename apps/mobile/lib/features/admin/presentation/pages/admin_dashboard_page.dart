@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import 'package:saark_erp_mobile/features/admin/data/admin_repository.dart';
 import 'package:saark_erp_mobile/features/admin/presentation/pages/admin_organization_page.dart';
+import 'package:saark_erp_mobile/features/admin/presentation/pages/admin_employee_access_page.dart';
 import 'package:saark_erp_mobile/features/hr/models/hr_models.dart';
 
 class AdminDashboardPage extends ConsumerStatefulWidget {
@@ -32,7 +33,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _loadInitialData();
   }
 
@@ -599,11 +600,17 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                             style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                           ),
                         ),
-                        const Tab(
-                          icon: Icon(Icons.account_tree_outlined, size: 18),
-                          text: 'Organization',
-                        ),
                       ],
+                    ],
+                  ),
+                ),
+                const Tab(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.shield_outlined, size: 18),
+                      SizedBox(width: 8),
+                      Text('Employee Access Management'),
                     ],
                   ),
                 ),
@@ -614,6 +621,16 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                       const Icon(Icons.people_alt_outlined, size: 18),
                       const SizedBox(width: 8),
                       Text('System Users (${_users.length})'),
+                    ],
+                  ),
+                ),
+                const Tab(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.account_tree_outlined, size: 18),
+                      SizedBox(width: 8),
+                      Text('Organization'),
                     ],
                   ),
                 ),
@@ -646,6 +663,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                         controller: _tabController,
                         children: [
                           _buildRequestsTabContent(),
+                          const AdminEmployeeAccessPage(),
                           _buildUsersTabContent(),
                           const AdminOrganizationPage(),
                         ],

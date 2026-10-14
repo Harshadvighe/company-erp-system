@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../core/database/prisma.service';
 import { AuditService } from '../../core/audit/audit.service';
+import { PermissionResolverService } from '../../core/permissions/permission-resolver.service';
 import { LoginDto } from './dto/login.dto';
 
 @Injectable()
@@ -11,6 +12,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly auditService: AuditService,
+    private readonly permissionResolverService: PermissionResolverService,
   ) {}
 
   async login(dto: LoginDto, ipAddress?: string) {
@@ -21,17 +23,6 @@ export class AuthService {
       include: {
         department: true,
         staff: true,
-        userRoles: {
-          include: {
-            role: {
-              include: {
-                rolePermissions: {
-                  include: { permission: true },
-                },
-              },
-            },
-          },
-        },
       },
     });
 
@@ -48,13 +39,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials provided');
     }
 
-    const roles = user.userRoles.map((ur) => ur.role.code);
-    const permissions = new Set<string>();
-    user.userRoles.forEach((ur) => {
-      ur.role.rolePermissions.forEach((rp) => {
-        permissions.add(`${rp.permission.module}:${rp.permission.action}`);
-      });
-    });
+    const permResult = await this.permissionResolverService.resolveUserPermissions(user.id);
 
     const payload = { sub: user.id, email: user.email, username: user.username };
     const accessToken = this.jwtService.sign(payload);
@@ -81,8 +66,8 @@ export class AuthService {
         department: user.department?.name,
         staffId: user.staff?.id,
         employeeId: user.staff?.employeeId,
-        roles,
-        permissions: Array.from(permissions),
+        roles: permResult.roles,
+        permissions: permResult.effectivePermissions,
       },
       tokens: {
         accessToken,
@@ -98,17 +83,6 @@ export class AuthService {
       include: {
         department: true,
         staff: true,
-        userRoles: {
-          include: {
-            role: {
-              include: {
-                rolePermissions: {
-                  include: { permission: true },
-                },
-              },
-            },
-          },
-        },
       },
     });
 
@@ -116,13 +90,7 @@ export class AuthService {
       throw new UnauthorizedException('User profile not found');
     }
 
-    const roles = user.userRoles.map((ur) => ur.role.code);
-    const permissions = new Set<string>();
-    user.userRoles.forEach((ur) => {
-      ur.role.rolePermissions.forEach((rp) => {
-        permissions.add(`${rp.permission.module}:${rp.permission.action}`);
-      });
-    });
+    const permResult = await this.permissionResolverService.resolveUserPermissions(user.id);
 
     return {
       id: user.id,
@@ -134,8 +102,8 @@ export class AuthService {
       department: user.department?.name,
       staffId: user.staff?.id,
       employeeId: user.staff?.employeeId,
-      roles,
-      permissions: Array.from(permissions),
+      roles: permResult.roles,
+      permissions: permResult.effectivePermissions,
     };
   }
 }

@@ -35,6 +35,7 @@ import 'package:saark_erp_mobile/features/projects/presentation/pages/project_de
 import 'package:saark_erp_mobile/features/staff/presentation/pages/staff_directory_page.dart';
 import 'package:saark_erp_mobile/features/hr/presentation/pages/hr_dashboard_page.dart';
 import 'package:saark_erp_mobile/features/admin/presentation/pages/admin_dashboard_page.dart';
+import 'package:saark_erp_mobile/features/admin/presentation/pages/admin_employee_access_page.dart';
 import 'package:saark_erp_mobile/features/crm/presentation/pages/invoices_list_page.dart';
 import 'package:saark_erp_mobile/features/crm/presentation/pages/accounts_dashboard_page.dart';
 import 'package:saark_erp_mobile/features/inventory/presentation/pages/inventory_dashboard_page.dart';
@@ -57,6 +58,16 @@ class RouterNotifier extends ChangeNotifier {
 
     if (!isLoggedIn && !isLoginPage) return '/login';
     if (isLoggedIn && isLoginPage) return '/dashboard';
+
+    final location = state.matchedLocation;
+    final user = authState.user;
+    if (location.startsWith('/admin') && user != null && !user.isAdmin) {
+      return '/dashboard';
+    }
+    if (location.startsWith('/hr') && user != null && !user.isAdmin && !user.canView('HR') && !user.isHr) {
+      return '/dashboard';
+    }
+
     return null;
   }
 }
@@ -342,7 +353,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const ReportsDashboardPage(),
           ),
           GoRoute(
-              path: '/admin', builder: (_, __) => const AdminDashboardPage()),
+            path: '/admin',
+            builder: (_, __) => const AdminDashboardPage(),
+          ),
+          GoRoute(
+            path: '/admin/access',
+            builder: (_, __) => const AdminEmployeeAccessPage(),
+          ),
+
         ],
       ),
     ],
