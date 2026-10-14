@@ -4,8 +4,31 @@
  */
 
 const http = require('http');
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const path = require('path');
+const fs = require('fs');
+
+let prisma;
+const stagingEnvPath = path.resolve(__dirname, '../.env.staging');
+if (fs.existsSync(stagingEnvPath)) {
+  const env = {};
+  fs.readFileSync(stagingEnvPath, 'utf8')
+    .split(/\r?\n/)
+    .forEach((l) => {
+      const p = l.split('=');
+      if (p.length >= 2) env[p[0].trim()] = p.slice(1).join('=').trim().replace(/^["']|["']$/g, '');
+    });
+  process.env.DATABASE_URL = env.DATABASE_URL;
+  try {
+    const { PrismaClient: StagingPrismaClient } = require(path.resolve(__dirname, '../node_modules/@prisma/client-staging'));
+    prisma = new StagingPrismaClient();
+  } catch (_) {
+    const { PrismaClient } = require('@prisma/client');
+    prisma = new PrismaClient();
+  }
+} else {
+  const { PrismaClient } = require('@prisma/client');
+  prisma = new PrismaClient();
+}
 
 function request(options, data = null) {
   return new Promise((resolve, reject) => {
@@ -182,13 +205,14 @@ async function run() {
     const filterModuleRes = await request({
       hostname: 'localhost',
       port: 3000,
-      path: '/api/v1/audit-logs?module=INVENTORY',
+      path: '/api/v1/audit-logs?module=CRM',
       method: 'GET',
       headers: { Authorization: `Bearer ${adminToken}` },
     });
-    assert(filterModuleRes.status === 200, 'Filter by module=INVENTORY returns 200 OK');
-    const allInventory = filterModuleRes.body.data.every((l) => l.module === 'INVENTORY');
-    assert(allInventory, 'All returned records strictly match module INVENTORY');
+    assert(filterModuleRes.status === 200, 'Filter by module=CRM returns 200 OK');
+    assert(filterModuleRes.body.data.length > 0, 'Found CRM audit records in listing');
+    const allCrm = filterModuleRes.body.data.every((l) => l.module === 'CRM');
+    assert(allCrm, 'All returned records strictly match module CRM');
 
     // 4.2 Filter by Action
     const filterActionRes = await request({
@@ -268,14 +292,15 @@ async function run() {
     // ─── 6. CSV EXPORT & SELF-AUDIT INTEGRITY ────────────────────────────────
     console.log('\n6. CSV Export & Self-Audit Generation:');
 
+    const exportReqId = `req-export-audit-${Date.now()}`;
     const exportRes = await request({
       hostname: 'localhost',
       port: 3000,
-      path: '/api/v1/audit-logs/export?module=INVENTORY',
+      path: '/api/v1/audit-logs/export?module=CRM',
       method: 'GET',
       headers: {
         Authorization: `Bearer ${adminToken}`,
-        'x-request-id': 'req-export-audit-888',
+        'x-request-id': exportReqId,
       },
     });
     assert(exportRes.status === 200, 'GET /api/v1/audit-logs/export returns 200 OK');
@@ -300,26 +325,32 @@ async function run() {
       'CSV header adheres strictly to standard schema'
     );
 
-    // Wait 250ms for the self-audit log to persist
-    await new Promise((r) => setTimeout(r, 250));
+    // Poll with retry up to 8s to account for remote pooler latency
+    let selfAuditLog = null;
+    for (let attempt = 0; attempt < 16; attempt++) {
+      await new Promise((r) => setTimeout(r, 500));
+      selfAuditLog = await prisma.auditLog.findFirst({
+        where: {
+          action: 'EXPORT',
+          module: 'AUDIT',
+          details: { contains: exportReqId },
+        },
+        orderBy: { timestamp: 'desc' },
+      });
+      if (selfAuditLog) break;
+    }
 
-    // Verify the export execution ITSELF was recorded in audit_logs!
-    const selfAuditLog = await prisma.auditLog.findFirst({
-      where: {
-        action: 'EXPORT',
-        module: 'AUDIT',
-      },
-      orderBy: { timestamp: 'desc' },
-    });
     assert(Boolean(selfAuditLog), 'Self-Audit: Export action recorded an EXPORT event under AUDIT module');
-    const parsedSelfAudit = JSON.parse(selfAuditLog.details);
-    assert(parsedSelfAudit.outcome === 'SUCCESS', 'Self-Audit recorded outcome SUCCESS');
-    assert(parsedSelfAudit.requestId === 'req-export-audit-888', 'Self-Audit recorded request ID from header');
-    const filterCriteria = parsedSelfAudit.meta?.filterCriteria || parsedSelfAudit.details?.filterCriteria;
-    assert(
-      filterCriteria?.module === 'INVENTORY',
-      'Self-Audit recorded active filter criteria (module: INVENTORY)'
-    );
+    if (selfAuditLog) {
+      const parsedSelfAudit = JSON.parse(selfAuditLog.details);
+      assert(parsedSelfAudit.outcome === 'SUCCESS', 'Self-Audit recorded outcome SUCCESS');
+      assert(parsedSelfAudit.requestId === exportReqId, 'Self-Audit recorded request ID from header');
+      const filterCriteria = parsedSelfAudit.meta?.filterCriteria || parsedSelfAudit.details?.filterCriteria;
+      assert(
+        filterCriteria?.module === 'CRM',
+        'Self-Audit recorded active filter criteria (module: CRM)'
+      );
+    }
 
     // ─── 7. SENSITIVE DATA REDACTION VERIFICATION ────────────────────────────
     console.log('\n7. Data Redaction Verification in Output:');
