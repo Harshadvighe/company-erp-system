@@ -9,6 +9,7 @@ import 'package:saark_erp_mobile/features/customers/data/customers_repository.da
 import 'package:saark_erp_mobile/features/crm/data/crm_repository.dart';
 import 'package:saark_erp_mobile/features/staff/data/staff_repository.dart';
 import 'package:saark_erp_mobile/features/crm/data/sales_repository.dart';
+import 'package:saark_erp_mobile/core/auth/auth_provider.dart';
 
 class CustomerDetailPage extends ConsumerStatefulWidget {
   final String customerId;
@@ -81,12 +82,15 @@ class _CustomerDetailPageState extends ConsumerState<CustomerDetailPage>
               background: _buildHeader(customer),
             ),
             actions: [
-              IconButton(
-                icon: const Icon(Icons.edit_outlined),
-                onPressed: () =>
-                    context.go('/customers/${widget.customerId}/edit'),
-                tooltip: 'Edit Customer',
-              ),
+              if (ref.watch(authProvider).user?.isAdmin == true ||
+                  ref.watch(authProvider).user?.canEdit('CUSTOMERS') == true ||
+                  ref.watch(authProvider).user?.canEdit('CRM') == true)
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: () =>
+                      context.go('/customers/${widget.customerId}/edit'),
+                  tooltip: 'Edit Customer',
+                ),
               PopupMenuButton(
                 itemBuilder: (_) => <PopupMenuEntry>[
                   PopupMenuItem(

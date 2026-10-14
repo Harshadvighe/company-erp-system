@@ -255,7 +255,7 @@ export class CrmController {
 
   // ─── PRODUCT & SYSTEM INTERESTS ───────────────────────────────────────────
   @Get('product-systems')
-  @RequirePermissions('CRM:VIEW')
+  @RequirePermissions('CRM:VIEW', 'CUSTOMERS:VIEW')
   @ApiOperation({ summary: 'List standard Product & System interests master' })
   getProductSystems() {
     return this.crmService.getProductSystems();
@@ -263,21 +263,21 @@ export class CrmController {
 
   // ─── UNIFIED COMPANIES & CUSTOMER 360 ─────────────────────────────────────
   @Get('companies')
-  @RequirePermissions('CRM:VIEW')
+  @RequirePermissions('CRM:VIEW', 'CUSTOMERS:VIEW')
   @ApiOperation({ summary: 'List companies / customers in CRM with search, filters & valuation scores' })
   getCompanies(@Query() query: any, @Req() req: any) {
     return this.crmService.getCompanies(query, req.user);
   }
 
   @Post('companies/duplicate-check')
-  @RequirePermissions('CRM:VIEW')
+  @RequirePermissions('CRM:VIEW', 'CUSTOMERS:VIEW')
   @ApiOperation({ summary: 'Duplicate check across GSTIN, Phone, Email, and Name' })
   checkCompanyDuplicate(@Body() dto: { gstin?: string; phone?: string; email?: string; companyName?: string; domain?: string }) {
     return this.crmService.checkCompanyDuplicate(dto);
   }
 
   @Post('companies/gst-verify')
-  @RequirePermissions('CRM:CREATE', 'CRM:EDIT')
+  @RequirePermissions('CRM:CREATE', 'CRM:EDIT', 'CUSTOMERS:CREATE', 'CUSTOMERS:EDIT')
   @ApiOperation({ summary: 'Verify GSTIN using GSTIN Portal and fetch registered details' })
   verifyGst(@Body('gstin') gstin: string, @Req() req: any) {
     return this.crmService.verifyGst(gstin, req.user, req.ip);
@@ -285,35 +285,35 @@ export class CrmController {
 
   @Get('companies/:id/360')
   @Get('companies/:id')
-  @RequirePermissions('CRM:VIEW')
+  @RequirePermissions('CRM:VIEW', 'CUSTOMERS:VIEW')
   @ApiOperation({ summary: 'Aggregated Company 360 profile with all 16 relations' })
   getCompany360(@Param('id') id: string, @Req() req: any) {
     return this.crmService.getCompany360(id, req.user);
   }
 
   @Get('companies/:id/timeline')
-  @RequirePermissions('CRM:VIEW')
+  @RequirePermissions('CRM:VIEW', 'CUSTOMERS:VIEW')
   @ApiOperation({ summary: 'Unified chronological activity timeline for company' })
   getCompanyTimeline(@Param('id') id: string, @Req() req: any) {
     return this.crmService.getCompanyTimeline(id, req.user);
   }
 
   @Post('companies')
-  @RequirePermissions('CRM:CREATE')
+  @RequirePermissions('CRM:CREATE', 'CUSTOMERS:CREATE')
   @ApiOperation({ summary: 'Create new company / customer master record in CRM' })
   createCompany(@Body() dto: any, @Req() req: any) {
     return this.crmService.createCompany(dto, req.user);
   }
 
   @Put('companies/:id')
-  @RequirePermissions('CRM:EDIT')
+  @RequirePermissions('CRM:EDIT', 'CUSTOMERS:EDIT')
   @ApiOperation({ summary: 'Update company master record' })
   updateCompany(@Param('id') id: string, @Body() dto: any, @Req() req: any) {
     return this.crmService.updateCompany(id, dto, req.user);
   }
 
   @Put('companies/:id/product-interests')
-  @RequirePermissions('CRM:EDIT')
+  @RequirePermissions('CRM:EDIT', 'CUSTOMERS:EDIT')
   @ApiOperation({ summary: 'Update company product & system interests' })
   updateCompanyProductInterests(
     @Param('id') id: string,
@@ -324,7 +324,7 @@ export class CrmController {
   }
 
   @Post('companies/:id/valuation')
-  @RequirePermissions('CRM:EDIT')
+  @RequirePermissions('CRM:EDIT', 'CUSTOMERS:EDIT')
   @ApiOperation({ summary: 'Update company manual rating or valuation parameters' })
   updateCompanyValuation(@Param('id') id: string, @Body() dto: any, @Req() req: any) {
     return this.crmService.updateCompanyValuation(id, dto, req.user);

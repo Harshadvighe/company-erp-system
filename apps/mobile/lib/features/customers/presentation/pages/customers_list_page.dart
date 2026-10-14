@@ -9,6 +9,7 @@ import 'package:saark_erp_mobile/features/customers/data/customers_repository.da
 import 'package:saark_erp_mobile/features/crm/data/crm_repository.dart';
 import 'package:saark_erp_mobile/features/staff/data/staff_repository.dart';
 import 'package:saark_erp_mobile/core/widgets/bulk_import_modal.dart';
+import 'package:saark_erp_mobile/core/auth/auth_provider.dart';
 
 class CustomersListPage extends ConsumerStatefulWidget {
   const CustomersListPage({super.key});
@@ -36,6 +37,26 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
   bool _meetingFilterEnabled = false;
   DateTime? _meetingFrom;
   DateTime? _meetingTo;
+
+  bool get _canCreate {
+    final user = ref.read(authProvider).user;
+    return user?.isAdmin == true || user?.canCreate('CUSTOMERS') == true || user?.canCreate('CRM') == true;
+  }
+
+  bool get _canEdit {
+    final user = ref.read(authProvider).user;
+    return user?.isAdmin == true || user?.canEdit('CUSTOMERS') == true || user?.canEdit('CRM') == true;
+  }
+
+  bool get _canDelete {
+    final user = ref.read(authProvider).user;
+    return user?.isAdmin == true || user?.canDelete('CUSTOMERS') == true || user?.canDelete('CRM') == true;
+  }
+
+  bool get _canExport {
+    final user = ref.read(authProvider).user;
+    return user?.isAdmin == true || user?.canExport('CUSTOMERS') == true || user?.canExport('CRM') == true;
+  }
 
   @override
   void initState() {
@@ -426,15 +447,16 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
         title: const Text('Customer Directory'),
         backgroundColor: AppTheme.darkSurface,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.upload_file),
-            onPressed: () => BulkImportModal.show(
-              context,
-              target: 'CUSTOMER',
-              onImportComplete: _onBulkImportComplete,
+          if (_canCreate)
+            IconButton(
+              icon: const Icon(Icons.upload_file),
+              onPressed: () => BulkImportModal.show(
+                context,
+                target: 'CUSTOMER',
+                onImportComplete: _onBulkImportComplete,
+              ),
+              tooltip: 'Import Excel',
             ),
-            tooltip: 'Import Excel',
-          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () => _loadCompanies(page: state.page),
@@ -467,13 +489,15 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.go('/customers/new'),
-        icon: const Icon(Icons.add),
-        label: const Text('New Customer'),
-        backgroundColor: AppTheme.primary,
-        foregroundColor: Colors.white,
-      ),
+      floatingActionButton: _canCreate
+          ? FloatingActionButton.extended(
+              onPressed: () => context.go('/customers/new'),
+              icon: const Icon(Icons.add),
+              label: const Text('New Customer'),
+              backgroundColor: AppTheme.primary,
+              foregroundColor: Colors.white,
+            )
+          : null,
     );
   }
 
@@ -501,21 +525,23 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
               ),
             ),
           ),
-          const SizedBox(width: 12),
-          ElevatedButton.icon(
-            onPressed: () => BulkImportModal.show(
-              context,
-              target: 'CUSTOMER',
-              onImportComplete: _onBulkImportComplete,
+          if (_canCreate) ...[
+            const SizedBox(width: 12),
+            ElevatedButton.icon(
+              onPressed: () => BulkImportModal.show(
+                context,
+                target: 'CUSTOMER',
+                onImportComplete: _onBulkImportComplete,
+              ),
+              icon: const Icon(Icons.upload_file, size: 16),
+              label: const Text('Import Excel'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primary,
+                foregroundColor: Colors.white,
+              ),
             ),
-            icon: const Icon(Icons.upload_file, size: 16),
-            label: const Text('Import Excel'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primary,
-              foregroundColor: Colors.white,
-            ),
-          ),
-          if (isWide) ...[
+          ],
+          if (isWide && _canExport) ...[
             const SizedBox(width: 8),
             OutlinedButton.icon(
               onPressed: () => _exportToExcel(state),
@@ -1207,20 +1233,22 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
                             tooltip: 'Assign Sales Owner',
                             visualDensity: VisualDensity.compact,
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.edit_outlined, size: 16),
-                            onPressed: () =>
-                                context.go('/customers/${c.id}/edit'),
-                            tooltip: 'Edit Company',
-                            visualDensity: VisualDensity.compact,
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline,
-                                size: 16, color: Colors.redAccent),
-                            onPressed: () => _confirmDeleteCustomer(c),
-                            tooltip: 'Delete Company',
-                            visualDensity: VisualDensity.compact,
-                          ),
+                          if (_canEdit)
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined, size: 16),
+                              onPressed: () =>
+                                  context.go('/customers/${c.id}/edit'),
+                              tooltip: 'Edit Company',
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          if (_canDelete)
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline,
+                                  size: 16, color: Colors.redAccent),
+                              onPressed: () => _confirmDeleteCustomer(c),
+                              tooltip: 'Delete Company',
+                              visualDensity: VisualDensity.compact,
+                            ),
                         ],
                       )),
                     ],
@@ -1362,22 +1390,24 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
                       constraints:
                           const BoxConstraints(minWidth: 32, minHeight: 32),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.edit_outlined, size: 16),
-                      onPressed: () => context.go('/customers/${c.id}/edit'),
-                      tooltip: 'Edit Company',
-                      padding: EdgeInsets.zero,
-                      constraints:
-                          const BoxConstraints(minWidth: 32, minHeight: 32),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline,
-                          size: 16, color: Colors.redAccent),
-                      onPressed: () => _confirmDeleteCustomer(c),
-                      padding: EdgeInsets.zero,
-                      constraints:
-                          const BoxConstraints(minWidth: 32, minHeight: 32),
-                    ),
+                    if (_canEdit)
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined, size: 16),
+                        onPressed: () => context.go('/customers/${c.id}/edit'),
+                        tooltip: 'Edit Company',
+                        padding: EdgeInsets.zero,
+                        constraints:
+                            const BoxConstraints(minWidth: 32, minHeight: 32),
+                      ),
+                    if (_canDelete)
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline,
+                            size: 16, color: Colors.redAccent),
+                        onPressed: () => _confirmDeleteCustomer(c),
+                        padding: EdgeInsets.zero,
+                        constraints:
+                            const BoxConstraints(minWidth: 32, minHeight: 32),
+                      ),
                   ],
                 ),
               ],

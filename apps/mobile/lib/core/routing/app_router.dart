@@ -68,6 +68,13 @@ class RouterNotifier extends ChangeNotifier {
     if (location.startsWith('/hr') && user != null && !user.isAdmin && !user.canView('HR') && !user.isHr) {
       return '/dashboard';
     }
+    if ((location.startsWith('/customers') || location.startsWith('/crm')) &&
+        user != null &&
+        !user.isAdmin &&
+        !user.canView('CRM') &&
+        !user.canView('CUSTOMERS')) {
+      return '/dashboard';
+    }
 
     return null;
   }

@@ -65,7 +65,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               if (user?.canView('CUSTOMERS') == true || user?.canView('CRM') == true) ...[
                 LayoutBuilder(
                   builder: (context, constraints) {
-                    final canCustomers = user?.canView('CUSTOMERS') == true;
+                    final canCustomers = user?.canView('CUSTOMERS') == true || user?.canView('CRM') == true;
                     final canCRM = user?.canView('CRM') == true;
 
                     if (constraints.maxWidth > 700) {
@@ -148,7 +148,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   Widget _buildKpiGrid(BuildContext context, Map<String, dynamic> d, CustomerListState cs, AuthUser? user) {
     final kpis = <_KpiData>[];
 
-    if (user?.canView('CUSTOMERS') == true) {
+    if (user?.canView('CUSTOMERS') == true || user?.canView('CRM') == true) {
       kpis.add(_KpiData(label: 'Customers', value: '${cs.total}', icon: Icons.people, color: const Color(0xFF3B82F6), route: '/customers'));
     }
     if (user?.canView('CRM') == true) {
@@ -211,7 +211,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       ));
     }
 
-    if (user.canCreate('CUSTOMERS')) {
+    if (user.canCreate('CUSTOMERS') || user.canCreate('CRM')) {
       actions.add(_QuickAction(
         label: 'New Customer',
         icon: Icons.person_add,

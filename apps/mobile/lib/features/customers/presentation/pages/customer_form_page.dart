@@ -649,7 +649,7 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
             children: [
               const Text(
                 'The following matching company records exist in CRM:',
-                style: const TextStyle(color: _textSecondary, fontSize: 12),
+                style: TextStyle(color: _textSecondary, fontSize: 12),
               ),
               const SizedBox(height: 10),
               Flexible(
