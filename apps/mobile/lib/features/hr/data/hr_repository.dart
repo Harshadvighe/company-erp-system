@@ -190,6 +190,19 @@ class HrRepository {
     return response.data.toString();
   }
 
+  Future<String> exportMusterRollHtml({String? month, int? year}) async {
+    final response = await _dio.get(
+      '/hr/muster-roll/export',
+      queryParameters: {
+        if (month != null) 'month': month,
+        if (year != null) 'year': year,
+        'format': 'html',
+      },
+      options: Options(responseType: ResponseType.plain),
+    );
+    return response.data.toString();
+  }
+
   Future<String> exportEmployeesCsv({String? search, String? departmentId, String? status}) async {
     final response = await _dio.get(
       '/hr/employees/export',

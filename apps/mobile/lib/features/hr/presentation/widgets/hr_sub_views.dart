@@ -212,25 +212,84 @@ class AttendanceLeaveView extends ConsumerWidget {
           icon: Icons.calendar_month_outlined,
           actions: [
             OutlinedButton.icon(
-              onPressed: () async {
-                try {
-                  final csv = await ref.read(hrRepositoryProvider).exportMusterRollCsv();
-                  downloadExcelFile(
-                    csv,
-                    'saark_form25_muster_roll_${DateTime.now().year}_${DateTime.now().month}.csv',
-                  );
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Form 25 Muster Roll exported successfully.')),
-                    );
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Failed to export Form 25 Muster Roll: $e')),
-                    );
-                  }
-                }
+              onPressed: () {
+                showDialog<void>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    backgroundColor: const Color(0xFF1E2024),
+                    title: const Row(
+                      children: [
+                        Icon(Icons.print_outlined, color: Color(0xFFF26522)),
+                        SizedBox(width: 8),
+                        Text('Export Form 25 Muster Roll', style: TextStyle(color: Colors.white, fontSize: 16)),
+                      ],
+                    ),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ListTile(
+                          leading: const Icon(Icons.table_chart_outlined, color: Colors.blueAccent),
+                          title: const Text('Form 25 Muster Roll (CSV)', style: TextStyle(color: Colors.white, fontSize: 14)),
+                          subtitle: const Text('Spreadsheet format with overtime 2x calculation', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                          onTap: () async {
+                            Navigator.pop(ctx);
+                            try {
+                              final csv = await ref.read(hrRepositoryProvider).exportMusterRollCsv();
+                              downloadExcelFile(
+                                csv,
+                                'saark_form25_muster_roll_${DateTime.now().year}_${DateTime.now().month}.csv',
+                              );
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Form 25 Muster Roll CSV exported.')),
+                                );
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Failed to export Form 25 Muster Roll: $e')),
+                                );
+                              }
+                            }
+                          },
+                        ),
+                        const Divider(color: Colors.white12),
+                        ListTile(
+                          leading: const Icon(Icons.picture_as_pdf_outlined, color: Colors.amberAccent),
+                          title: const Text('Printable Form 25 Register (HTML / Save as PDF)', style: TextStyle(color: Colors.white, fontSize: 14)),
+                          subtitle: const Text('Statutory layout formatted for Landscape print or PDF export', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                          onTap: () async {
+                            Navigator.pop(ctx);
+                            try {
+                              final htmlContent = await ref.read(hrRepositoryProvider).exportMusterRollHtml();
+                              downloadExcelFile(
+                                htmlContent,
+                                'saark_form25_muster_roll_${DateTime.now().year}_${DateTime.now().month}.html',
+                              );
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Printable Form 25 downloaded (Open & Print to PDF).')),
+                                );
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Failed to export Form 25 Register: $e')),
+                                );
+                              }
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('Close', style: TextStyle(color: Colors.white70)),
+                      ),
+                    ],
+                  ),
+                );
               },
               icon: const Icon(Icons.download, size: 14),
               label: const Text('Export Form 25 Muster Roll'),

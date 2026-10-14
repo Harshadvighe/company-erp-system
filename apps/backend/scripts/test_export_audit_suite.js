@@ -230,6 +230,22 @@ async function run() {
     assert(Boolean(musterJsonRes.body?.form), 'Muster roll JSON payload includes form title');
     assert(Array.isArray(musterJsonRes.body?.records), 'Muster roll JSON includes employee attendance records');
 
+    // Format HTML (Printable Form 25)
+    const musterHtmlRes = await request({
+      hostname: 'localhost',
+      port: 3000,
+      path: '/api/v1/hr/muster-roll/export?format=html&month=10&year=2026',
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        'X-Request-Id': 'req-export-muster-html',
+      },
+    });
+    assert(musterHtmlRes.status === 200, 'GET /api/v1/hr/muster-roll/export?format=html returns 200 OK');
+    assert((musterHtmlRes.headers['content-type'] || '').includes('text/html'), 'Muster roll HTML Content-Type is text/html');
+    assert(musterHtmlRes.rawBody.includes('FACTORIES ACT 1948 — FORM 25 (RULE 104)'), 'Muster roll HTML contains statutory Form 25 header');
+    assert(musterHtmlRes.rawBody.includes('window.print()'), 'Muster roll HTML includes printable button');
+
     const musterAudit = await prisma.auditLog.findFirst({
       where: { action: 'EXPORT', module: 'HR', entityType: 'MusterRoll' },
       orderBy: { timestamp: 'desc' },

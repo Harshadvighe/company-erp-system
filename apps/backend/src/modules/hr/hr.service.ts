@@ -414,6 +414,106 @@ export class HrService {
       };
     }
 
+    if (format.toLowerCase() === 'html' || format.toLowerCase() === 'pdf') {
+      const rowsHtml = data
+        .map(
+          (d, idx) => `
+        <tr>
+          <td style="text-align: center;">${idx + 1}</td>
+          <td><strong>${d.employeeCode}</strong></td>
+          <td>${d.fullName}</td>
+          <td>${d.designation}</td>
+          <td>${d.department}</td>
+          <td>${d.workerCategory}</td>
+          <td>${d.assignedBay || '-'}</td>
+          <td style="text-align: center;">${d.shiftCode || 'SHIFT_G'}</td>
+          <td style="text-align: right;">${d.presentDays}</td>
+          <td style="text-align: right;">${d.lateDays}</td>
+          <td style="text-align: right; color: ${d.overtimeHours > 0 ? '#b30000' : '#333'}; font-weight: ${d.overtimeHours > 0 ? 'bold' : 'normal'};">${d.overtimeHours}</td>
+          <td style="text-align: right; font-weight: 600;">₹${Number(d.otEarnings || 0).toLocaleString('en-IN')}</td>
+        </tr>`,
+        )
+        .join('');
+
+      const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Form 25 (Rule 104) Muster Roll - Saark Exploration Private Limited</title>
+  <style>
+    @page { size: landscape; margin: 12mm; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 11px; color: #222; margin: 0; padding: 20px; background: #fff; }
+    .header-box { text-align: center; border-bottom: 2px solid #222; padding-bottom: 10px; margin-bottom: 15px; }
+    .header-box h1 { margin: 0 0 4px 0; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .header-box h2 { margin: 0 0 4px 0; font-size: 13px; font-weight: 600; color: #444; }
+    .header-box p { margin: 0; font-size: 11px; color: #666; }
+    .meta-bar { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 11px; background: #f8f9fa; padding: 8px 12px; border-radius: 4px; border: 1px solid #e9ecef; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 11px; }
+    th, td { border: 1px solid #ccc; padding: 6px 8px; }
+    th { background: #f1f3f5; font-weight: 600; text-transform: uppercase; font-size: 10px; color: #333; }
+    tr:nth-child(even) { background: #fafafa; }
+    .sign-section { margin-top: 40px; display: flex; justify-content: space-between; padding: 0 30px; }
+    .sign-box { text-align: center; width: 220px; border-top: 1px solid #333; padding-top: 6px; font-size: 11px; font-weight: 500; }
+    .print-btn { background: #F26522; color: #fff; border: none; padding: 8px 16px; border-radius: 4px; font-weight: 600; cursor: pointer; margin-bottom: 15px; }
+    @media print {
+      .no-print { display: none !important; }
+      body { padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="no-print" style="margin-bottom: 15px;">
+    <button class="print-btn" onclick="window.print()">🖨️ Print Form 25 / Save as PDF</button>
+    <span style="font-size: 12px; color: #666; margin-left: 10px;">Optimized for Landscape A4 printing or PDF export.</span>
+  </div>
+  <div class="header-box">
+    <h1>FACTORIES ACT 1948 — FORM 25 (RULE 104)</h1>
+    <h2>Muster Roll & Register of Adult Workers</h2>
+    <p>Factory Name: <strong>Saark Exploration Private Limited</strong> | MIDC Phase II Chakan, Pune, Maharashtra 410501</p>
+  </div>
+  <div class="meta-bar">
+    <div><strong>Muster Period:</strong> Month: ${targetMonth} / Year: ${targetYear}</div>
+    <div><strong>Total Workers Tracked:</strong> ${data.length}</div>
+    <div><strong>Statutory Section:</strong> Section 59 (Overtime 2x Calculation)</div>
+    <div><strong>Generated At:</strong> ${new Date().toLocaleString('en-IN')}</div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 30px;">Sr</th>
+        <th>Emp Code</th>
+        <th>Employee Name</th>
+        <th>Designation</th>
+        <th>Department</th>
+        <th>Category</th>
+        <th>Bay</th>
+        <th>Shift</th>
+        <th style="text-align: right;">Present</th>
+        <th style="text-align: right;">Late</th>
+        <th style="text-align: right;">OT Hours</th>
+        <th style="text-align: right;">OT Earnings (2x)</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rowsHtml}
+    </tbody>
+  </table>
+  <div class="sign-section">
+    <div class="sign-box">Prepared By (Time Office / HR)</div>
+    <div class="sign-box">Verified By (Factory Manager)</div>
+    <div class="sign-box">Inspector of Factories & Boilers</div>
+  </div>
+</body>
+</html>`;
+
+      return {
+        format: 'html',
+        htmlContent,
+        fileName: `saark_form25_muster_roll_${targetYear}_${targetMonth}.html`,
+        recordCount: data.length,
+      };
+    }
+
     const headers = [
       'Employee Code',
       'Full Name',

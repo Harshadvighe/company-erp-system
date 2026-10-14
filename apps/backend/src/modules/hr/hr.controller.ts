@@ -145,6 +145,11 @@ export class HrController {
     if (result.format === 'json') {
       return res.status(HttpStatus.OK).json(result.data);
     }
+    if (result.format === 'html') {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Content-Disposition', `inline; filename="${result.fileName}"`);
+      return res.status(HttpStatus.OK).send(result.htmlContent);
+    }
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${result.fileName}"`);
     return res.status(HttpStatus.OK).send('\uFEFF' + result.csvContent);
