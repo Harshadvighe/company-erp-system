@@ -31,30 +31,35 @@ export class TasksController {
   }
 
   @Get('my-tasks')
+  @RequirePermissions('TASKS:VIEW', 'MY_WORK:VIEW')
   @ApiOperation({ summary: 'List tasks assigned to logged-in user staff profile' })
   findMyTasks(@Req() req: any) {
     return this.tasksService.findMyTasks(req.user?.staffId);
   }
 
   @Get('my-led-teams')
+  @RequirePermissions('TASKS:VIEW')
   @ApiOperation({ summary: 'List teams led by the logged-in staff member' })
   findMyLedTeams(@Req() req: any) {
     return this.tasksService.findMyLedTeams(req.user?.staffId);
   }
 
   @Get('assignees')
+  @RequirePermissions('TASKS:VIEW')
   @ApiOperation({ summary: 'List active staff available for task assignment' })
   getAssignableStaff(@Req() req: any) {
     return this.tasksService.getAssignableStaff(req.user?.staffId);
   }
 
   @Get(':id')
+  @RequirePermissions('TASKS:VIEW')
   @ApiOperation({ summary: 'Get full task details with comments, assignees & activity log' })
   findOne(@Param('id') id: string, @Req() req: any) {
     return this.tasksService.findOne(id, req.user?.staffId, req.user);
   }
 
   @Post()
+  @RequirePermissions('TASKS:CREATE')
   @ApiOperation({ summary: 'Create new task (auto-generates TSK code, records activity)' })
   create(@Body() dto: any, @Req() req: any) {
     return this.tasksService.create(
@@ -74,6 +79,7 @@ export class TasksController {
   }
 
   @Patch(':id/status')
+  @RequirePermissions('TASKS:EDIT')
   @ApiOperation({ summary: 'Transition task status along lifecycle (ACCEPTED, IN_PROGRESS, REVIEW, COMPLETED, RETURNED)' })
   updateStatus(
     @Param('id') id: string,
@@ -85,6 +91,7 @@ export class TasksController {
   }
 
   @Patch(':id/progress')
+  @RequirePermissions('TASKS:EDIT')
   @ApiOperation({ summary: 'Update task completion percentage by the assignee' })
   updateProgress(
     @Param('id') id: string,
@@ -95,6 +102,7 @@ export class TasksController {
   }
 
   @Post(':id/comments')
+  @RequirePermissions('TASKS:VIEW', 'TASKS:EDIT')
   @ApiOperation({ summary: 'Add progress comment or feedback to task' })
   addComment(@Param('id') id: string, @Body('comment') comment: string, @Req() req: any) {
     return this.tasksService.addComment(id, comment, req.user?.staffId);

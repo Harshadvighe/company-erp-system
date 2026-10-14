@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
 import { SequenceService } from '../../core/database/sequence.service';
+import { AuditService } from '../../core/audit/audit.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { CreateLeaveDto, UpdateLeaveStatusDto } from './dto/create-leave.dto';
 import { ClockInDto, ClockOutDto } from './dto/clock-in.dto';
@@ -11,6 +12,7 @@ export class HrService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly sequenceService: SequenceService,
+    private readonly auditService?: AuditService,
   ) {}
 
   // -------------------------------------------------------------
@@ -435,7 +437,7 @@ export class HrService {
     return employee;
   }
 
-  async createEmployee(dto: CreateEmployeeDto) {
+  async createEmployee(dto: CreateEmployeeDto, actor?: any) {
     const normalizedEmail = dto.email.trim();
 
     // Check for existing employee with the same email
@@ -450,7 +452,7 @@ export class HrService {
 
     const employeeCode = await this.sequenceService.nextEmployeeCode();
 
-    return this.prisma.employee.create({
+    const created = await this.prisma.employee.create({
       data: {
         employeeCode,
         firstName: dto.firstName,
@@ -479,9 +481,25 @@ export class HrService {
       },
       include: { department: true },
     });
+
+    await this.auditService?.recordAction({
+      actor,
+      action: 'CREATE',
+      module: 'HR',
+      entityType: 'Employee',
+      entityId: created.id,
+      after: created,
+      details: {
+        employeeCode: created.employeeCode,
+        fullName: `${created.firstName} ${created.lastName}`,
+        designation: created.designation,
+      },
+    });
+
+    return created;
   }
 
-  async updateEmployee(idOrCode: string, dto: Partial<CreateEmployeeDto>) {
+  async updateEmployee(idOrCode: string, dto: Partial<CreateEmployeeDto>, actor?: any) {
     const existing = await this.prisma.employee.findFirst({
       where: {
         OR: [{ id: idOrCode }, { employeeCode: idOrCode }],
@@ -504,7 +522,7 @@ export class HrService {
       }
     }
 
-    return this.prisma.employee.update({
+    const updated = await this.prisma.employee.update({
       where: { id: existing.id },
       data: {
         ...(dto.firstName !== undefined && { firstName: dto.firstName }),
@@ -533,6 +551,19 @@ export class HrService {
       },
       include: { department: true },
     });
+
+    await this.auditService?.recordAction({
+      actor,
+      action: 'UPDATE',
+      module: 'HR',
+      entityType: 'Employee',
+      entityId: existing.id,
+      before: existing,
+      after: updated,
+      details: { employeeCode: existing.employeeCode },
+    });
+
+    return updated;
   }
 
   // -------------------------------------------------------------
@@ -713,7 +744,7 @@ export class HrService {
     });
   }
 
-  async updateLeaveStatus(id: string, dto: UpdateLeaveStatusDto, approverName: string) {
+  async updateLeaveStatus(id: string, dto: UpdateLeaveStatusDto, approverName: string, actor?: any) {
     const leave = await this.prisma.leaveRequest.findUnique({ where: { id } });
     if (!leave) throw new NotFoundException('Leave request not found');
 
@@ -738,6 +769,18 @@ export class HrService {
         });
       }
     }
+
+    await this.auditService?.recordAction({
+      actor,
+      action: dto.status === 'APPROVED' ? 'APPROVE' : dto.status === 'REJECTED' ? 'REJECT' : 'UPDATE',
+      module: 'HR',
+      entityType: 'LeaveRequest',
+      entityId: id,
+      before: leave,
+      after: updated,
+      reason: dto.decisionNote || undefined,
+      details: { leaveCode: leave.leaveCode, status: dto.status, approver: approverName },
+    });
 
     return updated;
   }

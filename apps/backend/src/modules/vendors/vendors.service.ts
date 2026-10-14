@@ -123,7 +123,7 @@ export class VendorsService {
     return vendor;
   }
 
-  async create(dto: any, userId?: string, userEmail?: string) {
+  async create(dto: any, userId?: string, userEmail?: string, actor?: any) {
     if (dto.gstin) {
       const exists = await this.prisma.vendor.findFirst({ where: { gstin: dto.gstin } });
       if (exists) throw new ConflictException(`Vendor with GSTIN ${dto.gstin} already exists`);
@@ -179,20 +179,22 @@ export class VendorsService {
       },
     });
 
-    await this.auditService.log({
+    await this.auditService.recordAction({
+      actor: actor || { id: userId, email: userEmail },
       userId,
       userEmail,
       action: 'CREATE',
       module: 'VENDORS',
       entityType: 'Vendor',
       entityId: vendor.id,
-      details: `Created Vendor: ${vendor.companyName} (${vendor.vendorCode})`,
+      after: vendor,
+      details: { companyName: vendor.companyName, vendorCode: vendor.vendorCode },
     });
 
     return vendor;
   }
 
-  async update(id: string, dto: any, userId?: string, userEmail?: string) {
+  async update(id: string, dto: any, userId?: string, userEmail?: string, actor?: any) {
     const existing = await this.prisma.vendor.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Vendor not found');
 
@@ -223,33 +225,39 @@ export class VendorsService {
       },
     });
 
-    await this.auditService.log({
+    await this.auditService.recordAction({
+      actor: actor || { id: userId, email: userEmail },
       userId,
       userEmail,
       action: 'UPDATE',
       module: 'VENDORS',
       entityType: 'Vendor',
       entityId: id,
-      details: `Updated Vendor: ${vendor.companyName}`,
+      before: existing,
+      after: vendor,
+      details: { companyName: vendor.companyName },
     });
 
     return vendor;
   }
 
-  async delete(id: string, userId?: string, userEmail?: string) {
+  async delete(id: string, userId?: string, userEmail?: string, actor?: any) {
     const existing = await this.prisma.vendor.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Vendor not found');
 
-    await this.prisma.vendor.update({ where: { id }, data: { status: 'DELETED' } });
+    const updated = await this.prisma.vendor.update({ where: { id }, data: { status: 'DELETED' } });
 
-    await this.auditService.log({
+    await this.auditService.recordAction({
+      actor: actor || { id: userId, email: userEmail },
       userId,
       userEmail,
       action: 'DELETE',
       module: 'VENDORS',
       entityType: 'Vendor',
       entityId: id,
-      details: `Soft-deleted Vendor: ${existing.companyName}`,
+      before: existing,
+      after: updated,
+      details: { companyName: existing.companyName },
     });
 
     return { message: 'Vendor marked as deleted' };

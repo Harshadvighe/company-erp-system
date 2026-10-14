@@ -64,7 +64,7 @@ export class ProductsService {
     return product;
   }
 
-  async create(dto: any, userId?: string, userEmail?: string) {
+  async create(dto: any, userId?: string, userEmail?: string, actor?: any) {
     if (dto.sku) {
       const exists = await this.prisma.product.findUnique({ where: { sku: dto.sku } });
       if (exists) throw new ConflictException(`Product with SKU ${dto.sku} already exists`);
@@ -91,20 +91,22 @@ export class ProductsService {
       include: { category: true, unit: true, taxRate: true },
     });
 
-    await this.auditService.log({
+    await this.auditService.recordAction({
+      actor: actor || { id: userId, email: userEmail },
       userId,
       userEmail,
       action: 'CREATE',
-      module: 'PRODUCTS',
+      module: 'INVENTORY',
       entityType: 'Product',
       entityId: product.id,
-      details: `Created Product: ${product.name} (SKU: ${product.sku})`,
+      after: product,
+      details: { sku: product.sku, name: product.name, currentStock: product.currentStock },
     });
 
     return product;
   }
 
-  async update(id: string, dto: any, userId?: string, userEmail?: string) {
+  async update(id: string, dto: any, userId?: string, userEmail?: string, actor?: any) {
     const existing = await this.prisma.product.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Product not found');
 
@@ -132,33 +134,39 @@ export class ProductsService {
       include: { category: true, unit: true, taxRate: true },
     });
 
-    await this.auditService.log({
+    await this.auditService.recordAction({
+      actor: actor || { id: userId, email: userEmail },
       userId,
       userEmail,
       action: 'UPDATE',
-      module: 'PRODUCTS',
+      module: 'INVENTORY',
       entityType: 'Product',
       entityId: id,
-      details: `Updated Product: ${product.name}`,
+      before: existing,
+      after: product,
+      details: { name: product.name, sku: product.sku },
     });
 
     return product;
   }
 
-  async delete(id: string, userId?: string, userEmail?: string) {
+  async delete(id: string, userId?: string, userEmail?: string, actor?: any) {
     const existing = await this.prisma.product.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Product not found');
 
-    await this.prisma.product.update({ where: { id }, data: { status: 'DELETED' } });
+    const updated = await this.prisma.product.update({ where: { id }, data: { status: 'DELETED' } });
 
-    await this.auditService.log({
+    await this.auditService.recordAction({
+      actor: actor || { id: userId, email: userEmail },
       userId,
       userEmail,
       action: 'DELETE',
-      module: 'PRODUCTS',
+      module: 'INVENTORY',
       entityType: 'Product',
       entityId: id,
-      details: `Soft-deleted Product: ${existing.name}`,
+      before: existing,
+      after: updated,
+      details: { name: existing.name, sku: existing.sku },
     });
 
     return { message: 'Product marked as deleted' };
@@ -173,16 +181,41 @@ export class ProductsService {
     });
   }
 
-  async createCategory(dto: { name: string; code: string }) {
+  async createCategory(dto: { name: string; code: string }, actor?: any) {
     const exists = await this.prisma.productCategory.findFirst({
       where: { OR: [{ name: dto.name }, { code: dto.code }] },
     });
     if (exists) throw new ConflictException('Category name or code already exists');
-    return this.prisma.productCategory.create({ data: dto });
+    const cat = await this.prisma.productCategory.create({ data: dto });
+
+    await this.auditService.recordAction({
+      actor,
+      action: 'CREATE',
+      module: 'INVENTORY',
+      entityType: 'ProductCategory',
+      entityId: cat.id,
+      after: cat,
+      details: { name: cat.name, code: cat.code },
+    });
+
+    return cat;
   }
 
-  async updateCategory(id: string, dto: any) {
-    return this.prisma.productCategory.update({ where: { id }, data: dto });
+  async updateCategory(id: string, dto: any, actor?: any) {
+    const existing = await this.prisma.productCategory.findUnique({ where: { id } });
+    const cat = await this.prisma.productCategory.update({ where: { id }, data: dto });
+
+    await this.auditService.recordAction({
+      actor,
+      action: 'UPDATE',
+      module: 'INVENTORY',
+      entityType: 'ProductCategory',
+      entityId: id,
+      before: existing,
+      after: cat,
+    });
+
+    return cat;
   }
 
   // ─── UNITS ───────────────────────────────────────────────────────────────
@@ -191,11 +224,23 @@ export class ProductsService {
     return this.prisma.unit.findMany({ orderBy: { name: 'asc' } });
   }
 
-  async createUnit(dto: { name: string; code: string }) {
+  async createUnit(dto: { name: string; code: string }, actor?: any) {
     const exists = await this.prisma.unit.findFirst({
       where: { OR: [{ name: dto.name }, { code: dto.code }] },
     });
     if (exists) throw new ConflictException('Unit name or code already exists');
-    return this.prisma.unit.create({ data: dto });
+    const unit = await this.prisma.unit.create({ data: dto });
+
+    await this.auditService.recordAction({
+      actor,
+      action: 'CREATE',
+      module: 'INVENTORY',
+      entityType: 'Unit',
+      entityId: unit.id,
+      after: unit,
+      details: { name: unit.name, code: unit.code },
+    });
+
+    return unit;
   }
 }

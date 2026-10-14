@@ -57,13 +57,15 @@ class _VendorsListPageState extends ConsumerState<VendorsListPage> {
             onPressed: () => BulkImportModal.show(
               context,
               target: 'VENDOR',
-              onImportComplete: () => ref.read(vendorListProvider.notifier).loadVendors(),
+              onImportComplete: () =>
+                  ref.read(vendorListProvider.notifier).loadVendors(),
             ),
             tooltip: 'Import Excel',
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () => ref.read(vendorListProvider.notifier).loadVendors(),
+            onPressed: () =>
+                ref.read(vendorListProvider.notifier).loadVendors(),
             tooltip: 'Refresh',
           ),
         ],
@@ -79,12 +81,16 @@ class _VendorsListPageState extends ConsumerState<VendorsListPage> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.error_outline, size: 48, color: AppTheme.error),
+                            const Icon(Icons.error_outline,
+                                size: 48, color: AppTheme.error),
                             const SizedBox(height: 12),
-                            Text(state.error!, style: const TextStyle(color: Colors.grey)),
+                            Text(state.error!,
+                                style: const TextStyle(color: Colors.grey)),
                             const SizedBox(height: 12),
                             ElevatedButton(
-                              onPressed: () => ref.read(vendorListProvider.notifier).loadVendors(),
+                              onPressed: () => ref
+                                  .read(vendorListProvider.notifier)
+                                  .loadVendors(),
                               child: const Text('Retry'),
                             ),
                           ],
@@ -111,15 +117,18 @@ class _VendorsListPageState extends ConsumerState<VendorsListPage> {
   Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppTheme.darkBorder))),
+      decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppTheme.darkBorder))),
       child: Row(
         children: [
           Expanded(
             child: TextField(
               controller: _searchController,
-              onChanged: (v) => ref.read(vendorListProvider.notifier).loadVendors(search: v),
+              onChanged: (v) =>
+                  ref.read(vendorListProvider.notifier).loadVendors(search: v),
               decoration: InputDecoration(
-                hintText: 'Search vendors by company name, GSTIN, contact person, or location…',
+                hintText:
+                    'Search vendors by company name, GSTIN, contact person, or location…',
                 prefixIcon: const Icon(Icons.search, size: 18),
                 isDense: true,
                 border: OutlineInputBorder(
@@ -135,7 +144,8 @@ class _VendorsListPageState extends ConsumerState<VendorsListPage> {
             onPressed: () => BulkImportModal.show(
               context,
               target: 'VENDOR',
-              onImportComplete: () => ref.read(vendorListProvider.notifier).loadVendors(),
+              onImportComplete: () =>
+                  ref.read(vendorListProvider.notifier).loadVendors(),
             ),
             icon: const Icon(Icons.upload_file, size: 16),
             label: const Text('Import Excel'),
@@ -161,36 +171,90 @@ class _VendorsListPageState extends ConsumerState<VendorsListPage> {
               scrollDirection: Axis.horizontal,
               child: DataTable(
                 columnSpacing: 18,
-                headingRowColor: WidgetStateProperty.all(AppTheme.darkBackground),
+                headingRowColor:
+                    WidgetStateProperty.all(AppTheme.darkBackground),
                 columns: const [
-                  DataColumn(label: Text('#', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('Vendor Code', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('Vendor Legal Name', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('Category & Constitution', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('Contact Person', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('Phone & Email', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('Location', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('GSTIN & PAN', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('Added By', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueAccent))),
-                  DataColumn(label: Text('Vendor Owner / Assigned To', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primary))),
-                  DataColumn(label: Text('Credit Terms', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('Approval Status', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('Status', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('Actions', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
+                  DataColumn(
+                      label: Text('#',
+                          style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.bold))),
+                  DataColumn(
+                      label: Text('Vendor Code',
+                          style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.bold))),
+                  DataColumn(
+                      label: Text('Vendor Legal Name',
+                          style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.bold))),
+                  DataColumn(
+                      label: Text('Category & Constitution',
+                          style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.bold))),
+                  DataColumn(
+                      label: Text('Contact Person',
+                          style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.bold))),
+                  DataColumn(
+                      label: Text('Phone & Email',
+                          style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.bold))),
+                  DataColumn(
+                      label: Text('Location',
+                          style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.bold))),
+                  DataColumn(
+                      label: Text('GSTIN & PAN',
+                          style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.bold))),
+                  DataColumn(
+                      label: Text('Added By',
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blueAccent))),
+                  DataColumn(
+                      label: Text('Vendor Owner / Assigned To',
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primary))),
+                  DataColumn(
+                      label: Text('Credit Terms',
+                          style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.bold))),
+                  DataColumn(
+                      label: Text('Approval Status',
+                          style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.bold))),
+                  DataColumn(
+                      label: Text('Status',
+                          style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.bold))),
+                  DataColumn(
+                      label: Text('Actions',
+                          style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.bold))),
                 ],
                 rows: vendors.asMap().entries.map((entry) {
                   final index = entry.key;
                   final v = entry.value;
                   final rowNum = index + 1;
                   final status = v['status'] as String? ?? 'ACTIVE';
-                  final approvalStatus = v['approvalStatus'] as String? ?? 'APPROVED';
-                  final createdByUser = v['createdByUser'] as Map<String, dynamic>?;
-                  final assignedStaff = v['assignedStaff'] as Map<String, dynamic>?;
-                  final addedBy = createdByUser?['fullName'] ?? 'System / Admin';
-                  final vendorOwner = assignedStaff?['fullName'] ?? 'Unassigned';
+                  final approvalStatus =
+                      v['approvalStatus'] as String? ?? 'APPROVED';
+                  final createdByUser =
+                      v['createdByUser'] as Map<String, dynamic>?;
+                  final assignedStaff =
+                      v['assignedStaff'] as Map<String, dynamic>?;
+                  final addedBy =
+                      createdByUser?['fullName'] ?? 'System / Admin';
+                  final vendorOwner =
+                      assignedStaff?['fullName'] ?? 'Unassigned';
 
                   return DataRow(cells: [
-                    DataCell(Text('$rowNum', style: const TextStyle(fontSize: 11, color: Colors.grey))),
+                    DataCell(Text('$rowNum',
+                        style:
+                            const TextStyle(fontSize: 11, color: Colors.grey))),
                     DataCell(Text(v['vendorCode'] as String? ?? '',
                         style: const TextStyle(
                             fontSize: 12,
@@ -202,40 +266,58 @@ class _VendorsListPageState extends ConsumerState<VendorsListPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(v['companyName'] as String? ?? '',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                        if (v['legalName'] != null && (v['legalName'] as String).isNotEmpty)
+                            style: const TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.w600)),
+                        if (v['legalName'] != null &&
+                            (v['legalName'] as String).isNotEmpty)
                           Text(v['legalName'] as String,
-                              style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                              style: const TextStyle(
+                                  fontSize: 10, color: Colors.grey)),
                       ],
                     )),
                     DataCell(Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text((v['vendorCategory'] as String? ?? 'STANDARD').replaceAll('_', ' '),
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
+                        Text(
+                            (v['vendorCategory'] as String? ?? 'STANDARD')
+                                .replaceAll('_', ' '),
+                            style: const TextStyle(
+                                fontSize: 11, fontWeight: FontWeight.w500)),
                         if (v['constitution'] != null)
-                          Text((v['constitution'] as String).replaceAll('_', ' '),
-                              style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                          Text(
+                              (v['constitution'] as String)
+                                  .replaceAll('_', ' '),
+                              style: const TextStyle(
+                                  fontSize: 10, color: Colors.grey)),
                       ],
                     )),
-                    DataCell(Text(v['contactPerson'] as String? ?? '-', style: const TextStyle(fontSize: 12))),
+                    DataCell(Text(v['contactPerson'] as String? ?? '-',
+                        style: const TextStyle(fontSize: 12))),
                     DataCell(Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(v['phone'] as String? ?? '-', style: const TextStyle(fontSize: 12)),
-                        if (v['email'] != null && (v['email'] as String).isNotEmpty)
-                          Text(v['email'] as String, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                        Text(v['phone'] as String? ?? '-',
+                            style: const TextStyle(fontSize: 12)),
+                        if (v['email'] != null &&
+                            (v['email'] as String).isNotEmpty)
+                          Text(v['email'] as String,
+                              style: const TextStyle(
+                                  fontSize: 10, color: Colors.grey)),
                       ],
                     )),
                     DataCell(Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(v['city'] as String? ?? '-', style: const TextStyle(fontSize: 12)),
-                        if (v['state'] != null && (v['state'] as String).isNotEmpty)
-                          Text(v['state'] as String, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                        Text(v['city'] as String? ?? '-',
+                            style: const TextStyle(fontSize: 12)),
+                        if (v['state'] != null &&
+                            (v['state'] as String).isNotEmpty)
+                          Text(v['state'] as String,
+                              style: const TextStyle(
+                                  fontSize: 10, color: Colors.grey)),
                       ],
                     )),
                     DataCell(Column(
@@ -243,58 +325,77 @@ class _VendorsListPageState extends ConsumerState<VendorsListPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(v['gstin'] as String? ?? 'NO GST',
-                            style: const TextStyle(fontSize: 11, fontFamily: 'monospace')),
+                            style: const TextStyle(
+                                fontSize: 11, fontFamily: 'monospace')),
                         if (v['pan'] != null && (v['pan'] as String).isNotEmpty)
                           Text('PAN: ${v['pan']}',
-                              style: const TextStyle(fontSize: 10, fontFamily: 'monospace', color: Colors.grey)),
+                              style: const TextStyle(
+                                  fontSize: 10,
+                                  fontFamily: 'monospace',
+                                  color: Colors.grey)),
                       ],
                     )),
                     DataCell(Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.blueAccent.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.blueAccent.withValues(alpha: 0.3)),
+                        border: Border.all(
+                            color: Colors.blueAccent.withValues(alpha: 0.3)),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.person_outline, size: 13, color: Colors.blueAccent),
+                          const Icon(Icons.person_outline,
+                              size: 13, color: Colors.blueAccent),
                           const SizedBox(width: 4),
                           Text(
                             addedBy,
                             style: const TextStyle(
-                                fontSize: 11, fontWeight: FontWeight.w600, color: Colors.blueAccent),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.blueAccent),
                           ),
                         ],
                       ),
                     )),
                     DataCell(Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: AppTheme.primary.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3)),
+                        border: Border.all(
+                            color: AppTheme.primary.withValues(alpha: 0.3)),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.person_pin, size: 13, color: AppTheme.primary),
+                          const Icon(Icons.person_pin,
+                              size: 13, color: AppTheme.primary),
                           const SizedBox(width: 4),
                           Text(
                             vendorOwner,
                             style: const TextStyle(
-                                fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primary),
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primary),
                           ),
                         ],
                       ),
                     )),
-                    DataCell(Text((v['paymentTerms'] as String? ?? 'NET_30').replaceAll('_', ' '),
+                    DataCell(Text(
+                        (v['paymentTerms'] as String? ?? 'NET_30')
+                            .replaceAll('_', ' '),
                         style: const TextStyle(fontSize: 11))),
                     DataCell(Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: (approvalStatus == 'APPROVED' ? AppTheme.success : Colors.orange)
+                        color: (approvalStatus == 'APPROVED'
+                                ? AppTheme.success
+                                : Colors.orange)
                             .withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(4),
                       ),
@@ -303,7 +404,9 @@ class _VendorsListPageState extends ConsumerState<VendorsListPage> {
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
-                          color: approvalStatus == 'APPROVED' ? AppTheme.success : Colors.orangeAccent,
+                          color: approvalStatus == 'APPROVED'
+                              ? AppTheme.success
+                              : Colors.orangeAccent,
                         ),
                       ),
                     )),
@@ -340,7 +443,12 @@ class _VendorsListPageState extends ConsumerState<VendorsListPage> {
       itemBuilder: (_, i) {
         final v = vendors[i];
         final name = v['companyName'] as String? ?? '';
-        final initials = name.split(' ').take(2).map((w) => w.isNotEmpty ? w[0] : '').join().toUpperCase();
+        final initials = name
+            .split(' ')
+            .take(2)
+            .map((w) => w.isNotEmpty ? w[0] : '')
+            .join()
+            .toUpperCase();
         final createdByUser = v['createdByUser'] as Map<String, dynamic>?;
         final assignedStaff = v['assignedStaff'] as Map<String, dynamic>?;
         final addedBy = createdByUser?['fullName'] ?? 'System / Admin';
@@ -358,16 +466,22 @@ class _VendorsListPageState extends ConsumerState<VendorsListPage> {
                       backgroundColor: Colors.purple.withValues(alpha: 0.2),
                       child: Text(initials,
                           style: const TextStyle(
-                              color: Colors.purple, fontWeight: FontWeight.bold, fontSize: 13)),
+                              color: Colors.purple,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13)),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                          Text('${v['vendorCode'] ?? ''} · ${v['city'] ?? 'No City'}',
-                              style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                          Text(name,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600, fontSize: 14)),
+                          Text(
+                              '${v['vendorCode'] ?? ''} · ${v['city'] ?? 'No City'}',
+                              style: const TextStyle(
+                                  fontSize: 11, color: Colors.grey)),
                         ],
                       ),
                     ),
@@ -375,26 +489,33 @@ class _VendorsListPageState extends ConsumerState<VendorsListPage> {
                   ],
                 ),
                 const Divider(height: 16),
-                Text('Contact: ${v['contactPerson'] ?? ''} · ${v['phone'] ?? ''}',
+                Text(
+                    'Contact: ${v['contactPerson'] ?? ''} · ${v['phone'] ?? ''}',
                     style: const TextStyle(fontSize: 12)),
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    const Icon(Icons.person_pin, size: 12, color: AppTheme.primary),
+                    const Icon(Icons.person_pin,
+                        size: 12, color: AppTheme.primary),
                     const SizedBox(width: 4),
                     Text('Vendor Owner: $vendorOwner',
                         style: const TextStyle(
-                            fontSize: 11, color: AppTheme.primary, fontWeight: FontWeight.w600)),
+                            fontSize: 11,
+                            color: AppTheme.primary,
+                            fontWeight: FontWeight.w600)),
                   ],
                 ),
                 const SizedBox(height: 2),
                 Row(
                   children: [
-                    const Icon(Icons.person_outline, size: 12, color: Colors.blueAccent),
+                    const Icon(Icons.person_outline,
+                        size: 12, color: Colors.blueAccent),
                     const SizedBox(width: 4),
                     Text('Added By: $addedBy',
                         style: const TextStyle(
-                            fontSize: 11, color: Colors.blueAccent, fontWeight: FontWeight.w500)),
+                            fontSize: 11,
+                            color: Colors.blueAccent,
+                            fontWeight: FontWeight.w500)),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -423,9 +544,11 @@ class _VendorsListPageState extends ConsumerState<VendorsListPage> {
         children: [
           Icon(Icons.store_outlined, size: 64, color: Colors.grey[600]),
           const SizedBox(height: 16),
-          const Text('No vendors found', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const Text('No vendors found',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          const Text('Add your first vendor to get started', style: TextStyle(color: Colors.grey)),
+          const Text('Add your first vendor to get started',
+              style: TextStyle(color: Colors.grey)),
         ],
       ),
     );
@@ -508,8 +631,10 @@ class _VendorFormSheetState extends ConsumerState<_VendorFormSheet> {
       _paymentTerms = v['paymentTerms'] as String? ?? 'NET_30';
       _vendorCategory = v['vendorCategory'] as String? ?? 'STANDARD';
       _constitution = v['constitution'] as String? ?? 'PRIVATE_LIMITED';
-      _gstVerified = v['gstin'] != null && v['gstin'].toString().trim().isNotEmpty;
-      _verifiedGstin = _gstVerified ? v['gstin'].toString().trim().toUpperCase() : null;
+      _gstVerified =
+          v['gstin'] != null && v['gstin'].toString().trim().isNotEmpty;
+      _verifiedGstin =
+          _gstVerified ? v['gstin'].toString().trim().toUpperCase() : null;
     }
     _loadStaffMembers();
   }
@@ -558,7 +683,8 @@ class _VendorFormSheetState extends ConsumerState<_VendorFormSheet> {
 
   void _fillGstValueIfEmpty(TextEditingController controller, String? value) {
     if (value == null || value.isEmpty) return;
-    if (controller.text.trim().isEmpty || _gstAutoFilledValues.containsKey(controller)) {
+    if (controller.text.trim().isEmpty ||
+        _gstAutoFilledValues.containsKey(controller)) {
       controller.text = value;
       _gstAutoFilledValues[controller] = value;
     }
@@ -569,39 +695,93 @@ class _VendorFormSheetState extends ConsumerState<_VendorFormSheet> {
     if (cleanPin.length == 6 && RegExp(r'^\d{6}$').hasMatch(cleanPin)) {
       const pinPrefixes = {
         '411': {'district': 'Pune', 'state': 'Maharashtra', 'city': 'Pune'},
-        '412': {'district': 'Pune', 'state': 'Maharashtra', 'city': 'Pune Rural'},
-        '413': {'district': 'Solapur', 'state': 'Maharashtra', 'city': 'Solapur'},
-        '414': {'district': 'Ahmednagar', 'state': 'Maharashtra', 'city': 'Ahmednagar'},
+        '412': {
+          'district': 'Pune',
+          'state': 'Maharashtra',
+          'city': 'Pune Rural'
+        },
+        '413': {
+          'district': 'Solapur',
+          'state': 'Maharashtra',
+          'city': 'Solapur'
+        },
+        '414': {
+          'district': 'Ahmednagar',
+          'state': 'Maharashtra',
+          'city': 'Ahmednagar'
+        },
         '415': {'district': 'Satara', 'state': 'Maharashtra', 'city': 'Satara'},
-        '416': {'district': 'Kolhapur', 'state': 'Maharashtra', 'city': 'Kolhapur'},
+        '416': {
+          'district': 'Kolhapur',
+          'state': 'Maharashtra',
+          'city': 'Kolhapur'
+        },
         '400': {'district': 'Mumbai', 'state': 'Maharashtra', 'city': 'Mumbai'},
         '401': {'district': 'Thane', 'state': 'Maharashtra', 'city': 'Thane'},
         '421': {'district': 'Thane', 'state': 'Maharashtra', 'city': 'Kalyan'},
         '422': {'district': 'Nashik', 'state': 'Maharashtra', 'city': 'Nashik'},
         '424': {'district': 'Dhule', 'state': 'Maharashtra', 'city': 'Dhule'},
-        '425': {'district': 'Jalgaon', 'state': 'Maharashtra', 'city': 'Jalgaon'},
-        '431': {'district': 'Chhatrapati Sambhaji Nagar', 'state': 'Maharashtra', 'city': 'Chhatrapati Sambhaji Nagar'},
+        '425': {
+          'district': 'Jalgaon',
+          'state': 'Maharashtra',
+          'city': 'Jalgaon'
+        },
+        '431': {
+          'district': 'Chhatrapati Sambhaji Nagar',
+          'state': 'Maharashtra',
+          'city': 'Chhatrapati Sambhaji Nagar'
+        },
         '440': {'district': 'Nagpur', 'state': 'Maharashtra', 'city': 'Nagpur'},
-        '444': {'district': 'Amravati', 'state': 'Maharashtra', 'city': 'Amravati'},
-        '380': {'district': 'Ahmedabad', 'state': 'Gujarat', 'city': 'Ahmedabad'},
+        '444': {
+          'district': 'Amravati',
+          'state': 'Maharashtra',
+          'city': 'Amravati'
+        },
+        '380': {
+          'district': 'Ahmedabad',
+          'state': 'Gujarat',
+          'city': 'Ahmedabad'
+        },
         '390': {'district': 'Vadodara', 'state': 'Gujarat', 'city': 'Vadodara'},
         '395': {'district': 'Surat', 'state': 'Gujarat', 'city': 'Surat'},
         '360': {'district': 'Rajkot', 'state': 'Gujarat', 'city': 'Rajkot'},
-        '560': {'district': 'Bengaluru', 'state': 'Karnataka', 'city': 'Bengaluru'},
-        '500': {'district': 'Hyderabad', 'state': 'Telangana', 'city': 'Hyderabad'},
-        '600': {'district': 'Chennai', 'state': 'Tamil Nadu', 'city': 'Chennai'},
+        '560': {
+          'district': 'Bengaluru',
+          'state': 'Karnataka',
+          'city': 'Bengaluru'
+        },
+        '500': {
+          'district': 'Hyderabad',
+          'state': 'Telangana',
+          'city': 'Hyderabad'
+        },
+        '600': {
+          'district': 'Chennai',
+          'state': 'Tamil Nadu',
+          'city': 'Chennai'
+        },
         '110': {'district': 'Delhi', 'state': 'Delhi', 'city': 'New Delhi'},
         '122': {'district': 'Gurugram', 'state': 'Haryana', 'city': 'Gurugram'},
-        '201': {'district': 'Gautam Buddha Nagar', 'state': 'Uttar Pradesh', 'city': 'Noida'},
-        '700': {'district': 'Kolkata', 'state': 'West Bengal', 'city': 'Kolkata'},
+        '201': {
+          'district': 'Gautam Buddha Nagar',
+          'state': 'Uttar Pradesh',
+          'city': 'Noida'
+        },
+        '700': {
+          'district': 'Kolkata',
+          'state': 'West Bengal',
+          'city': 'Kolkata'
+        },
         '302': {'district': 'Jaipur', 'state': 'Rajasthan', 'city': 'Jaipur'},
       };
       final prefix = cleanPin.substring(0, 3);
       final mapped = pinPrefixes[prefix];
       if (mapped != null) {
-        if (_districtCtrl.text.trim().isEmpty) _districtCtrl.text = mapped['district']!;
+        if (_districtCtrl.text.trim().isEmpty)
+          _districtCtrl.text = mapped['district']!;
         if (_stateCtrl.text.trim().isEmpty) _stateCtrl.text = mapped['state']!;
-        if (_cityCtrl.text.trim().isEmpty && mapped['city'] != null) _cityCtrl.text = mapped['city']!;
+        if (_cityCtrl.text.trim().isEmpty && mapped['city'] != null)
+          _cityCtrl.text = mapped['city']!;
       }
     }
   }
@@ -612,7 +792,8 @@ class _VendorFormSheetState extends ConsumerState<_VendorFormSheet> {
     if (!_isValidGstin(gstin)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Enter a valid 15-digit GSTIN with a correct checksum digit'),
+          content: Text(
+              'Enter a valid 15-digit GSTIN with a correct checksum digit'),
           backgroundColor: AppTheme.warning,
         ),
       );
@@ -639,7 +820,8 @@ class _VendorFormSheetState extends ConsumerState<_VendorFormSheet> {
         final district = data['district']?.toString();
         final pincode = data['pincode']?.toString();
         final state = data['state']?.toString();
-        final pan = data['pan']?.toString() ?? (gstin.length >= 12 ? gstin.substring(2, 12) : null);
+        final pan = data['pan']?.toString() ??
+            (gstin.length >= 12 ? gstin.substring(2, 12) : null);
         final companyType = data['companyType']?.toString();
 
         if (mounted) {
@@ -696,7 +878,8 @@ class _VendorFormSheetState extends ConsumerState<_VendorFormSheet> {
           );
         }
       } else {
-        throw Exception(data['message'] ?? 'GSTIN verification was not successful');
+        throw Exception(
+            data['message'] ?? 'GSTIN verification was not successful');
       }
     } catch (e) {
       if (mounted) {
@@ -730,18 +913,26 @@ class _VendorFormSheetState extends ConsumerState<_VendorFormSheet> {
           if (_selectedStaffOwner == null) {
             final v = widget.vendor;
             if (v != null && v['assignedStaffId'] != null) {
-              _selectedStaffOwner = list.where((s) => s.id == v['assignedStaffId']).firstOrNull;
+              _selectedStaffOwner =
+                  list.where((s) => s.id == v['assignedStaffId']).firstOrNull;
             }
             if (_selectedStaffOwner == null) {
               final currentUser = ref.read(currentUserProvider);
               if (currentUser != null) {
-                _selectedStaffOwner = list.where(
-                  (s) =>
-                      (currentUser.staffId != null && s.id == currentUser.staffId) ||
-                      (currentUser.employeeId != null && s.employeeId == currentUser.employeeId) ||
-                      s.fullName.toLowerCase() == currentUser.fullName.toLowerCase() ||
-                      s.email.toLowerCase() == currentUser.email.toLowerCase(),
-                ).firstOrNull ?? (list.isNotEmpty ? list.first : null);
+                _selectedStaffOwner = list
+                        .where(
+                          (s) =>
+                              (currentUser.staffId != null &&
+                                  s.id == currentUser.staffId) ||
+                              (currentUser.employeeId != null &&
+                                  s.employeeId == currentUser.employeeId) ||
+                              s.fullName.toLowerCase() ==
+                                  currentUser.fullName.toLowerCase() ||
+                              s.email.toLowerCase() ==
+                                  currentUser.email.toLowerCase(),
+                        )
+                        .firstOrNull ??
+                    (list.isNotEmpty ? list.first : null);
               } else if (list.isNotEmpty) {
                 _selectedStaffOwner = list.first;
               }
@@ -754,10 +945,12 @@ class _VendorFormSheetState extends ConsumerState<_VendorFormSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final isGstMatch = _gstVerified && _verifiedGstin == _gstCtrl.text.trim().toUpperCase();
+    final isGstMatch =
+        _gstVerified && _verifiedGstin == _gstCtrl.text.trim().toUpperCase();
 
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: DraggableScrollableSheet(
         expand: false,
         maxChildSize: 0.92,
@@ -771,11 +964,13 @@ class _VendorFormSheetState extends ConsumerState<_VendorFormSheet> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.storefront, color: AppTheme.primary, size: 22),
+                    const Icon(Icons.storefront,
+                        color: AppTheme.primary, size: 22),
                     const SizedBox(width: 8),
                     Text(
                       isEdit ? 'Edit Vendor Details' : 'Vendor Registration',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
@@ -793,22 +988,26 @@ class _VendorFormSheetState extends ConsumerState<_VendorFormSheet> {
                           decoration: InputDecoration(
                             labelText: 'GSTIN (15-digit)',
                             hintText: '27AAAAA0000A1Z5',
-                            prefixIcon: const Icon(Icons.receipt_long, size: 20),
+                            prefixIcon:
+                                const Icon(Icons.receipt_long, size: 20),
                             suffixIcon: _isVerifyingGst
                                 ? const Padding(
                                     padding: EdgeInsets.all(12),
                                     child: SizedBox(
                                       width: 18,
                                       height: 18,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2),
                                     ),
                                   )
                                 : isGstMatch
-                                    ? const Icon(Icons.check_circle, color: AppTheme.success)
+                                    ? const Icon(Icons.check_circle,
+                                        color: AppTheme.success)
                                     : null,
                           ),
                           onChanged: (val) {
-                            if (_verifiedGstin != null && val.trim().toUpperCase() != _verifiedGstin) {
+                            if (_verifiedGstin != null &&
+                                val.trim().toUpperCase() != _verifiedGstin) {
                               setState(() {
                                 _gstVerified = false;
                                 _verifiedGstin = null;
@@ -826,18 +1025,22 @@ class _VendorFormSheetState extends ConsumerState<_VendorFormSheet> {
                               ? const SizedBox(
                                   width: 16,
                                   height: 16,
-                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                      color: Colors.white, strokeWidth: 2),
                                 )
-                              : const Icon(Icons.cloud_download_outlined, size: 18),
+                              : const Icon(Icons.cloud_download_outlined,
+                                  size: 18),
                           label: const Text(
                             'Auto Fetch',
-                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                            style: TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 13),
                           ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.primary,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(horizontal: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8)),
                           ),
                         ),
                       ),
@@ -847,15 +1050,18 @@ class _VendorFormSheetState extends ConsumerState<_VendorFormSheet> {
                 if (isGstMatch)
                   Container(
                     margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
                       color: AppTheme.success.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppTheme.success.withValues(alpha: 0.3)),
+                      border: Border.all(
+                          color: AppTheme.success.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.verified, color: AppTheme.success, size: 18),
+                        const Icon(Icons.verified,
+                            color: AppTheme.success, size: 18),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -870,7 +1076,8 @@ class _VendorFormSheetState extends ConsumerState<_VendorFormSheet> {
                       ],
                     ),
                   ),
-                _field(_companyCtrl, 'Vendor Display / Company Name *', required: true),
+                _field(_companyCtrl, 'Vendor Display / Company Name *',
+                    required: true),
                 _field(_legalNameCtrl, 'Legal Registered Entity Name'),
                 Row(
                   children: [
@@ -880,10 +1087,19 @@ class _VendorFormSheetState extends ConsumerState<_VendorFormSheet> {
                       child: Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: DropdownButtonFormField<String>(
-                          value: _constitution,
-                          decoration: const InputDecoration(labelText: 'Constitution'),
-                          items: ['PRIVATE_LIMITED', 'PUBLIC_LIMITED', 'PROPRIETORSHIP', 'PARTNERSHIP', 'LLP']
-                              .map((c) => DropdownMenuItem(value: c, child: Text(c.replaceAll('_', ' '))))
+                          initialValue: _constitution,
+                          decoration:
+                              const InputDecoration(labelText: 'Constitution'),
+                          items: [
+                            'PRIVATE_LIMITED',
+                            'PUBLIC_LIMITED',
+                            'PROPRIETORSHIP',
+                            'PARTNERSHIP',
+                            'LLP'
+                          ]
+                              .map((c) => DropdownMenuItem(
+                                  value: c,
+                                  child: Text(c.replaceAll('_', ' '))))
                               .toList(),
                           onChanged: (v) => setState(() => _constitution = v!),
                         ),
@@ -894,10 +1110,17 @@ class _VendorFormSheetState extends ConsumerState<_VendorFormSheet> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: DropdownButtonFormField<String>(
-                    value: _vendorCategory,
-                    decoration: const InputDecoration(labelText: 'Vendor Category'),
-                    items: ['STANDARD', 'STRATEGIC_TIER_1', 'PREFERRED', 'CRITICAL']
-                        .map((c) => DropdownMenuItem(value: c, child: Text(c.replaceAll('_', ' '))))
+                    initialValue: _vendorCategory,
+                    decoration:
+                        const InputDecoration(labelText: 'Vendor Category'),
+                    items: [
+                      'STANDARD',
+                      'STRATEGIC_TIER_1',
+                      'PREFERRED',
+                      'CRITICAL'
+                    ]
+                        .map((c) => DropdownMenuItem(
+                            value: c, child: Text(c.replaceAll('_', ' '))))
                         .toList(),
                     onChanged: (v) => setState(() => _vendorCategory = v!),
                   ),
@@ -906,19 +1129,25 @@ class _VendorFormSheetState extends ConsumerState<_VendorFormSheet> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 14),
                   child: DropdownButtonFormField<String>(
-                    value: _selectedStaffOwner?.id.isNotEmpty == true ? _selectedStaffOwner!.id : null,
+                    initialValue: _selectedStaffOwner?.id.isNotEmpty == true
+                        ? _selectedStaffOwner!.id
+                        : null,
                     isExpanded: true,
                     decoration: InputDecoration(
                       labelText: 'Vendor Owner / Assigned To *',
-                      helperText: 'Defaulted to logged-in employee. Reassignable to authorized staff.',
-                      prefixIcon: const Icon(Icons.person_pin, color: AppTheme.primary, size: 20),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      helperText:
+                          'Defaulted to logged-in employee. Reassignable to authorized staff.',
+                      prefixIcon: const Icon(Icons.person_pin,
+                          color: AppTheme.primary, size: 20),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8)),
                     ),
                     items: _staffMembers.map((staff) {
                       return DropdownMenuItem<String>(
                         value: staff.id,
                         child: Text(
-                          staff.departmentName != null && staff.departmentName!.isNotEmpty
+                          staff.departmentName != null &&
+                                  staff.departmentName!.isNotEmpty
                               ? '${staff.fullName} (${staff.departmentName})'
                               : staff.fullName,
                           style: const TextStyle(fontWeight: FontWeight.w600),
@@ -927,8 +1156,10 @@ class _VendorFormSheetState extends ConsumerState<_VendorFormSheet> {
                     }).toList(),
                     onChanged: (val) {
                       if (val != null) {
-                        final found = _staffMembers.where((s) => s.id == val).firstOrNull;
-                        if (found != null) setState(() => _selectedStaffOwner = found);
+                        final found =
+                            _staffMembers.where((s) => s.id == val).firstOrNull;
+                        if (found != null)
+                          setState(() => _selectedStaffOwner = found);
                       }
                     },
                   ),
@@ -936,12 +1167,17 @@ class _VendorFormSheetState extends ConsumerState<_VendorFormSheet> {
                 _field(_contactCtrl, 'Contact Person *', required: true),
                 Row(
                   children: [
-                    Expanded(child: _field(_phoneCtrl, 'Phone / Mobile *', required: true, keyboardType: TextInputType.phone)),
+                    Expanded(
+                        child: _field(_phoneCtrl, 'Phone / Mobile *',
+                            required: true, keyboardType: TextInputType.phone)),
                     const SizedBox(width: 12),
-                    Expanded(child: _field(_emailCtrl, 'Official Email', keyboardType: TextInputType.emailAddress)),
+                    Expanded(
+                        child: _field(_emailCtrl, 'Official Email',
+                            keyboardType: TextInputType.emailAddress)),
                   ],
                 ),
-                _field(_addressCtrl, 'Registered Office / Factory Address', maxLines: 2),
+                _field(_addressCtrl, 'Registered Office / Factory Address',
+                    maxLines: 2),
                 Row(
                   children: [
                     Expanded(child: _field(_cityCtrl, 'City')),
@@ -959,7 +1195,8 @@ class _VendorFormSheetState extends ConsumerState<_VendorFormSheet> {
                         child: TextFormField(
                           controller: _pincodeCtrl,
                           keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'Pincode (6-digit)'),
+                          decoration: const InputDecoration(
+                              labelText: 'Pincode (6-digit)'),
                           onChanged: _onPincodeChanged,
                         ),
                       ),
@@ -969,10 +1206,20 @@ class _VendorFormSheetState extends ConsumerState<_VendorFormSheet> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 16),
                   child: DropdownButtonFormField<String>(
-                    value: _paymentTerms,
-                    decoration: const InputDecoration(labelText: 'Credit / Payment Terms'),
-                    items: ['NET_7', 'NET_15', 'NET_30', 'NET_45', 'NET_60', 'ADVANCE', 'IMMEDIATE']
-                        .map((t) => DropdownMenuItem(value: t, child: Text(t.replaceAll('_', ' '))))
+                    initialValue: _paymentTerms,
+                    decoration: const InputDecoration(
+                        labelText: 'Credit / Payment Terms'),
+                    items: [
+                      'NET_7',
+                      'NET_15',
+                      'NET_30',
+                      'NET_45',
+                      'NET_60',
+                      'ADVANCE',
+                      'IMMEDIATE'
+                    ]
+                        .map((t) => DropdownMenuItem(
+                            value: t, child: Text(t.replaceAll('_', ' '))))
                         .toList(),
                     onChanged: (v) => setState(() => _paymentTerms = v!),
                   ),
@@ -987,7 +1234,8 @@ class _VendorFormSheetState extends ConsumerState<_VendorFormSheet> {
                       foregroundColor: Colors.white,
                     ),
                     child: _isLoading
-                        ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+                        ? const CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2)
                         : Text(isEdit ? 'Update Vendor' : 'Register Vendor'),
                   ),
                 ),
@@ -1000,7 +1248,8 @@ class _VendorFormSheetState extends ConsumerState<_VendorFormSheet> {
     );
   }
 
-  Widget _field(TextEditingController ctrl, String label, {bool required = false, TextInputType? keyboardType, int maxLines = 1}) {
+  Widget _field(TextEditingController ctrl, String label,
+      {bool required = false, TextInputType? keyboardType, int maxLines = 1}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: TextFormField(
@@ -1008,7 +1257,8 @@ class _VendorFormSheetState extends ConsumerState<_VendorFormSheet> {
         keyboardType: keyboardType,
         maxLines: maxLines,
         decoration: InputDecoration(labelText: label),
-        validator: required ? (v) => v?.isEmpty == true ? 'Required' : null : null,
+        validator:
+            required ? (v) => v?.isEmpty == true ? 'Required' : null : null,
       ),
     );
   }
@@ -1019,17 +1269,26 @@ class _VendorFormSheetState extends ConsumerState<_VendorFormSheet> {
 
     final data = {
       'companyName': _companyCtrl.text.trim(),
-      'legalName': _legalNameCtrl.text.trim().isEmpty ? null : _legalNameCtrl.text.trim(),
-      'gstin': _gstCtrl.text.trim().isEmpty ? null : _gstCtrl.text.trim().toUpperCase(),
-      'pan': _panCtrl.text.trim().isEmpty ? null : _panCtrl.text.trim().toUpperCase(),
+      'legalName': _legalNameCtrl.text.trim().isEmpty
+          ? null
+          : _legalNameCtrl.text.trim(),
+      'gstin': _gstCtrl.text.trim().isEmpty
+          ? null
+          : _gstCtrl.text.trim().toUpperCase(),
+      'pan': _panCtrl.text.trim().isEmpty
+          ? null
+          : _panCtrl.text.trim().toUpperCase(),
       'contactPerson': _contactCtrl.text.trim(),
       'email': _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
       'phone': _phoneCtrl.text.trim(),
-      'address': _addressCtrl.text.trim().isEmpty ? null : _addressCtrl.text.trim(),
+      'address':
+          _addressCtrl.text.trim().isEmpty ? null : _addressCtrl.text.trim(),
       'city': _cityCtrl.text.trim().isEmpty ? null : _cityCtrl.text.trim(),
-      'district': _districtCtrl.text.trim().isEmpty ? null : _districtCtrl.text.trim(),
+      'district':
+          _districtCtrl.text.trim().isEmpty ? null : _districtCtrl.text.trim(),
       'state': _stateCtrl.text.trim().isEmpty ? null : _stateCtrl.text.trim(),
-      'pincode': _pincodeCtrl.text.trim().isEmpty ? null : _pincodeCtrl.text.trim(),
+      'pincode':
+          _pincodeCtrl.text.trim().isEmpty ? null : _pincodeCtrl.text.trim(),
       'paymentTerms': _paymentTerms,
       'vendorCategory': _vendorCategory,
       'constitution': _constitution,
@@ -1048,7 +1307,9 @@ class _VendorFormSheetState extends ConsumerState<_VendorFormSheet> {
         widget.onSuccess();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(isEdit ? 'Vendor updated successfully' : 'Vendor registered successfully'),
+            content: Text(isEdit
+                ? 'Vendor updated successfully'
+                : 'Vendor registered successfully'),
             backgroundColor: AppTheme.success,
           ),
         );
@@ -1056,7 +1317,8 @@ class _VendorFormSheetState extends ConsumerState<_VendorFormSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: AppTheme.error),
+          SnackBar(
+              content: Text(e.toString()), backgroundColor: AppTheme.error),
         );
       }
     } finally {
@@ -1078,7 +1340,9 @@ class _StatusBadge extends StatelessWidget {
         color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
       ),
-      child: Text(status, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
+      child: Text(status,
+          style: TextStyle(
+              fontSize: 10, color: color, fontWeight: FontWeight.w600)),
     );
   }
 }

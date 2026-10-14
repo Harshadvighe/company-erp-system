@@ -99,13 +99,20 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
           if (_selectedStaffHost == null) {
             final currentUser = ref.read(currentUserProvider);
             if (currentUser != null) {
-              _selectedStaffHost = list.where(
-                (s) =>
-                    (currentUser.staffId != null && s.id == currentUser.staffId) ||
-                    (currentUser.employeeId != null && s.employeeId == currentUser.employeeId) ||
-                    s.fullName.toLowerCase() == currentUser.fullName.toLowerCase() ||
-                    s.email.toLowerCase() == currentUser.email.toLowerCase(),
-              ).firstOrNull ?? (list.isNotEmpty ? list.first : null);
+              _selectedStaffHost = list
+                      .where(
+                        (s) =>
+                            (currentUser.staffId != null &&
+                                s.id == currentUser.staffId) ||
+                            (currentUser.employeeId != null &&
+                                s.employeeId == currentUser.employeeId) ||
+                            s.fullName.toLowerCase() ==
+                                currentUser.fullName.toLowerCase() ||
+                            s.email.toLowerCase() ==
+                                currentUser.email.toLowerCase(),
+                      )
+                      .firstOrNull ??
+                  (list.isNotEmpty ? list.first : null);
             } else if (list.isNotEmpty) {
               _selectedStaffHost = list.first;
             }
@@ -250,7 +257,8 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
     if (value == null || value.isEmpty) {
       return;
     }
-    if (controller.text.trim().isEmpty || _gstAutoFilledValues.containsKey(controller)) {
+    if (controller.text.trim().isEmpty ||
+        _gstAutoFilledValues.containsKey(controller)) {
       controller.text = value;
       _gstAutoFilledValues[controller] = value;
     }
@@ -261,31 +269,83 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
     if (cleanPin.length == 6 && RegExp(r'^\d{6}$').hasMatch(cleanPin)) {
       const pinPrefixes = {
         '411': {'district': 'Pune', 'state': 'Maharashtra', 'city': 'Pune'},
-        '412': {'district': 'Pune', 'state': 'Maharashtra', 'city': 'Pune Rural'},
-        '413': {'district': 'Solapur', 'state': 'Maharashtra', 'city': 'Solapur'},
-        '414': {'district': 'Ahmednagar', 'state': 'Maharashtra', 'city': 'Ahmednagar'},
+        '412': {
+          'district': 'Pune',
+          'state': 'Maharashtra',
+          'city': 'Pune Rural'
+        },
+        '413': {
+          'district': 'Solapur',
+          'state': 'Maharashtra',
+          'city': 'Solapur'
+        },
+        '414': {
+          'district': 'Ahmednagar',
+          'state': 'Maharashtra',
+          'city': 'Ahmednagar'
+        },
         '415': {'district': 'Satara', 'state': 'Maharashtra', 'city': 'Satara'},
-        '416': {'district': 'Kolhapur', 'state': 'Maharashtra', 'city': 'Kolhapur'},
+        '416': {
+          'district': 'Kolhapur',
+          'state': 'Maharashtra',
+          'city': 'Kolhapur'
+        },
         '400': {'district': 'Mumbai', 'state': 'Maharashtra', 'city': 'Mumbai'},
         '401': {'district': 'Thane', 'state': 'Maharashtra', 'city': 'Thane'},
         '421': {'district': 'Thane', 'state': 'Maharashtra', 'city': 'Kalyan'},
         '422': {'district': 'Nashik', 'state': 'Maharashtra', 'city': 'Nashik'},
         '424': {'district': 'Dhule', 'state': 'Maharashtra', 'city': 'Dhule'},
-        '425': {'district': 'Jalgaon', 'state': 'Maharashtra', 'city': 'Jalgaon'},
-        '431': {'district': 'Chhatrapati Sambhaji Nagar', 'state': 'Maharashtra', 'city': 'Chhatrapati Sambhaji Nagar'},
+        '425': {
+          'district': 'Jalgaon',
+          'state': 'Maharashtra',
+          'city': 'Jalgaon'
+        },
+        '431': {
+          'district': 'Chhatrapati Sambhaji Nagar',
+          'state': 'Maharashtra',
+          'city': 'Chhatrapati Sambhaji Nagar'
+        },
         '440': {'district': 'Nagpur', 'state': 'Maharashtra', 'city': 'Nagpur'},
-        '444': {'district': 'Amravati', 'state': 'Maharashtra', 'city': 'Amravati'},
-        '380': {'district': 'Ahmedabad', 'state': 'Gujarat', 'city': 'Ahmedabad'},
+        '444': {
+          'district': 'Amravati',
+          'state': 'Maharashtra',
+          'city': 'Amravati'
+        },
+        '380': {
+          'district': 'Ahmedabad',
+          'state': 'Gujarat',
+          'city': 'Ahmedabad'
+        },
         '390': {'district': 'Vadodara', 'state': 'Gujarat', 'city': 'Vadodara'},
         '395': {'district': 'Surat', 'state': 'Gujarat', 'city': 'Surat'},
         '360': {'district': 'Rajkot', 'state': 'Gujarat', 'city': 'Rajkot'},
-        '560': {'district': 'Bengaluru', 'state': 'Karnataka', 'city': 'Bengaluru'},
-        '500': {'district': 'Hyderabad', 'state': 'Telangana', 'city': 'Hyderabad'},
-        '600': {'district': 'Chennai', 'state': 'Tamil Nadu', 'city': 'Chennai'},
+        '560': {
+          'district': 'Bengaluru',
+          'state': 'Karnataka',
+          'city': 'Bengaluru'
+        },
+        '500': {
+          'district': 'Hyderabad',
+          'state': 'Telangana',
+          'city': 'Hyderabad'
+        },
+        '600': {
+          'district': 'Chennai',
+          'state': 'Tamil Nadu',
+          'city': 'Chennai'
+        },
         '110': {'district': 'Delhi', 'state': 'Delhi', 'city': 'New Delhi'},
         '122': {'district': 'Gurugram', 'state': 'Haryana', 'city': 'Gurugram'},
-        '201': {'district': 'Gautam Buddha Nagar', 'state': 'Uttar Pradesh', 'city': 'Noida'},
-        '700': {'district': 'Kolkata', 'state': 'West Bengal', 'city': 'Kolkata'},
+        '201': {
+          'district': 'Gautam Buddha Nagar',
+          'state': 'Uttar Pradesh',
+          'city': 'Noida'
+        },
+        '700': {
+          'district': 'Kolkata',
+          'state': 'West Bengal',
+          'city': 'Kolkata'
+        },
         '302': {'district': 'Jaipur', 'state': 'Rajasthan', 'city': 'Jaipur'},
       };
 
@@ -430,7 +490,8 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please correct the highlighted validation errors before saving'),
+          content: Text(
+              'Please correct the highlighted validation errors before saving'),
           backgroundColor: _errorColor,
         ),
       );
@@ -586,9 +647,9 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              const Text(
                 'The following matching company records exist in CRM:',
-                style: TextStyle(color: _textSecondary, fontSize: 12),
+                style: const TextStyle(color: _textSecondary, fontSize: 12),
               ),
               const SizedBox(height: 10),
               Flexible(
@@ -634,7 +695,8 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('CANCEL', style: TextStyle(color: _textSecondary)),
+            child:
+                const Text('CANCEL', style: TextStyle(color: _textSecondary)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -660,7 +722,8 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
       return const Scaffold(
         backgroundColor: _bgDark,
         body: Center(
-          child: CircularProgressIndicator(color: _primaryAccent, strokeWidth: 2.5),
+          child: CircularProgressIndicator(
+              color: _primaryAccent, strokeWidth: 2.5),
         ),
       );
     }
@@ -685,7 +748,8 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              if (_errorMessage != null) _buildErrorMessageBanner(),
+                              if (_errorMessage != null)
+                                _buildErrorMessageBanner(),
                               if (isWideDesktop)
                                 _buildDesktopTwoColumnLayout()
                               else
@@ -737,7 +801,8 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
                   border: Border.all(color: _borderColor),
                   color: _cardBg,
                 ),
-                child: const Icon(Icons.arrow_back, color: _textPrimary, size: 18),
+                child:
+                    const Icon(Icons.arrow_back, color: _textPrimary, size: 18),
               ),
             ),
           ),
@@ -764,7 +829,8 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
                         ),
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                             color: isEdit
                                 ? _primaryAccent.withValues(alpha: 0.15)
@@ -801,7 +867,8 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
                 const SizedBox(width: 16),
                 if (!isEdit)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: _inputBg,
                       borderRadius: BorderRadius.circular(4),
@@ -810,7 +877,8 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.auto_awesome, color: _primaryAccent, size: 12),
+                        Icon(Icons.auto_awesome,
+                            color: _primaryAccent, size: 12),
                         SizedBox(width: 4),
                         Text(
                           'Auto-ID: CUS-2026-XXXXX',
@@ -841,9 +909,11 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
               side: const BorderSide(color: _borderColor),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               minimumSize: const Size(0, 34),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6)),
             ),
-            child: const Text('Cancel', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+            child: const Text('Cancel',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
           ),
           const SizedBox(width: 8),
           ElevatedButton.icon(
@@ -853,14 +923,16 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               minimumSize: const Size(0, 34),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6)),
               elevation: 0,
             ),
             icon: _isLoading
                 ? const SizedBox(
                     width: 14,
                     height: 14,
-                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2),
                   )
                 : const Icon(Icons.check_circle_outline, size: 15),
             label: Text(
@@ -969,7 +1041,8 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
     return _buildSectionCard(
       icon: Icons.verified_user_outlined,
       title: 'GST Intelligence & Verification',
-      subtitle: 'Real-time GSTIN validation and automatic company profile filling',
+      subtitle:
+          'Real-time GSTIN validation and automatic company profile filling',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -999,7 +1072,8 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(4),
                         border: _gstStatus == 'GST_REGISTERED'
-                            ? Border.all(color: _primaryAccent.withValues(alpha: 0.4))
+                            ? Border.all(
+                                color: _primaryAccent.withValues(alpha: 0.4))
                             : null,
                       ),
                       child: Center(
@@ -1054,7 +1128,8 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(4),
                         border: _gstStatus == 'NO_GST'
-                            ? Border.all(color: _warningColor.withValues(alpha: 0.4))
+                            ? Border.all(
+                                color: _warningColor.withValues(alpha: 0.4))
                             : null,
                       ),
                       child: Center(
@@ -1169,15 +1244,18 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
             if (_gstVerified)
               Container(
                 margin: const EdgeInsets.only(top: 6),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                 decoration: BoxDecoration(
                   color: _successColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: _successColor.withValues(alpha: 0.35)),
+                  border:
+                      Border.all(color: _successColor.withValues(alpha: 0.35)),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.check_circle, color: _successColor, size: 16),
+                    const Icon(Icons.check_circle,
+                        color: _successColor, size: 16),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -1206,7 +1284,8 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
                 'OTHER': 'Other Exemption Reason',
               },
               prefixIcon: Icons.info_outline,
-              onChanged: (val) => setState(() => _noGstReason = val ?? 'UNREGISTERED_BUSINESS'),
+              onChanged: (val) =>
+                  setState(() => _noGstReason = val ?? 'UNREGISTERED_BUSINESS'),
             ),
           ],
         ],
@@ -1328,7 +1407,8 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
     return _buildSectionCard(
       icon: Icons.precision_manufacturing_outlined,
       title: 'Product & System Interests',
-      subtitle: 'Select all industrial pumping, automation and treatment systems for this account',
+      subtitle:
+          'Select all industrial pumping, automation and treatment systems for this account',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1353,7 +1433,8 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
                 borderRadius: BorderRadius.circular(5),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
                   decoration: BoxDecoration(
                     color: isSelected
                         ? _primaryAccent.withValues(alpha: 0.18)
@@ -1368,7 +1449,9 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        isSelected ? Icons.check_box : Icons.check_box_outline_blank,
+                        isSelected
+                            ? Icons.check_box
+                            : Icons.check_box_outline_blank,
                         size: 13,
                         color: isSelected ? _primaryAccent : _textMuted,
                       ),
@@ -1377,7 +1460,8 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
                         sysName,
                         style: TextStyle(
                           fontSize: 11,
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                          fontWeight:
+                              isSelected ? FontWeight.w600 : FontWeight.normal,
                           color: isSelected ? _textPrimary : _textSecondary,
                         ),
                       ),
@@ -1391,7 +1475,10 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
             const SizedBox(height: 8),
             Text(
               '${_selectedProductSystemIds.length} industrial systems selected',
-              style: const TextStyle(color: _primaryAccent, fontSize: 10.5, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                  color: _primaryAccent,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600),
             ),
           ],
         ],
@@ -1409,7 +1496,9 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           DropdownButtonFormField<String>(
-            value: _selectedStaffHost?.id.isNotEmpty == true ? _selectedStaffHost!.id : null,
+            initialValue: _selectedStaffHost?.id.isNotEmpty == true
+                ? _selectedStaffHost!.id
+                : null,
             decoration: _inputDecoration(
               label: 'Sales Owner / Relationship Manager',
               required: true,
@@ -1418,7 +1507,13 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
             dropdownColor: _cardBg,
             style: const TextStyle(color: _textPrimary, fontSize: 13),
             items: _staffMembers.map((s) {
-              final initials = s.fullName.trim().split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase();
+              final initials = s.fullName
+                  .trim()
+                  .split(' ')
+                  .map((e) => e.isNotEmpty ? e[0] : '')
+                  .take(2)
+                  .join()
+                  .toUpperCase();
               return DropdownMenuItem<String>(
                 value: s.id,
                 child: Row(
@@ -1428,7 +1523,10 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
                       backgroundColor: _primaryAccent.withValues(alpha: 0.25),
                       child: Text(
                         initials.isNotEmpty ? initials : 'S',
-                        style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: _primaryAccent),
+                        style: const TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: _primaryAccent),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -1445,7 +1543,8 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
             }).toList(),
             onChanged: (val) {
               if (val != null) {
-                final found = _staffMembers.where((s) => s.id == val).firstOrNull;
+                final found =
+                    _staffMembers.where((s) => s.id == val).firstOrNull;
                 if (found != null) setState(() => _selectedStaffHost = found);
               }
             },
@@ -1643,9 +1742,11 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
               side: const BorderSide(color: _borderColor),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               minimumSize: const Size(0, 34),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6)),
             ),
-            child: const Text('Cancel', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+            child: const Text('Cancel',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
           ),
           const SizedBox(width: 10),
           ElevatedButton.icon(
@@ -1655,20 +1756,24 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               minimumSize: const Size(0, 34),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6)),
               elevation: 0,
             ),
             icon: _isLoading
                 ? const SizedBox(
                     width: 14,
                     height: 14,
-                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2),
                   )
                 : const Icon(Icons.check_circle_outline, size: 15),
             label: Text(
               _isLoading
                   ? 'Saving Record...'
-                  : (isEdit ? 'Update Company Record' : 'Save Company (Customer 360)'),
+                  : (isEdit
+                      ? 'Update Company Record'
+                      : 'Save Company (Customer 360)'),
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
             ),
           ),
@@ -1774,7 +1879,8 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
         borderRadius: BorderRadius.circular(6),
         borderSide: const BorderSide(color: _errorColor, width: 1.4),
       ),
-      errorStyle: const TextStyle(fontSize: 10.5, color: _errorColor, height: 1.1),
+      errorStyle:
+          const TextStyle(fontSize: 10.5, color: _errorColor, height: 1.1),
     );
   }
 
@@ -1803,7 +1909,8 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
       ),
       validator: validator ??
           (required
-              ? (v) => (v == null || v.trim().isEmpty) ? '$label is required' : null
+              ? (v) =>
+                  (v == null || v.trim().isEmpty) ? '$label is required' : null
               : null),
     );
   }
@@ -1828,7 +1935,8 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
       menuItems = items
           .map((e) => DropdownMenuItem(
                 value: e,
-                child: Text(e.replaceAll('_', ' '), style: const TextStyle(fontSize: 12.5)),
+                child: Text(e.replaceAll('_', ' '),
+                    style: const TextStyle(fontSize: 12.5)),
               ))
           .toList();
     } else {

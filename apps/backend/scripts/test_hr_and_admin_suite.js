@@ -3,6 +3,7 @@ const { PrismaService } = require('../dist/src/core/database/prisma.service');
 const { SequenceService } = require('../dist/src/core/database/sequence.service');
 const { AdminService } = require('../dist/src/modules/admin/admin.service');
 const { HrService } = require('../dist/src/modules/hr/hr.service');
+const { AuditService } = require('../dist/src/core/audit/audit.service');
 const bcrypt = require('bcryptjs');
 
 async function runTestSuite() {
@@ -13,8 +14,9 @@ async function runTestSuite() {
   const prisma = new PrismaService();
   await prisma.$connect();
   const sequenceService = new SequenceService(prisma);
+  const auditService = new AuditService(prisma);
   const adminService = new AdminService(prisma);
-  const hrService = new HrService(prisma, sequenceService);
+  const hrService = new HrService(prisma, sequenceService, auditService);
 
   let totalTests = 0;
   let passedTests = 0;

@@ -85,6 +85,7 @@ export class BulkImportController {
   }
 
   @Get('template/:target')
+  @RequirePermissions('CUSTOMERS:VIEW', 'PURCHASE:VIEW', 'VENDORS:VIEW')
   @ApiOperation({ summary: 'Download standard sample import template CSV' })
   downloadTemplate(
     @Param('target') targetParam: string,
@@ -104,6 +105,7 @@ export class BulkImportController {
   }
 
   @Post('error-report')
+  @RequirePermissions('CUSTOMERS:VIEW', 'PURCHASE:VIEW', 'VENDORS:VIEW')
   @ApiOperation({ summary: 'Generate and download sanitized CSV error report' })
   downloadErrorReport(
     @Body() dto: GenerateErrorReportDto,

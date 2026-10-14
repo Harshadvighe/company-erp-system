@@ -212,8 +212,9 @@ class _VendorRegistrationModalState
       final mapped = pinPrefixes[prefix];
       if (mapped != null) {
         if (_stateCtrl.text.trim().isEmpty) _stateCtrl.text = mapped['state']!;
-        if (_cityCtrl.text.trim().isEmpty && mapped['city'] != null)
+        if (_cityCtrl.text.trim().isEmpty && mapped['city'] != null) {
           _cityCtrl.text = mapped['city']!;
+        }
       }
     }
   }

@@ -103,7 +103,8 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
                 color: AppTheme.primary.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.hub_rounded, color: AppTheme.primary, size: 20),
+              child: const Icon(Icons.hub_rounded,
+                  color: AppTheme.primary, size: 20),
             ),
             const SizedBox(width: 10),
             const Column(
@@ -111,7 +112,10 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
               children: [
                 Text(
                   'CRM & Sales Workspace',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 0.3),
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.3),
                 ),
                 Text(
                   'Unified Pipeline, Company 360 & Activity Management',
@@ -127,10 +131,12 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
               foregroundColor: Colors.white,
               side: const BorderSide(color: AppTheme.darkBorder),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.upload_file, size: 16),
-            label: const Text('Import Excel', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            label: const Text('Import Excel',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
             onPressed: () => BulkImportModal.show(
               context,
               target: 'CUSTOMER',
@@ -149,10 +155,12 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
               backgroundColor: AppTheme.primary,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.add_business_rounded, size: 16),
-            label: const Text('Register Company', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            label: const Text('Register Company',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
             onPressed: () => context.go('/customers/new'),
           ),
           const SizedBox(width: 16),
@@ -168,9 +176,12 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.error_outline_rounded, size: 48, color: AppTheme.error),
+                    const Icon(Icons.error_outline_rounded,
+                        size: 48, color: AppTheme.error),
                     const SizedBox(height: 12),
-                    Text(err.toString(), style: const TextStyle(color: Colors.grey), textAlign: TextAlign.center),
+                    Text(err.toString(),
+                        style: const TextStyle(color: Colors.grey),
+                        textAlign: TextAlign.center),
                     const SizedBox(height: 16),
                     ElevatedButton.icon(
                       onPressed: () => ref.invalidate(crmDashboardProvider),
@@ -189,13 +200,16 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
     );
   }
 
-  Widget _buildMainDashboard(BuildContext context, Map<String, dynamic> data, String? userName) {
-    final totalCompanies = data['totalCompanies'] ?? data['totalCustomers'] ?? 0;
+  Widget _buildMainDashboard(
+      BuildContext context, Map<String, dynamic> data, String? userName) {
+    final totalCompanies =
+        data['totalCompanies'] ?? data['totalCustomers'] ?? 0;
     final openOpportunities = data['openOpportunities'] ?? 0;
     final pipelineVal = (data['pipelineValue'] ?? 0) as num;
     final followUpsToday = data['followUpsToday'] ?? 0;
     final overdueFollowUps = data['overdueFollowUps'] ?? 0;
-    final meetingsToday = data['meetingsToday'] ?? ((data['recentMeetings'] as List?)?.length ?? 0);
+    final meetingsToday = data['meetingsToday'] ??
+        ((data['recentMeetings'] as List?)?.length ?? 0);
 
     return RefreshIndicator(
       onRefresh: () async => ref.invalidate(crmDashboardProvider),
@@ -217,17 +231,25 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20),
+                  const Icon(Icons.warning_amber_rounded,
+                      color: Colors.red, size: 20),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       '$overdueFollowUps Overdue Follow-ups require immediate action.',
-                      style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.red, fontSize: 12),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.red,
+                          fontSize: 12),
                     ),
                   ),
                   InkWell(
                     onTap: () => context.go('/crm/follow-ups'),
-                    child: const Text('Resolve Now →', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12)),
+                    child: const Text('Resolve Now →',
+                        style: TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12)),
                   ),
                 ],
               ),
@@ -239,9 +261,12 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
           LayoutBuilder(
             builder: (context, constraints) {
               final isWide = constraints.maxWidth >= 900;
-              final isMedium = constraints.maxWidth >= 600 && constraints.maxWidth < 900;
+              final isMedium =
+                  constraints.maxWidth >= 600 && constraints.maxWidth < 900;
               final crossAxisCount = isWide ? 6 : (isMedium ? 3 : 2);
-              final itemWidth = (constraints.maxWidth - (crossAxisCount - 1) * 10) / crossAxisCount;
+              final itemWidth =
+                  (constraints.maxWidth - (crossAxisCount - 1) * 10) /
+                      crossAxisCount;
 
               return Wrap(
                 spacing: 10,
@@ -283,7 +308,8 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
                     title: 'Overdue Activities',
                     value: '$overdueFollowUps',
                     icon: Icons.alarm_off_rounded,
-                    color: overdueFollowUps > 0 ? Colors.redAccent : Colors.grey,
+                    color:
+                        overdueFollowUps > 0 ? Colors.redAccent : Colors.grey,
                     onTap: () => context.go('/crm/follow-ups'),
                     width: itemWidth,
                   ),
@@ -304,7 +330,8 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
           // ── 3. Four Core Workspace Categories ───────────────────────────────────
           const Text(
             'CRM Workspace Categories',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 0.5),
+            style: TextStyle(
+                fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 0.5),
           ),
           const SizedBox(height: 12),
           LayoutBuilder(
@@ -320,24 +347,25 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
                 children: [
                   _buildCategoryCard(
                     categoryTitle: 'A. Companies & Contacts',
-                    categoryDesc: 'Company Master, GST Verification, Contacts, Products & Company 360',
+                    categoryDesc:
+                        'Company Master, GST Verification, Contacts, Products & Company 360',
                     themeColor: const Color(0xFF8B5CF6), // Purple
                     icon: Icons.business_outlined,
                     primaryRoute: '/customers',
                     items: [
-                      _CategoryItem(
+                      const _CategoryItem(
                         label: 'Company Master & 360',
                         desc: 'Search, ratings, valuations & profile',
                         icon: Icons.corporate_fare_rounded,
                         route: '/customers',
                       ),
-                      _CategoryItem(
+                      const _CategoryItem(
                         label: 'Register Company',
                         desc: 'GST verification & auto-fill',
                         icon: Icons.domain_add_rounded,
                         route: '/customers/new',
                       ),
-                      _CategoryItem(
+                      const _CategoryItem(
                         label: 'Sorting & Filters',
                         desc: 'Filter by Industry, State, Rating',
                         icon: Icons.filter_alt_outlined,
@@ -347,36 +375,37 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
                   ),
                   _buildCategoryCard(
                     categoryTitle: 'B. Sales & Pipeline',
-                    categoryDesc: 'Leads, RFQ Enquiries, Opportunity Kanban, Quotations & Sales Orders',
+                    categoryDesc:
+                        'Leads, RFQ Enquiries, Opportunity Kanban, Quotations & Sales Orders',
                     themeColor: const Color(0xFF10B981), // Emerald
                     icon: Icons.trending_up_rounded,
                     primaryRoute: '/crm/pipeline',
                     items: [
-                      _CategoryItem(
+                      const _CategoryItem(
                         label: 'Leads & Prospects',
                         desc: 'Inbound, qualification & conversion',
                         icon: Icons.person_search_outlined,
                         route: '/crm/leads',
                       ),
-                      _CategoryItem(
+                      const _CategoryItem(
                         label: 'Customer Enquiries',
                         desc: 'RFQs & commercial requirements',
                         icon: Icons.help_outline_rounded,
                         route: '/crm/enquiries',
                       ),
-                      _CategoryItem(
+                      const _CategoryItem(
                         label: 'Visual Pipeline',
                         desc: 'Kanban board & deal stages',
                         icon: Icons.view_kanban_outlined,
                         route: '/crm/pipeline',
                       ),
-                      _CategoryItem(
+                      const _CategoryItem(
                         label: 'Quotations',
                         desc: 'Costing, revisions & approvals',
                         icon: Icons.request_quote_outlined,
                         route: '/crm/quotations',
                       ),
-                      _CategoryItem(
+                      const _CategoryItem(
                         label: 'Sales Orders',
                         desc: 'Order booking & dispatch tracking',
                         icon: Icons.assignment_turned_in_outlined,
@@ -386,30 +415,31 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
                   ),
                   _buildCategoryCard(
                     categoryTitle: 'C. Activities & Communication',
-                    categoryDesc: 'Calls, Meeting Approvals, Follow-ups, Reminders & Site Visits',
+                    categoryDesc:
+                        'Calls, Meeting Approvals, Follow-ups, Reminders & Site Visits',
                     themeColor: const Color(0xFFF59E0B), // Amber
                     icon: Icons.schedule_rounded,
                     primaryRoute: '/crm/follow-ups',
                     items: [
-                      _CategoryItem(
+                      const _CategoryItem(
                         label: 'Calls & Audio Logs',
                         desc: 'Call logs & voice recordings',
                         icon: Icons.phone_in_talk_outlined,
                         route: '/crm/calls',
                       ),
-                      _CategoryItem(
+                      const _CategoryItem(
                         label: 'Meetings & Approvals',
                         desc: 'Schedules, invites & acceptance',
                         icon: Icons.calendar_month_outlined,
                         route: '/crm/meetings',
                       ),
-                      _CategoryItem(
+                      const _CategoryItem(
                         label: 'Follow-ups & SLA',
                         desc: 'Due dates, assignments & tasks',
                         icon: Icons.event_repeat_outlined,
                         route: '/crm/follow-ups',
                       ),
-                      _CategoryItem(
+                      const _CategoryItem(
                         label: 'Site Visits',
                         desc: 'Field inspections & plant visits',
                         icon: Icons.location_city_outlined,
@@ -419,30 +449,31 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
                   ),
                   _buildCategoryCard(
                     categoryTitle: 'D. Sales Performance & Intelligence',
-                    categoryDesc: 'Sales analytics, Win-loss conversion, SLA response & Team metrics',
+                    categoryDesc:
+                        'Sales analytics, Win-loss conversion, SLA response & Team metrics',
                     themeColor: const Color(0xFF06B6D4), // Cyan
                     icon: Icons.analytics_outlined,
                     primaryRoute: '/crm/analytics',
                     items: [
-                      _CategoryItem(
+                      const _CategoryItem(
                         label: 'Sales Analytics',
                         desc: 'Revenue, pipeline value & run rate',
                         icon: Icons.insights_rounded,
                         route: '/crm/analytics',
                       ),
-                      _CategoryItem(
+                      const _CategoryItem(
                         label: 'Win / Loss Metrics',
                         desc: 'Stage conversions & closure rates',
                         icon: Icons.pie_chart_outline_rounded,
                         route: '/crm/analytics',
                       ),
-                      _CategoryItem(
+                      const _CategoryItem(
                         label: 'Follow-up SLA',
                         desc: 'Response turnaround times',
                         icon: Icons.timer_outlined,
                         route: '/crm/analytics',
                       ),
-                      _CategoryItem(
+                      const _CategoryItem(
                         label: 'Team Performance',
                         desc: 'Rep rankings & activity score',
                         icon: Icons.group_outlined,
@@ -462,12 +493,16 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
             children: [
               const Text(
                 'My Work Today & Key Activities',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 0.5),
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    letterSpacing: 0.5),
               ),
               TextButton.icon(
                 onPressed: () => context.go('/crm/follow-ups'),
                 icon: const Icon(Icons.arrow_forward, size: 14),
-                label: const Text('View All Activities', style: TextStyle(fontSize: 12)),
+                label: const Text('View All Activities',
+                    style: TextStyle(fontSize: 12)),
               ),
             ],
           ),
@@ -491,9 +526,11 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
         onChanged: _onSearchChanged,
         style: const TextStyle(fontSize: 13),
         decoration: InputDecoration(
-          hintText: 'Search Companies, GSTIN, Contacts, Deals, Enquiries, Quotations...',
+          hintText:
+              'Search Companies, GSTIN, Contacts, Deals, Enquiries, Quotations...',
           hintStyle: const TextStyle(color: Colors.grey, fontSize: 13),
-          prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.primary, size: 20),
+          prefixIcon: const Icon(Icons.search_rounded,
+              color: AppTheme.primary, size: 20),
           suffixIcon: _searchController.text.isNotEmpty
               ? IconButton(
                   icon: const Icon(Icons.close, size: 18),
@@ -501,7 +538,8 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
                 )
               : null,
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         ),
       ),
     );
@@ -527,9 +565,11 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: AppTheme.darkBorder)),
+                  border:
+                      Border(bottom: BorderSide(color: AppTheme.darkBorder)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -543,11 +583,13 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         else
-                          const Icon(Icons.search, size: 16, color: AppTheme.primary),
+                          const Icon(Icons.search,
+                              size: 16, color: AppTheme.primary),
                         const SizedBox(width: 8),
                         Text(
                           'Search Results for "${_searchController.text}"',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 13),
                         ),
                       ],
                     ),
@@ -581,13 +623,18 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
     final opportunities = (_searchResults!['opportunities'] as List?) ?? [];
     final quotations = (_searchResults!['quotations'] as List?) ?? [];
 
-    final totalFound = companies.length + leads.length + enquiries.length + opportunities.length + quotations.length;
+    final totalFound = companies.length +
+        leads.length +
+        enquiries.length +
+        opportunities.length +
+        quotations.length;
 
     if (totalFound == 0) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(24),
-          child: Text('No CRM records matching your query.', style: TextStyle(color: Colors.grey)),
+          child: Text('No CRM records matching your query.',
+              style: TextStyle(color: Colors.grey)),
         ),
       );
     }
@@ -596,12 +643,18 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
       padding: const EdgeInsets.all(12),
       children: [
         if (companies.isNotEmpty) ...[
-          _searchSectionHeader('COMPANIES & CUSTOMERS (${companies.length})', Icons.business, Colors.purple),
+          _searchSectionHeader('COMPANIES & CUSTOMERS (${companies.length})',
+              Icons.business, Colors.purple),
           ...companies.map((c) => ListTile(
                 dense: true,
-                leading: const Icon(Icons.business_rounded, color: Colors.purple, size: 18),
-                title: Text(c['name']?.toString() ?? 'Unnamed Company', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                subtitle: Text('GSTIN: ${c['gstin'] ?? 'No GST'} | City: ${c['city'] ?? 'N/A'} | Phone: ${c['phone'] ?? 'N/A'}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                leading: const Icon(Icons.business_rounded,
+                    color: Colors.purple, size: 18),
+                title: Text(c['name']?.toString() ?? 'Unnamed Company',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 13)),
+                subtitle: Text(
+                    'GSTIN: ${c['gstin'] ?? 'No GST'} | City: ${c['city'] ?? 'N/A'} | Phone: ${c['phone'] ?? 'N/A'}',
+                    style: const TextStyle(fontSize: 11, color: Colors.grey)),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 12),
                 onTap: () {
                   _clearSearch();
@@ -611,12 +664,18 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
           const Divider(color: AppTheme.darkBorder),
         ],
         if (leads.isNotEmpty) ...[
-          _searchSectionHeader('LEADS (${leads.length})', Icons.person_search, Colors.blue),
+          _searchSectionHeader(
+              'LEADS (${leads.length})', Icons.person_search, Colors.blue),
           ...leads.map((l) => ListTile(
                 dense: true,
-                leading: const Icon(Icons.person_search_rounded, color: Colors.blue, size: 18),
-                title: Text(l['name']?.toString() ?? 'Lead', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                subtitle: Text('Company: ${l['company'] ?? 'N/A'} | Phone: ${l['phone'] ?? 'N/A'} | Status: ${l['status'] ?? 'NEW'}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                leading: const Icon(Icons.person_search_rounded,
+                    color: Colors.blue, size: 18),
+                title: Text(l['name']?.toString() ?? 'Lead',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 13)),
+                subtitle: Text(
+                    'Company: ${l['company'] ?? 'N/A'} | Phone: ${l['phone'] ?? 'N/A'} | Status: ${l['status'] ?? 'NEW'}',
+                    style: const TextStyle(fontSize: 11, color: Colors.grey)),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 12),
                 onTap: () {
                   _clearSearch();
@@ -626,12 +685,18 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
           const Divider(color: AppTheme.darkBorder),
         ],
         if (opportunities.isNotEmpty) ...[
-          _searchSectionHeader('OPPORTUNITIES (${opportunities.length})', Icons.monetization_on, Colors.amber),
+          _searchSectionHeader('OPPORTUNITIES (${opportunities.length})',
+              Icons.monetization_on, Colors.amber),
           ...opportunities.map((o) => ListTile(
                 dense: true,
-                leading: const Icon(Icons.monetization_on_outlined, color: Colors.amber, size: 18),
-                title: Text(o['title']?.toString() ?? 'Deal', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                subtitle: Text('Company: ${o['customer']?['name'] ?? 'N/A'} | Stage: ${o['stage']} | Value: ₹${o['dealValue'] ?? 0}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                leading: const Icon(Icons.monetization_on_outlined,
+                    color: Colors.amber, size: 18),
+                title: Text(o['title']?.toString() ?? 'Deal',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 13)),
+                subtitle: Text(
+                    'Company: ${o['customer']?['name'] ?? 'N/A'} | Stage: ${o['stage']} | Value: ₹${o['dealValue'] ?? 0}',
+                    style: const TextStyle(fontSize: 11, color: Colors.grey)),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 12),
                 onTap: () {
                   _clearSearch();
@@ -641,12 +706,18 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
           const Divider(color: AppTheme.darkBorder),
         ],
         if (enquiries.isNotEmpty) ...[
-          _searchSectionHeader('ENQUIRIES (${enquiries.length})', Icons.help_outline, Colors.orange),
+          _searchSectionHeader('ENQUIRIES (${enquiries.length})',
+              Icons.help_outline, Colors.orange),
           ...enquiries.map((e) => ListTile(
                 dense: true,
-                leading: const Icon(Icons.help_outline_rounded, color: Colors.orange, size: 18),
-                title: Text(e['subject']?.toString() ?? 'Enquiry', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                subtitle: Text('Company: ${e['customer']?['name'] ?? 'N/A'} | Status: ${e['status']}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                leading: const Icon(Icons.help_outline_rounded,
+                    color: Colors.orange, size: 18),
+                title: Text(e['subject']?.toString() ?? 'Enquiry',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 13)),
+                subtitle: Text(
+                    'Company: ${e['customer']?['name'] ?? 'N/A'} | Status: ${e['status']}',
+                    style: const TextStyle(fontSize: 11, color: Colors.grey)),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 12),
                 onTap: () {
                   _clearSearch();
@@ -656,12 +727,18 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
           const Divider(color: AppTheme.darkBorder),
         ],
         if (quotations.isNotEmpty) ...[
-          _searchSectionHeader('QUOTATIONS (${quotations.length})', Icons.request_quote, Colors.teal),
+          _searchSectionHeader('QUOTATIONS (${quotations.length})',
+              Icons.request_quote, Colors.teal),
           ...quotations.map((q) => ListTile(
                 dense: true,
-                leading: const Icon(Icons.request_quote_rounded, color: Colors.teal, size: 18),
-                title: Text('Quote #${q['quoteNumber'] ?? q['id']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                subtitle: Text('Company: ${q['customer']?['name'] ?? 'N/A'} | Total: ₹${q['totalAmount'] ?? 0} | Status: ${q['status']}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                leading: const Icon(Icons.request_quote_rounded,
+                    color: Colors.teal, size: 18),
+                title: Text('Quote #${q['quoteNumber'] ?? q['id']}',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 13)),
+                subtitle: Text(
+                    'Company: ${q['customer']?['name'] ?? 'N/A'} | Total: ₹${q['totalAmount'] ?? 0} | Status: ${q['status']}',
+                    style: const TextStyle(fontSize: 11, color: Colors.grey)),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 12),
                 onTap: () {
                   _clearSearch();
@@ -680,7 +757,12 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
         children: [
           Icon(icon, size: 14, color: color),
           const SizedBox(width: 6),
-          Text(title, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+          Text(title,
+              style: TextStyle(
+                  color: color,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5)),
         ],
       ),
     );
@@ -714,7 +796,10 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
                 Expanded(
                   child: Text(
                     title,
-                    style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500),
+                    style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey,
+                        fontWeight: FontWeight.w500),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -732,7 +817,8 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
             const SizedBox(height: 8),
             Text(
               value,
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
+              style: TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.bold, color: color),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -768,7 +854,8 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
                 topLeft: Radius.circular(12),
                 topRight: Radius.circular(12),
               ),
-              border: Border(bottom: BorderSide(color: AppTheme.darkBorder)),
+              border: const Border(
+                  bottom: const BorderSide(color: AppTheme.darkBorder)),
             ),
             child: Row(
               children: [
@@ -787,11 +874,15 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
                     children: [
                       Text(
                         categoryTitle,
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: themeColor),
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: themeColor),
                       ),
                       Text(
                         categoryDesc,
-                        style: const TextStyle(fontSize: 10, color: Colors.grey),
+                        style:
+                            const TextStyle(fontSize: 10, color: Colors.grey),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -799,7 +890,8 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.open_in_new_rounded, size: 16, color: Colors.grey),
+                  icon: const Icon(Icons.open_in_new_rounded,
+                      size: 16, color: Colors.grey),
                   tooltip: 'Open Category',
                   onPressed: () => context.go(primaryRoute),
                 ),
@@ -816,10 +908,12 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
                   onTap: () => context.go(item.route),
                   borderRadius: BorderRadius.circular(8),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                     child: Row(
                       children: [
-                        Icon(item.icon, size: 16, color: themeColor.withValues(alpha: 0.8)),
+                        Icon(item.icon,
+                            size: 16, color: themeColor.withValues(alpha: 0.8)),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Column(
@@ -827,16 +921,19 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
                             children: [
                               Text(
                                 item.label,
-                                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w600, fontSize: 12),
                               ),
                               Text(
                                 item.desc,
-                                style: const TextStyle(fontSize: 10, color: Colors.grey),
+                                style: const TextStyle(
+                                    fontSize: 10, color: Colors.grey),
                               ),
                             ],
                           ),
                         ),
-                        const Icon(Icons.chevron_right, size: 16, color: Colors.grey),
+                        const Icon(Icons.chevron_right,
+                            size: 16, color: Colors.grey),
                       ],
                     ),
                   ),
@@ -864,12 +961,15 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
           viewAllRoute: '/crm/meetings',
           items: rawMeetings.map((m) {
             final meet = m as Map<String, dynamic>;
-            final customerName = meet['customer']?['name'] ?? meet['companyName'] ?? 'Client Meeting';
+            final customerName = meet['customer']?['name'] ??
+                meet['companyName'] ??
+                'Client Meeting';
             final subject = meet['subject'] ?? 'Discussion';
             final time = meet['startTime'] ?? meet['scheduledAt'] ?? 'Today';
             return _ActivityRow(
               title: '$subject ($customerName)',
-              subtitle: 'Time: $time | Status: ${meet['status'] ?? 'SCHEDULED'}',
+              subtitle:
+                  'Time: $time | Status: ${meet['status'] ?? 'SCHEDULED'}',
               icon: Icons.groups_rounded,
               color: Colors.tealAccent,
               onTap: () => context.go('/crm/meetings'),
@@ -885,8 +985,11 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
           viewAllRoute: '/crm/follow-ups',
           items: rawFollowUps.map((f) {
             final follow = f as Map<String, dynamic>;
-            final customerName = follow['customer']?['name'] ?? 'Client Follow-up';
-            final discussion = follow['discussion'] ?? follow['actionNotes'] ?? 'Scheduled Contact';
+            final customerName =
+                follow['customer']?['name'] ?? 'Client Follow-up';
+            final discussion = follow['discussion'] ??
+                follow['actionNotes'] ??
+                'Scheduled Contact';
             final due = follow['dueDate'] ?? follow['scheduledAt'] ?? 'Today';
             return _ActivityRow(
               title: customerName,
@@ -946,12 +1049,18 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
                 children: [
                   Icon(icon, size: 16, color: color),
                   const SizedBox(width: 8),
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  Text(title,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 13)),
                 ],
               ),
               InkWell(
                 onTap: () => context.go(viewAllRoute),
-                child: const Text('Open →', style: TextStyle(fontSize: 11, color: AppTheme.primary, fontWeight: FontWeight.bold)),
+                child: const Text('Open →',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: AppTheme.primary,
+                        fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -960,7 +1069,8 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 16),
               child: Center(
-                child: Text(emptyText, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                child: Text(emptyText,
+                    style: const TextStyle(color: Colors.grey, fontSize: 12)),
               ),
             )
           else
@@ -968,7 +1078,8 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
                   onTap: row.onTap,
                   borderRadius: BorderRadius.circular(6),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                    padding:
+                        const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
                     child: Row(
                       children: [
                         Icon(row.icon, size: 14, color: row.color),
@@ -977,12 +1088,22 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(row.title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
-                              Text(row.subtitle, style: const TextStyle(fontSize: 10, color: Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              Text(row.title,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 12),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
+                              Text(row.subtitle,
+                                  style: const TextStyle(
+                                      fontSize: 10, color: Colors.grey),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
                             ],
                           ),
                         ),
-                        const Icon(Icons.chevron_right, size: 14, color: Colors.grey),
+                        const Icon(Icons.chevron_right,
+                            size: 14, color: Colors.grey),
                       ],
                     ),
                   ),

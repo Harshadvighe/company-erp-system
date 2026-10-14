@@ -1,49 +1,317 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 
+export interface AuditActorSnapshot {
+  userId?: string;
+  userEmail?: string;
+  employeeId?: string;
+  fullName?: string;
+  roles?: string[];
+}
+
 export interface AuditLogOptions {
   userId?: string;
   userEmail?: string;
-  action: string; // CREATE, UPDATE, DELETE, LOGIN, APPROVE, EXPORT
-  module: string; // CUSTOMERS, LEADS, PRODUCTS, PANEL_MFG, AUTH, ADMIN
+  action: string; // CREATE, UPDATE, DELETE, LOGIN, APPROVE, EXPORT, etc.
+  module: string; // CRM, SALES, PURCHASE, INVENTORY, PRODUCTION, HR, STAFF, PROJECTS, TASKS, VENDORS, CUSTOMERS, ADMIN, AUDIT, etc.
   entityType?: string;
   entityId?: string;
-  details?: string;
+  details?: string | Record<string, any>;
   ipAddress?: string;
+}
+
+export interface DetailedAuditOptions {
+  actor?: AuditActorSnapshot | any;
+  userId?: string;
+  userEmail?: string;
+  action: string;
+  module: string;
+  entityType?: string;
+  entityId?: string;
+  before?: Record<string, any> | null;
+  after?: Record<string, any> | null;
+  changedFields?: string[];
+  outcome?: 'SUCCESS' | 'FAILED' | 'DENIED';
+  reason?: string;
+  ipAddress?: string;
+  requestId?: string;
+  details?: any;
+  req?: any;
+  tx?: any; // Optional Prisma transaction client
 }
 
 @Injectable()
 export class AuditService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async log(options: AuditLogOptions) {
+  /**
+   * Recursively redacts passwords, tokens, API keys, credentials, and sensitive financial/PII data.
+   */
+  redact(data: any): any {
+    if (data === null || data === undefined) {
+      return data;
+    }
+
+    if (typeof data === 'string' || typeof data === 'number' || typeof data === 'boolean') {
+      return data;
+    }
+
+    if (data instanceof Date) {
+      return data.toISOString();
+    }
+
+    if (Array.isArray(data)) {
+      return data.map((item) => this.redact(item));
+    }
+
+    if (typeof data === 'object') {
+      const sensitiveKeyRegex = /password|hash|token|secret|jwt|bearer|key|authorization|cookie|card|cvv|pin|aadhaar|pan|bankaccount|accountnumber/i;
+      const redacted: Record<string, any> = {};
+
+      for (const [key, value] of Object.entries(data)) {
+        if (sensitiveKeyRegex.test(key)) {
+          redacted[key] = '[REDACTED]';
+        } else if (typeof value === 'object' && value !== null) {
+          redacted[key] = this.redact(value);
+        } else {
+          redacted[key] = value;
+        }
+      }
+      return redacted;
+    }
+
+    return data;
+  }
+
+  /**
+   * Computes changed fields and before/after difference maps.
+   */
+  computeDiff(before: any, after: any): { changedFields: string[]; beforeDiff: Record<string, any>; afterDiff: Record<string, any> } {
+    const changedFields: string[] = [];
+    const beforeDiff: Record<string, any> = {};
+    const afterDiff: Record<string, any> = {};
+
+    if (!before && !after) {
+      return { changedFields, beforeDiff, afterDiff };
+    }
+
+    const b = before && typeof before === 'object' ? before : {};
+    const a = after && typeof after === 'object' ? after : {};
+
+    const allKeys = Array.from(new Set([...Object.keys(b), ...Object.keys(a)]));
+
+    // Exclude noisy internal fields from diff reporting
+    const ignoredKeys = new Set(['updatedAt', 'timestamp', 'password', 'passwordHash']);
+
+    for (const key of allKeys) {
+      if (ignoredKeys.has(key)) continue;
+
+      const valB = b[key];
+      const valA = a[key];
+
+      const strB = typeof valB === 'object' ? JSON.stringify(valB) : String(valB ?? '');
+      const strA = typeof valA === 'object' ? JSON.stringify(valA) : String(valA ?? '');
+
+      if (strB !== strA) {
+        changedFields.push(key);
+        beforeDiff[key] = valB !== undefined ? valB : null;
+        afterDiff[key] = valA !== undefined ? valA : null;
+      }
+    }
+
+    return {
+      changedFields,
+      beforeDiff: this.redact(beforeDiff),
+      afterDiff: this.redact(afterDiff),
+    };
+  }
+
+  /**
+   * Extracts an actor snapshot from a user object or Express request.
+   */
+  extractActorSnapshot(source?: any): AuditActorSnapshot {
+    if (!source) return {};
+
+    const user = source.user || source;
+    return {
+      userId: user.id || user.userId || user.sub,
+      userEmail: user.email || user.userEmail,
+      employeeId: user.employeeId || user.staffId,
+      fullName: user.fullName || user.name || (user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : undefined),
+      roles: Array.isArray(user.roles) ? user.roles : user.role ? [user.role] : [],
+    };
+  }
+
+  /**
+   * Primary centralized audit logger recording actor, record diffs, outcome, and request ID.
+   */
+  async recordAction(options: DetailedAuditOptions) {
     try {
-      return await this.prisma.auditLog.create({
+      const actorSource = options.actor || options.req?.user || {
+        id: options.userId,
+        email: options.userEmail,
+      };
+
+      const actorSnapshot = this.extractActorSnapshot(actorSource);
+
+      let ipAddress = options.ipAddress || (actorSource as any)?.ip;
+      let requestId = options.requestId || (actorSource as any)?.requestId;
+
+      if (options.req) {
+        ipAddress =
+          ipAddress ||
+          options.req.ip ||
+          options.req.headers?.['x-forwarded-for'] ||
+          options.req.socket?.remoteAddress ||
+          '127.0.0.1';
+        requestId =
+          requestId ||
+          options.req.headers?.['x-request-id'] ||
+          options.req.headers?.['x-correlation-id'] ||
+          options.req.id;
+      }
+
+      // Compute diff if before/after provided
+      let changedFields = options.changedFields;
+      let beforeData = options.before;
+      let afterData = options.after;
+
+      if ((beforeData || afterData) && !changedFields) {
+        const diff = this.computeDiff(beforeData, afterData);
+        changedFields = diff.changedFields;
+        beforeData = diff.beforeDiff;
+        afterData = diff.afterDiff;
+      } else {
+        beforeData = this.redact(beforeData);
+        afterData = this.redact(afterData);
+      }
+
+      // Prepare structured details JSON
+      let rawDetails = options.details;
+      if (typeof rawDetails === 'string') {
+        try {
+          rawDetails = JSON.parse(rawDetails);
+        } catch {
+          rawDetails = { message: rawDetails };
+        }
+      }
+
+      const structuredPayload = {
+        actor: actorSnapshot,
+        outcome: options.outcome || 'SUCCESS',
+        requestId: requestId || undefined,
+        reason: options.reason || undefined,
+        changedFields: changedFields && changedFields.length > 0 ? changedFields : undefined,
+        before: beforeData || undefined,
+        after: afterData || undefined,
+        meta: rawDetails ? this.redact(rawDetails) : undefined,
+      };
+
+      const client = options.tx || this.prisma;
+
+      return await client.auditLog.create({
         data: {
-          userId: options.userId,
-          userEmail: options.userEmail,
+          userId: actorSnapshot.userId || options.userId || null,
+          userEmail: actorSnapshot.userEmail || options.userEmail || null,
           action: options.action,
           module: options.module,
-          entityType: options.entityType,
-          entityId: options.entityId,
-          details: options.details,
-          ipAddress: options.ipAddress || '127.0.0.1',
+          entityType: options.entityType || null,
+          entityId: options.entityId || null,
+          details: JSON.stringify(structuredPayload),
+          ipAddress: (typeof ipAddress === 'string' ? ipAddress.split(',')[0].trim() : '127.0.0.1') || '127.0.0.1',
+          // timestamp is UTC DateTime @default(now()) in Prisma
         },
       });
     } catch (e) {
-      console.error('Failed to log audit event:', e);
+      console.error('[AuditService] Failed to record audit action:', e);
+      return null;
     }
   }
 
+  /**
+   * Backwards-compatible legacy logger method.
+   */
+  async log(options: AuditLogOptions) {
+    return this.recordAction({
+      userId: options.userId,
+      userEmail: options.userEmail,
+      action: options.action,
+      module: options.module,
+      entityType: options.entityType,
+      entityId: options.entityId,
+      details: options.details,
+      ipAddress: options.ipAddress,
+    });
+  }
+
+  /**
+   * Safe failed authorization logger without recording secrets or sensitive request bodies.
+   */
+  async logAuthFailure(options: {
+    req: any;
+    user?: any;
+    requiredPermissions?: string[];
+    reason?: string;
+  }) {
+    try {
+      const req = options.req || {};
+      const user = options.user || req.user;
+      const path = req.originalUrl || req.url || req.path || 'UNKNOWN_ROUTE';
+      const method = req.method || 'GET';
+
+      const moduleName =
+        options.requiredPermissions && options.requiredPermissions.length > 0
+          ? options.requiredPermissions[0].split(':')[0]
+          : 'SECURITY';
+
+      return await this.recordAction({
+        req,
+        actor: user,
+        action: 'AUTHORIZATION_DENIED',
+        module: moduleName,
+        entityType: 'ENDPOINT',
+        entityId: `${method} ${path}`,
+        outcome: 'DENIED',
+        reason: options.reason || 'Missing required permission',
+        details: {
+          method,
+          path,
+          requiredPermissions: options.requiredPermissions || [],
+        },
+      });
+    } catch (e) {
+      console.error('[AuditService] Failed to record authorization failure audit:', e);
+      return null;
+    }
+  }
+
+  /**
+   * Retrieves recent audit logs with parsed details and actor relations.
+   */
   async getRecentLogs(limit = 50) {
-    return this.prisma.auditLog.findMany({
+    const logs = await this.prisma.auditLog.findMany({
       orderBy: { timestamp: 'desc' },
-      take: limit,
+      take: Math.min(limit, 200),
       include: {
         user: {
-          select: { fullName: true, email: true, designation: true },
+          select: { id: true, fullName: true, email: true, designation: true },
         },
       },
+    });
+
+    return logs.map((log) => {
+      let parsedDetails = null;
+      if (log.details) {
+        try {
+          parsedDetails = JSON.parse(log.details);
+        } catch {
+          parsedDetails = log.details;
+        }
+      }
+      return {
+        ...log,
+        details: parsedDetails,
+      };
     });
   }
 }

@@ -286,7 +286,7 @@ class _BulkImportModalState extends ConsumerState<BulkImportModal> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppTheme.primary.withOpacity(0.15),
+              color: AppTheme.primary.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Icon(Icons.upload_file,
@@ -381,10 +381,10 @@ class _BulkImportModalState extends ConsumerState<BulkImportModal> {
   }
 
   Widget _buildLoadingState() {
-    return Center(
+    return const Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: const [
+        children: [
           CircularProgressIndicator(),
           SizedBox(height: 16),
           Text(
@@ -412,7 +412,7 @@ class _BulkImportModalState extends ConsumerState<BulkImportModal> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppTheme.error.withOpacity(0.12),
+                color: AppTheme.error.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: AppTheme.error),
               ),
@@ -530,7 +530,7 @@ class _BulkImportModalState extends ConsumerState<BulkImportModal> {
                     style: TextStyle(fontSize: 11, color: Colors.grey),
                   ),
                   value: _enableGstEnrichment,
-                  activeColor: AppTheme.primary,
+                  activeThumbColor: AppTheme.primary,
                   onChanged: (val) =>
                       setState(() => _enableGstEnrichment = val),
                 ),
@@ -545,7 +545,7 @@ class _BulkImportModalState extends ConsumerState<BulkImportModal> {
                     style: TextStyle(fontSize: 11, color: Colors.grey),
                   ),
                   value: _checkDuplicates,
-                  activeColor: AppTheme.primary,
+                  activeThumbColor: AppTheme.primary,
                   onChanged: (val) => setState(() => _checkDuplicates = val),
                 ),
               ],
@@ -864,9 +864,9 @@ class _BulkImportModalState extends ConsumerState<BulkImportModal> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
-            color: badgeColor.withOpacity(0.15),
+            color: badgeColor.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: badgeColor.withOpacity(0.5)),
+            border: Border.all(color: badgeColor.withValues(alpha: 0.5)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -908,7 +908,7 @@ class _BulkImportModalState extends ConsumerState<BulkImportModal> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: color),
       ),
@@ -929,7 +929,9 @@ class _BulkImportModalState extends ConsumerState<BulkImportModal> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.25) : AppTheme.darkBackground,
+          color: isSelected
+              ? color.withValues(alpha: 0.25)
+              : AppTheme.darkBackground,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(color: isSelected ? color : AppTheme.darkBorder),
         ),
@@ -951,7 +953,7 @@ class _BulkImportModalState extends ConsumerState<BulkImportModal> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.blueAccent.withOpacity(0.15),
+        color: Colors.blueAccent.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: Colors.blueAccent),
       ),
@@ -979,8 +981,9 @@ class _BulkImportModalState extends ConsumerState<BulkImportModal> {
       final status = row['validationStatus']?.toString() ?? '';
       if (_previewFilter == 'VALID' && status != 'VALID') return false;
       if (_previewFilter == 'INVALID' && status != 'INVALID') return false;
-      if (_previewFilter == 'DUPLICATE' && !status.startsWith('DUPLICATE'))
+      if (_previewFilter == 'DUPLICATE' && !status.startsWith('DUPLICATE')) {
         return false;
+      }
       if (_previewFilter == 'REVIEW' && status != 'WARNING') return false;
 
       if (q.isNotEmpty) {
@@ -991,8 +994,9 @@ class _BulkImportModalState extends ConsumerState<BulkImportModal> {
             .toLowerCase();
         final gst = (mapped['gstin'] ?? '').toString().toLowerCase();
         final phone = (mapped['phone'] ?? '').toString().toLowerCase();
-        if (!name.contains(q) && !gst.contains(q) && !phone.contains(q))
+        if (!name.contains(q) && !gst.contains(q) && !phone.contains(q)) {
           return false;
+        }
       }
 
       return true;
@@ -1255,7 +1259,7 @@ class _BulkImportModalState extends ConsumerState<BulkImportModal> {
                     dense: true,
                     leading: CircleAvatar(
                       radius: 12,
-                      backgroundColor: AppTheme.error.withOpacity(0.2),
+                      backgroundColor: AppTheme.error.withValues(alpha: 0.2),
                       child: Text('${e['rowNumber']}',
                           style: const TextStyle(
                               fontSize: 10,

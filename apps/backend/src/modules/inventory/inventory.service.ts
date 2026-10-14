@@ -1,9 +1,13 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
+import { AuditService } from '../../core/audit/audit.service';
 
 @Injectable()
 export class InventoryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService,
+  ) {}
 
   // ─────────────────────────────────────────────────────────────────────────────
   // 1. INVENTORY SUMMARY & KPI OVERVIEW
@@ -107,7 +111,7 @@ export class InventoryService {
     });
   }
 
-  async createWarehouse(dto: { code: string; name: string; location: string }) {
+  async createWarehouse(dto: { code: string; name: string; location: string }, actor?: any) {
     const existing = await this.prisma.warehouse.findUnique({
       where: { code: dto.code.trim().toUpperCase() },
     });
@@ -116,7 +120,7 @@ export class InventoryService {
       throw new BadRequestException(`Warehouse with code "${dto.code}" already exists`);
     }
 
-    return this.prisma.warehouse.create({
+    const created = await this.prisma.warehouse.create({
       data: {
         code: dto.code.trim().toUpperCase(),
         name: dto.name.trim(),
@@ -124,6 +128,18 @@ export class InventoryService {
         status: 'ACTIVE',
       },
     });
+
+    await this.auditService.recordAction({
+      actor,
+      action: 'CREATE',
+      module: 'INVENTORY',
+      entityType: 'WAREHOUSE',
+      entityId: created.id,
+      after: created,
+      details: { code: created.code, name: created.name },
+    });
+
+    return created;
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -248,6 +264,7 @@ export class InventoryService {
       notes?: string;
     },
     userId?: string,
+    actor?: any,
   ) {
     const product = await this.prisma.product.findUnique({
       where: { id: dto.productId },
@@ -334,6 +351,25 @@ export class InventoryService {
       },
     });
 
+    await this.auditService.recordAction({
+      actor,
+      userId,
+      action: 'UPDATE',
+      module: 'INVENTORY',
+      entityType: 'STOCK_ITEM',
+      entityId: stockItem.id,
+      before: { currentQuantity: stockItem.currentQuantity - delta },
+      after: { currentQuantity: stockItem.currentQuantity },
+      details: {
+        productId: dto.productId,
+        productName: product.name,
+        warehouseId: dto.warehouseId,
+        adjustmentType: dto.adjustmentType,
+        quantity: qty,
+        reason: dto.reason,
+      },
+    });
+
     return {
       success: true,
       newQuantity: newQty,
@@ -357,6 +393,7 @@ export class InventoryService {
       notes?: string;
     },
     userId?: string,
+    actor?: any,
   ) {
     if (dto.fromWarehouseId === dto.toWarehouseId) {
       throw new BadRequestException('Source and destination warehouse cannot be the same');
@@ -463,6 +500,23 @@ export class InventoryService {
           notes: `Received from ${fromWh.name} (${fromWh.code}). ${dto.notes || ''}`,
         },
       ],
+    });
+
+    await this.auditService.recordAction({
+      actor,
+      userId,
+      action: 'UPDATE',
+      module: 'INVENTORY',
+      entityType: 'STOCK_TRANSFER',
+      entityId: dto.productId,
+      details: {
+        productName: product.name,
+        fromWarehouseId: dto.fromWarehouseId,
+        fromWarehouse: fromWh.name,
+        toWarehouseId: dto.toWarehouseId,
+        toWarehouse: toWh.name,
+        quantity: qty,
+      },
     });
 
     return {

@@ -1,12 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
 import { SequenceService } from '../../core/database/sequence.service';
+import { AuditService } from '../../core/audit/audit.service';
 
 @Injectable()
 export class PanelManufacturingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly sequenceService: SequenceService,
+    private readonly auditService: AuditService,
   ) {}
 
   async findAll() {
@@ -31,7 +33,7 @@ export class PanelManufacturingService {
     return spec;
   }
 
-  async create(dto: any) {
+  async create(dto: any, actor?: any) {
     const panelCode = await this.sequenceService.nextPanelCode();
 
     // Auto calculate BOM costs
@@ -66,7 +68,7 @@ export class PanelManufacturingService {
     const baseCost = materialCost + labourCost + overheadCost;
     const finalPrice = Math.round(baseCost * (1 + marginPercent / 100));
 
-    return this.prisma.panelSpecification.create({
+    const created = await this.prisma.panelSpecification.create({
       data: {
         panelCode,
         customerId: dto.customerId,
@@ -91,5 +93,17 @@ export class PanelManufacturingService {
       },
       include: { bomItems: true },
     });
+
+    await this.auditService.recordAction({
+      actor,
+      action: 'CREATE',
+      module: 'PRODUCTION',
+      entityType: 'PanelSpecification',
+      entityId: created.id,
+      after: created,
+      details: { panelCode: created.panelCode, finalPrice: created.finalPrice },
+    });
+
+    return created;
   }
 }

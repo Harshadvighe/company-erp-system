@@ -1,12 +1,14 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
 import { SequenceService } from '../../core/database/sequence.service';
+import { AuditService } from '../../core/audit/audit.service';
 
 @Injectable()
 export class SalesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly sequenceService: SequenceService,
+    private readonly auditService: AuditService,
   ) {}
 
   private isSalesAdminOrManager(user?: any): boolean {
@@ -276,6 +278,16 @@ export class SalesService {
       });
     }
 
+    await this.auditService.recordAction({
+      actor: user,
+      action: 'CREATE',
+      module: 'SALES',
+      entityType: 'Quotation',
+      entityId: quotation.id,
+      after: quotation,
+      details: { quotationCode: quotation.code, customerId: dto.customerId, grandTotal },
+    });
+
     return quotation;
   }
 
@@ -540,6 +552,17 @@ export class SalesService {
       }
     }
 
+    await this.auditService.recordAction({
+      actor: user,
+      action: dto.status === 'ACCEPTED' ? 'APPROVE' : 'UPDATE',
+      module: 'SALES',
+      entityType: 'Quotation',
+      entityId: id,
+      before: quotation,
+      after: updated,
+      details: { quotationCode: quotation.code, status: dto.status },
+    });
+
     return updated;
   }
 
@@ -610,6 +633,16 @@ export class SalesService {
         data: { stage: 'CLOSED_WON', probability: 100, poNumber: dto.poNumber || orderNumber, poDate: new Date() },
       });
     }
+
+    await this.auditService.recordAction({
+      actor: user,
+      action: 'CREATE',
+      module: 'SALES',
+      entityType: 'SalesOrder',
+      entityId: salesOrder.id,
+      after: salesOrder,
+      details: { orderNumber: salesOrder.orderNumber, quotationId },
+    });
 
     return salesOrder;
   }

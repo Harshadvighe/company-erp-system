@@ -153,8 +153,8 @@ export class HrController {
   @Post('employees')
   @RequirePermissions('HR:CREATE', 'STAFF:CREATE')
   @ApiOperation({ summary: 'Onboard a new employee or technician' })
-  async createEmployee(@Body() dto: CreateEmployeeDto) {
-    return this.hrService.createEmployee(dto);
+  async createEmployee(@Body() dto: CreateEmployeeDto, @Req() req: any) {
+    return this.hrService.createEmployee(dto, req.user);
   }
 
   @Put('employees/:id')
@@ -163,8 +163,9 @@ export class HrController {
   async updateEmployee(
     @Param('id') id: string,
     @Body() dto: Partial<CreateEmployeeDto>,
+    @Req() req: any,
   ) {
-    return this.hrService.updateEmployee(id, dto);
+    return this.hrService.updateEmployee(id, dto, req.user);
   }
 
   // -------------------------------------------------------------
