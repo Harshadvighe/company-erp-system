@@ -77,12 +77,34 @@ class _CustomersRecycleBinPageState extends ConsumerState<CustomersRecycleBinPag
             limit: targetLimit,
           );
 
-      final dataList = (result['data'] as List? ?? []).whereType<Map<String, dynamic>>();
-      final meta = (result['meta'] as Map<String, dynamic>?) ?? {};
+      dynamic rawData = result['data'];
+      List items = [];
+      Map<String, dynamic> meta = {};
+
+      if (rawData is Map) {
+        if (rawData['data'] is List) {
+          items = rawData['data'] as List;
+        }
+        if (rawData['meta'] is Map) {
+          meta = Map<String, dynamic>.from(rawData['meta'] as Map);
+        }
+      } else if (rawData is List) {
+        items = rawData;
+        if (result['meta'] is Map) {
+          meta = Map<String, dynamic>.from(result['meta'] as Map);
+        }
+      } else if (result['items'] is List) {
+        items = result['items'] as List;
+      }
+
+      final dataList = items
+          .whereType<Map>()
+          .map((m) => TrashedCustomer.fromJson(Map<String, dynamic>.from(m)))
+          .toList();
 
       if (mounted) {
         setState(() {
-          _trashedCustomers = dataList.map((j) => TrashedCustomer.fromJson(j)).toList();
+          _trashedCustomers = dataList;
           _page = meta['page'] is int ? meta['page'] as int : targetPage;
           _pageSize = meta['limit'] is int ? meta['limit'] as int : targetLimit;
           _total = meta['total'] is int ? meta['total'] as int : _trashedCustomers.length;
@@ -224,7 +246,8 @@ class _CustomersRecycleBinPageState extends ConsumerState<CustomersRecycleBinPag
       final res = await ref
           .read(customersRepositoryProvider)
           .bulkRestore(_selectedIds.toList());
-      final count = res['data']?['restoredCount'] ?? _selectedIds.length;
+      final payload = res['data'] is Map ? res['data'] as Map : res;
+      final count = payload['count'] ?? payload['restoredCount'] ?? _selectedIds.length;
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -543,8 +566,9 @@ class _CustomersRecycleBinPageState extends ConsumerState<CustomersRecycleBinPag
       final res = await ref
           .read(customersRepositoryProvider)
           .bulkPermanentDelete(_selectedIds.toList());
-      final deletedCount = res['data']?['deletedCount'] ?? 0;
-      final skippedCount = res['data']?['skippedCount'] ?? 0;
+      final payload = res['data'] is Map ? res['data'] as Map : res;
+      final deletedCount = payload['deletedCount'] ?? 0;
+      final skippedCount = payload['skippedCount'] ?? 0;
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -658,8 +682,9 @@ class _CustomersRecycleBinPageState extends ConsumerState<CustomersRecycleBinPag
     setState(() => _isActionProcessing = true);
     try {
       final res = await ref.read(customersRepositoryProvider).emptyRecycleBin();
-      final deletedCount = res['data']?['deletedCount'] ?? 0;
-      final skippedCount = res['data']?['skippedCount'] ?? 0;
+      final payload = res['data'] is Map ? res['data'] as Map : res;
+      final deletedCount = payload['deletedCount'] ?? 0;
+      final skippedCount = payload['skippedCount'] ?? 0;
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
