@@ -197,9 +197,9 @@ void main() {
     });
 
     test('Auto-callback suggestion triggers on NO_ANSWER and BUSY', () {
-      final isNoAnswer = 'NO_ANSWER' == 'NO_ANSWER' || 'NO_ANSWER' == 'BUSY';
-      final isBusy = 'BUSY' == 'NO_ANSWER' || 'BUSY' == 'BUSY';
-      final isConnected = 'CONNECTED' == 'NO_ANSWER' || 'CONNECTED' == 'BUSY';
+      const isNoAnswer = 'NO_ANSWER' == 'NO_ANSWER' || 'NO_ANSWER' == 'BUSY';
+      const isBusy = 'BUSY' == 'NO_ANSWER' || 'BUSY' == 'BUSY';
+      const isConnected = 'CONNECTED' == 'NO_ANSWER' || 'CONNECTED' == 'BUSY';
 
       expect(isNoAnswer, isTrue);
       expect(isBusy, isTrue);
