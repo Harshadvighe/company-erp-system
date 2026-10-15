@@ -4,6 +4,8 @@ import { PrismaService } from '../../core/database/prisma.service';
 import { SequenceService } from '../../core/database/sequence.service';
 import { AuditService } from '../../core/audit/audit.service';
 import { GstVerificationService } from './gst-verification.service';
+import { FileStorageService } from '../../core/storage/file-storage.service';
+import { ResolveFollowUpDto } from './dto/resolve-followup.dto';
 
 @Injectable()
 export class CrmService {
@@ -12,6 +14,7 @@ export class CrmService {
     private readonly auditService: AuditService,
     private readonly gstVerificationService: GstVerificationService,
     private readonly sequenceService: SequenceService,
+    private readonly fileStorageService: FileStorageService,
   ) {}
 
   // ─── AUTHORIZATION & SCOPING HELPERS ──────────────────────────────────────
@@ -1477,6 +1480,418 @@ export class CrmService {
     });
   }
 
+  async resolveFollowUp(id: string, dto: ResolveFollowUpDto, user?: any) {
+    // 1. Idempotency check: if already processed with this key, return saved result
+    if (dto?.idempotencyKey) {
+      const existingResolved = await this.prisma.crmFollowUp.findUnique({
+        where: { idempotencyKey: dto.idempotencyKey },
+        include: {
+          customer: { select: { id: true, companyName: true, phone: true } },
+          assignedStaff: { select: { id: true, fullName: true } },
+          completedActivity: {
+            include: {
+              call: true,
+              meeting: true,
+              siteVisit: true,
+              attachments: true,
+            },
+          },
+          childFollowUps: true,
+        },
+      });
+      if (existingResolved) {
+        return {
+          idempotent: true,
+          followUp: existingResolved,
+          activity: existingResolved.completedActivity,
+          nextFollowUp: existingResolved.childFollowUps?.[0] || null,
+        };
+      }
+    }
+
+    // 2. Locate target follow-up
+    const followUp = await this.prisma.crmFollowUp.findUnique({
+      where: { id },
+      include: {
+        customer: { select: { id: true, companyName: true, phone: true, assignedStaffId: true, salesManagerStaffId: true } },
+        assignedStaff: { select: { id: true, fullName: true } },
+      },
+    });
+
+    if (!followUp) {
+      throw new NotFoundException('Follow-up not found');
+    }
+    if (followUp.status === 'COMPLETED') {
+      throw new BadRequestException('Follow-up is already completed');
+    }
+
+    // 3. PBAC Ownership and Role authorization
+    if (!this.isCrmAdminOrManager(user)) {
+      if (!user?.staffId) {
+        throw new ForbiddenException('Access denied: unmapped employee cannot resolve follow-ups');
+      }
+      const isAssignedFollowUp = followUp.assignedStaffId === user.staffId;
+      const isAssignedCustomer = followUp.customer?.assignedStaffId === user.staffId;
+      if (!isAssignedFollowUp && !isAssignedCustomer) {
+        throw new ForbiddenException('Access denied: you do not have permission to resolve this follow-up');
+      }
+    }
+
+    // 4. Input validation
+    const discussion = dto.discussion?.trim() || dto.notes?.trim() || dto.subject?.trim() || followUp.discussion || '';
+    if (!discussion) {
+      throw new BadRequestException('Discussion, notes or subject is required to resolve a follow-up');
+    }
+
+    const scheduleNext = dto.scheduleNext === true;
+    const nextScheduledDate = dto.nextScheduledDate ? new Date(dto.nextScheduledDate) : null;
+    if (scheduleNext && (!nextScheduledDate || Number.isNaN(nextScheduledDate.getTime()))) {
+      throw new BadRequestException('A valid nextScheduledDate is required when scheduleNext is true');
+    }
+    if (scheduleNext && nextScheduledDate && nextScheduledDate <= new Date()) {
+      throw new BadRequestException('nextScheduledDate must be in the future');
+    }
+
+    const activityType = dto.activityType || followUp.activityType || 'CALL';
+
+    // 5. Execute atomic database transaction
+    const result = await this.prisma.$transaction(async (tx) => {
+      // Concurrency protection check
+      const current = await tx.crmFollowUp.findUnique({ where: { id } });
+      if (current?.status === 'COMPLETED') {
+        throw new ConflictException('Follow-up was already completed by a concurrent operation');
+      }
+
+      // Create primary CRM activity
+      const activity = await tx.crmActivity.create({
+        data: {
+          activityType,
+          customerId: followUp.customerId,
+          leadId: followUp.leadId,
+          opportunityId: followUp.opportunityId,
+          staffId: user?.staffId || followUp.assignedStaffId,
+          subject: dto.subject?.trim() || followUp.subject || `${activityType} Follow-up Outcome`,
+          description: discussion,
+          outcome: dto.outcome?.trim() || dto.callOutcome || followUp.outcome,
+          customerRequirements: dto.customerRequirements?.trim() || null,
+          productsDiscussed: dto.productsDiscussed
+            ? typeof dto.productsDiscussed === 'string'
+              ? dto.productsDiscussed
+              : JSON.stringify(dto.productsDiscussed)
+            : null,
+          documentsSent: dto.documentsSent
+            ? typeof dto.documentsSent === 'string'
+              ? dto.documentsSent
+              : JSON.stringify(dto.documentsSent)
+            : null,
+          nextActionDate: scheduleNext ? nextScheduledDate : null,
+        },
+      });
+
+      // Create child activity detail record
+      if (activityType === 'CALL') {
+        await tx.crmCall.create({
+          data: {
+            activityId: activity.id,
+            callType: 'OUTBOUND',
+            durationSec: Number(dto.callDurationSec) || 0,
+            callOutcome: dto.callOutcome || dto.outcome || 'CONNECTED',
+            recordingUrl: dto.callRecordingUrl || null,
+            dataSent: Boolean(dto.dataSent),
+            dataTypes: dto.dataTypes
+              ? typeof dto.dataTypes === 'string'
+                ? dto.dataTypes
+                : JSON.stringify(dto.dataTypes)
+              : null,
+          },
+        });
+      } else if (activityType === 'MEETING') {
+        await tx.crmMeeting.create({
+          data: {
+            activityId: activity.id,
+            meetingType: dto.meetingType || 'OFFLINE',
+            location: dto.meetingLocation || null,
+            startTime: dto.meetingStartTime ? new Date(dto.meetingStartTime) : new Date(),
+            endTime: dto.meetingEndTime ? new Date(dto.meetingEndTime) : null,
+            agenda: dto.meetingAgenda || dto.subject || null,
+            outcome: dto.outcome || null,
+            hostStaffId: dto.hostStaffId || user?.staffId || followUp.assignedStaffId,
+            meetingStatus: 'COMPLETED',
+          },
+        });
+      } else if (activityType === 'SITE_VISIT') {
+        await tx.crmSiteVisit.create({
+          data: {
+            activityId: activity.id,
+            location: dto.siteLocation || 'Site',
+            siteCondition: dto.siteCondition || null,
+            voltageReading: dto.voltageReading || null,
+            pumpRatingHp: dto.pumpRatingHp ? Number(dto.pumpRatingHp) : null,
+            panelDimensions: dto.panelDimensions || null,
+            inspectionNotes: dto.inspectionNotes || discussion || null,
+            photoUrls: dto.photoUrls
+              ? typeof dto.photoUrls === 'string'
+                ? dto.photoUrls
+                : JSON.stringify(dto.photoUrls)
+              : null,
+          },
+        });
+      }
+
+      // Link attachments if provided
+      if (dto.attachmentIds && Array.isArray(dto.attachmentIds) && dto.attachmentIds.length > 0) {
+        await tx.crmAttachment.updateMany({
+          where: { id: { in: dto.attachmentIds } },
+          data: {
+            activityId: activity.id,
+            followUpId: followUp.id,
+            customerId: followUp.customerId,
+          },
+        });
+      }
+
+      // Complete current follow-up
+      const completedAt = new Date();
+      const completedFollowUp = await tx.crmFollowUp.update({
+        where: { id: followUp.id },
+        data: {
+          status: 'COMPLETED',
+          completedDate: completedAt,
+          interactionDate: completedAt,
+          completedActivityId: activity.id,
+          discussion,
+          outcome: dto.outcome?.trim() || dto.callOutcome || followUp.outcome,
+          nextAction: dto.nextSubject?.trim() || dto.nextAction?.trim() || followUp.nextAction,
+          notes: dto.notes?.trim()
+            ? `${followUp.notes ? `${followUp.notes}\n` : ''}${dto.notes.trim()}`
+            : followUp.notes,
+          idempotencyKey: dto.idempotencyKey || null,
+        },
+        include: {
+          customer: { select: { id: true, companyName: true, phone: true } },
+          assignedStaff: { select: { id: true, fullName: true } },
+          completedActivity: {
+            include: {
+              call: true,
+              meeting: true,
+              siteVisit: true,
+              attachments: true,
+            },
+          },
+        },
+      });
+
+      // Schedule next follow-up if requested
+      let nextFollowUp = null;
+      if (scheduleNext) {
+        if (!followUp.customerId) {
+          throw new BadRequestException('Only company follow-ups can schedule a next company follow-up');
+        }
+        const followUpNumber = await this.nextCustomerFollowUpNumber(tx, followUp.customerId);
+        nextFollowUp = await tx.crmFollowUp.create({
+          data: {
+            title: dto.nextSubject?.trim() || 'Scheduled Follow-up',
+            subject: dto.nextSubject?.trim() || null,
+            activityType: dto.nextActivityType || followUp.activityType,
+            customerId: followUp.customerId,
+            assignedStaffId: dto.nextAssignedStaffId || followUp.assignedStaffId,
+            followUpNumber,
+            scheduledDate: nextScheduledDate,
+            status: 'PENDING',
+            priority: dto.nextPriority || followUp.priority,
+            notes: dto.nextNotes?.trim() || null,
+            parentFollowUpId: followUp.id,
+          },
+          include: {
+            assignedStaff: { select: { id: true, fullName: true } },
+          },
+        });
+      }
+
+      return {
+        followUp: completedFollowUp,
+        activity,
+        nextFollowUp,
+      };
+    }, { timeout: 15000, maxWait: 10000 });
+
+    // Non-blocking centralized audit logging
+    try {
+      await this.auditService.recordAction({
+        actor: user,
+        action: 'RESOLVE',
+        module: 'CRM',
+        entityType: 'CrmFollowUp',
+        entityId: followUp.id,
+        before: { status: followUp.status, scheduledDate: followUp.scheduledDate },
+        after: {
+          status: 'COMPLETED',
+          completedActivityId: result.activity.id,
+          activityType: result.activity.activityType,
+          nextFollowUpId: result.nextFollowUp?.id || null,
+        },
+        details: {
+          customerId: followUp.customerId,
+          activityId: result.activity.id,
+          outcome: dto.outcome || dto.callOutcome,
+          hasAttachments: Boolean(dto.attachmentIds?.length),
+        },
+      });
+    } catch (auditErr) {
+      // Audit failure must never block or roll back completed transaction
+    }
+
+    return result;
+  }
+
+  async uploadAttachments(files: Express.Multer.File[], body: any, user: any) {
+    if (!files || files.length === 0) {
+      throw new BadRequestException('At least one file must be provided for upload');
+    }
+
+    const allowedMimes = [
+      'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml',
+      'audio/webm', 'audio/mp3', 'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/m4a', 'audio/x-m4a', 'audio/mp4', 'audio/aac',
+      'video/mp4', 'video/webm', 'video/quicktime', 'video/x-matroska',
+      'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/plain', 'text/csv'
+    ];
+
+    const results: any[] = [];
+    const customerId = body?.customerId?.trim() || null;
+    const followUpId = body?.followUpId?.trim() || null;
+    const activityId = body?.activityId?.trim() || null;
+    const sourceCategory = body?.sourceCategory?.trim() || null;
+    const description = body?.description?.trim() || null;
+
+    if (customerId) {
+      const customer = await this.prisma.customer.findUnique({
+        where: { id: customerId },
+        select: { id: true, assignedStaffId: true, salesManagerStaffId: true, createdByUserId: true },
+      });
+      if (customer) {
+        this.assertCrmRecordAccess(customer, user, 'Company', { allowCreator: true });
+      }
+    }
+
+    for (const file of files) {
+      const mime = (file.mimetype || '').toLowerCase();
+      if (!allowedMimes.includes(mime)) {
+        throw new BadRequestException(`Unsupported file type: ${mime}. Allowed types include images, audio, video and documents.`);
+      }
+
+      let mediaClass = 'DOCUMENT';
+      if (mime.startsWith('image/')) mediaClass = 'IMAGE';
+      else if (mime.startsWith('audio/')) mediaClass = 'AUDIO';
+      else if (mime.startsWith('video/')) mediaClass = 'VIDEO';
+
+      const maxSize = (mediaClass === 'AUDIO' || mediaClass === 'VIDEO') ? 50 * 1024 * 1024 : 25 * 1024 * 1024;
+      if (file.size > maxSize) {
+        throw new BadRequestException(`File ${file.originalname} exceeds maximum allowed size of ${maxSize / (1024 * 1024)}MB`);
+      }
+
+      const uploadResult = await this.fileStorageService.uploadFile(file, 'crm', customerId || 'general');
+
+      const attachment = await this.prisma.crmAttachment.create({
+        data: {
+          customerId,
+          followUpId,
+          activityId,
+          fileName: file.originalname,
+          storagePath: uploadResult.storagePath,
+          fileUrl: uploadResult.publicUrl || `/api/v1/crm/attachments/${uploadResult.storagePath}`,
+          mimeType: file.mimetype,
+          fileSizeBytes: file.size,
+          mediaClass,
+          sourceCategory,
+          description,
+          uploadedById: user?.staffId || user?.id || null,
+          uploadedByName: user?.fullName || user?.username || 'Staff',
+        },
+      });
+
+      results.push(attachment);
+    }
+
+    await this.auditService.recordAction({
+      actor: user,
+      action: 'UPLOAD',
+      module: 'CRM',
+      entityType: 'CrmAttachment',
+      entityId: results.map((r) => r.id).join(','),
+      details: {
+        fileCount: results.length,
+        customerId,
+        followUpId,
+        activityId,
+      },
+    });
+
+    return results;
+  }
+
+  async getAttachmentStream(id: string, user: any) {
+    const attachment = await this.prisma.crmAttachment.findUnique({
+      where: { id },
+      include: {
+        customer: { select: { id: true, assignedStaffId: true, salesManagerStaffId: true, createdByUserId: true } },
+      },
+    });
+
+    if (!attachment) {
+      throw new NotFoundException('Attachment not found');
+    }
+
+    if (attachment.customer) {
+      this.assertCrmRecordAccess(attachment.customer, user, 'Attachment', { allowCreator: true });
+    }
+
+    const buffer = await this.fileStorageService.downloadFile(attachment.storagePath);
+    return { attachment, buffer };
+  }
+
+  async deleteAttachment(id: string, user: any) {
+    const attachment = await this.prisma.crmAttachment.findUnique({
+      where: { id },
+      include: {
+        customer: { select: { id: true, assignedStaffId: true, salesManagerStaffId: true, createdByUserId: true } },
+      },
+    });
+
+    if (!attachment) {
+      throw new NotFoundException('Attachment not found');
+    }
+
+    if (!this.isCrmAdminOrManager(user)) {
+      if (attachment.uploadedById !== user?.staffId && attachment.uploadedById !== user?.id) {
+        throw new ForbiddenException('Access denied: you can only delete attachments you uploaded');
+      }
+    }
+
+    try {
+      await this.fileStorageService.deleteFile(attachment.storagePath);
+    } catch (e) {
+      // Ignore if physical file was already removed
+    }
+
+    await this.prisma.crmAttachment.delete({ where: { id } });
+
+    await this.auditService.recordAction({
+      actor: user,
+      action: 'DELETE',
+      module: 'CRM',
+      entityType: 'CrmAttachment',
+      entityId: id,
+      details: {
+        fileName: attachment.fileName,
+        storagePath: attachment.storagePath,
+      },
+    });
+
+    return { success: true, id };
+  }
+
   async rescheduleFollowUp(id: string, dto: { scheduledDate: string; reason?: string }, user?: any) {
     const followUp = await this.prisma.crmFollowUp.findUnique({
       where: { id },
@@ -1902,7 +2317,7 @@ export class CrmService {
       select: { id: true, assignedStaffId: true, salesManagerStaffId: true, createdByUserId: true },
     });
     this.assertCrmRecordAccess(customer, user, 'Company', { allowCreator: true });
-    const [activities, followUps, enquiries, opportunities, panelSpecs, projects, documents, media] = await Promise.all([
+    const [activities, followUps, enquiries, opportunities, panelSpecs, projects, documents, media, legacyInteractions, crmAttachments] = await Promise.all([
       this.prisma.crmActivity.findMany({
         where: { customerId },
         orderBy: { createdAt: 'desc' },
@@ -1912,13 +2327,14 @@ export class CrmService {
           call: { include: { recordings: true } },
           meeting: { include: { hostStaff: { select: { id: true, fullName: true } } } },
           siteVisit: true,
+          attachments: true,
         },
         take: 100,
       }),
       this.prisma.crmFollowUp.findMany({
         where: { customerId },
         orderBy: { scheduledDate: 'desc' },
-        include: { assignedStaff: { select: { id: true, fullName: true } } },
+        include: { assignedStaff: { select: { id: true, fullName: true } }, attachments: true },
         take: 50,
       }),
       this.prisma.enquiry.findMany({
@@ -1951,6 +2367,16 @@ export class CrmService {
         orderBy: { createdAt: 'desc' },
         take: 30,
       }),
+      this.prisma.customerInteraction.findMany({
+        where: { customerId },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      }),
+      this.prisma.crmAttachment.findMany({
+        where: { customerId },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      }),
     ]);
 
     const timeline: any[] = [];
@@ -1969,6 +2395,10 @@ export class CrmService {
           meeting: a.meeting,
           siteVisit: a.siteVisit,
           contact: a.contact,
+          attachments: a.attachments,
+          customerRequirements: a.customerRequirements,
+          productsDiscussed: a.productsDiscussed,
+          documentsSent: a.documentsSent,
         },
       });
     });
@@ -2056,6 +2486,44 @@ export class CrmService {
         timestamp: m.createdAt,
         actor: 'Media Gallery',
         metadata: { fileUrl: m.fileUrl, mediaType: m.mediaType },
+      });
+    });
+
+    legacyInteractions.forEach((li) => {
+      timeline.push({
+        id: li.id,
+        type: `LEGACY_INTERACTION_${li.interactionType}`,
+        title: li.subject || `Interaction: ${li.interactionType}`,
+        description: li.description,
+        outcome: li.outcome,
+        timestamp: li.interactionDate || li.createdAt,
+        actor: li.recordedBy || 'Sales Staff',
+        metadata: {
+          attachmentUrl: li.attachmentUrl,
+          audioUrl: li.audioUrl,
+          photoUrl: li.photoUrl,
+          nextFollowUp: li.nextFollowUp,
+          isLegacy: true,
+        },
+      });
+    });
+
+    crmAttachments.forEach((att) => {
+      timeline.push({
+        id: att.id,
+        type: `ATTACHMENT_${att.mediaClass}`,
+        title: att.fileName,
+        description: att.description || `${att.mediaClass} - ${att.sourceCategory || 'General'}`,
+        timestamp: att.createdAt,
+        actor: att.uploadedByName || 'Staff',
+        metadata: {
+          storagePath: att.storagePath,
+          mimeType: att.mimeType,
+          fileSizeBytes: att.fileSizeBytes,
+          mediaClass: att.mediaClass,
+          sourceCategory: att.sourceCategory,
+          streamUrl: `/api/v1/crm/attachments/${att.id}/stream`,
+        },
       });
     });
 

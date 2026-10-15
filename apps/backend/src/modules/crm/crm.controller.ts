@@ -1,6 +1,24 @@
-import { Controller, Get, Post, Put, Patch, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Req,
+  Res,
+  UseInterceptors,
+  UploadedFiles,
+} from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
+import { Response } from 'express';
 import { CrmService } from './crm.service';
+import { ResolveFollowUpDto } from './dto/resolve-followup.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
@@ -196,6 +214,28 @@ export class CrmController {
   @ApiOperation({ summary: 'Complete a follow-up (POST alias)' })
   completeFollowUpPost(@Param('id') id: string, @Body() body: any, @Req() req: any) {
     return this.crmService.completeFollowUp(id, body, req.user);
+  }
+
+  @Post('follow-ups/:id/resolve')
+  @RequirePermissions('CRM:EDIT')
+  @ApiOperation({ summary: 'Atomically resolve a follow-up, record activity outcome, link media, and optionally schedule next follow-up' })
+  resolveFollowUp(
+    @Param('id') id: string,
+    @Body() dto: ResolveFollowUpDto,
+    @Req() req: any,
+  ) {
+    return this.crmService.resolveFollowUp(id, dto, req.user);
+  }
+
+  @Patch('follow-ups/:id/resolve')
+  @RequirePermissions('CRM:EDIT')
+  @ApiOperation({ summary: 'Atomically resolve a follow-up (PATCH alias)' })
+  resolveFollowUpPatch(
+    @Param('id') id: string,
+    @Body() dto: ResolveFollowUpDto,
+    @Req() req: any,
+  ) {
+    return this.crmService.resolveFollowUp(id, dto, req.user);
   }
 
   @Patch('follow-ups/:id/reschedule')
@@ -400,5 +440,44 @@ export class CrmController {
   @ApiOperation({ summary: 'User daily work summary: pending follow-ups, today meetings, active deals' })
   getMyWork(@Req() req: any) {
     return this.crmService.getMyWork(req.user);
+  }
+
+  // ─── CRM ATTACHMENTS & MEDIA STREAMING ────────────────────────────────────
+  @Post('attachments/upload')
+  @RequirePermissions('CRM:CREATE', 'CRM:EDIT')
+  @UseInterceptors(FilesInterceptor('files', 10, { limits: { fileSize: 50 * 1024 * 1024 } }))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload multi-file attachments (images, audio recordings, documents, videos)' })
+  uploadAttachments(
+    @UploadedFiles() files: Express.Multer.File[],
+    @Body() body: any,
+    @Req() req: any,
+  ) {
+    return this.crmService.uploadAttachments(files, body, req.user);
+  }
+
+  @Get('attachments/:id/stream')
+  @RequirePermissions('CRM:VIEW')
+  @ApiOperation({ summary: 'Stream authenticated CRM media attachment' })
+  async streamAttachment(
+    @Param('id') id: string,
+    @Res() res: Response,
+    @Req() req: any,
+  ) {
+    const { attachment, buffer } = await this.crmService.getAttachmentStream(id, req.user);
+    res.setHeader('Content-Type', attachment.mimeType || 'application/octet-stream');
+    res.setHeader('Content-Length', buffer.length);
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(attachment.fileName)}"`);
+    res.end(buffer);
+  }
+
+  @Delete('attachments/:id')
+  @RequirePermissions('CRM:EDIT')
+  @ApiOperation({ summary: 'Delete attachment and underlying storage file' })
+  deleteAttachment(
+    @Param('id') id: string,
+    @Req() req: any,
+  ) {
+    return this.crmService.deleteAttachment(id, req.user);
   }
 }

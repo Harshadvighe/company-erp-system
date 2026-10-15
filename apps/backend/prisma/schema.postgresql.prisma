@@ -270,6 +270,7 @@ model Customer {
   followUps            CrmFollowUp[]
   documents            CustomerDocument[]
   media                CustomerMedia[]
+  crmAttachments       CrmAttachment[]
   panelSpecs           PanelSpecification[]
   projects             Project[]
   quotations           Quotation[]
@@ -652,7 +653,12 @@ model CrmActivity {
   staff          Staff            @relation(fields: [staffId], references: [id])
   call           CrmCall?
   meeting        CrmMeeting?
-  siteVisit      CrmSiteVisit?
+  siteVisit            CrmSiteVisit?
+  resolvedFollowUp     CrmFollowUp?     @relation("FollowUpResolution")
+  customerRequirements String?
+  productsDiscussed    String?          // JSON string array or text
+  documentsSent        String?          // JSON string array or text
+  attachments          CrmAttachment[]
 
   @@map("crm_activities")
   @@index([customerId])
@@ -771,17 +777,28 @@ model CrmFollowUp {
   priority        String    @default("MEDIUM")
   notes           String?
   completedDate   DateTime?
+  completedActivityId String?       @unique
+  parentFollowUpId    String?
+  idempotencyKey      String?       @unique
+  reminderSentAt      DateTime?
+  escalatedAt         DateTime?
+  escalatedToStaffId  String?
   createdAt       DateTime  @default(now())
 
   customer        Customer?    @relation(fields: [customerId], references: [id], onDelete: Cascade)
   opportunity     Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
   assignedStaff   Staff        @relation(fields: [assignedStaffId], references: [id])
+  completedActivity CrmActivity?  @relation("FollowUpResolution", fields: [completedActivityId], references: [id])
+  parentFollowUp    CrmFollowUp?  @relation("FollowUpChain", fields: [parentFollowUpId], references: [id])
+  childFollowUps    CrmFollowUp[] @relation("FollowUpChain")
+  attachments       CrmAttachment[]
 
   @@map("crm_follow_ups")
   @@unique([customerId, followUpNumber])
   @@index([assignedStaffId])
   @@index([status])
   @@index([scheduledDate])
+  @@index([parentFollowUpId])
 }
 
 model CustomerDocument {
@@ -816,6 +833,36 @@ model CustomerMedia {
   staff             Staff    @relation(fields: [uploadedByStaffId], references: [id])
 
   @@map("customer_media")
+}
+
+model CrmAttachment {
+  id             String       @id @default(uuid())
+  customerId     String?
+  followUpId     String?
+  activityId     String?
+  fileName       String
+  storagePath    String
+  fileUrl        String?
+  mimeType       String?
+  fileSizeBytes  Int          @default(0)
+  mediaClass     String       @default("DOCUMENT") // IMAGE, AUDIO, VIDEO, DOCUMENT
+  sourceCategory String?      // CALL_RECORDING, SITE_PHOTO, REQUIREMENT_DOC, MOM, OTHER
+  description    String?
+  uploadedById   String?
+  uploadedByName String?
+  createdAt      DateTime     @default(now())
+
+  customer        Customer?    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  followUp        CrmFollowUp? @relation(fields: [followUpId], references: [id], onDelete: Cascade)
+  activity        CrmActivity? @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  uploadedByStaff Staff?       @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@map("crm_attachments")
+  @@index([customerId])
+  @@index([followUpId])
+  @@index([activityId])
+  @@index([uploadedById])
+  @@index([mediaClass])
 }
 
 model CrmSavedFilter {
@@ -1756,6 +1803,7 @@ model Staff {
   crmFollowUps       CrmFollowUp[]
   customerDocuments  CustomerDocument[]
   customerMedia      CustomerMedia[]
+  crmAttachments     CrmAttachment[]
   savedFilters       CrmSavedFilter[]
   hostedMeetings     CrmMeeting[] @relation("MeetingHost")
   assignedQuotations Quotation[]  @relation("QuotationAssignee")
