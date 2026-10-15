@@ -371,6 +371,7 @@ class CustomerListState {
   final int systemTotal;
   final int page;
   final int totalPages;
+  final int pageSize;
 
   const CustomerListState({
     this.customers = const [],
@@ -380,6 +381,7 @@ class CustomerListState {
     this.systemTotal = 0,
     this.page = 1,
     this.totalPages = 1,
+    this.pageSize = 25,
   });
 
   CustomerListState copyWith({
@@ -390,6 +392,7 @@ class CustomerListState {
     int? systemTotal,
     int? page,
     int? totalPages,
+    int? pageSize,
   }) {
     return CustomerListState(
       customers: customers ?? this.customers,
@@ -399,6 +402,7 @@ class CustomerListState {
       systemTotal: systemTotal ?? this.systemTotal,
       page: page ?? this.page,
       totalPages: totalPages ?? this.totalPages,
+      pageSize: pageSize ?? this.pageSize,
     );
   }
 }
@@ -412,9 +416,11 @@ class CustomerListNotifier extends StateNotifier<CustomerListState> {
     String? search,
     String? type,
     int page = 1,
+    int? pageSize,
     String? sortBy,
     Map<String, dynamic> filters = const {},
   }) async {
+    final effectivePageSize = pageSize ?? state.pageSize;
     state = state.copyWith(isLoading: true, error: null);
     try {
       final result =
@@ -422,6 +428,7 @@ class CustomerListNotifier extends StateNotifier<CustomerListState> {
             search: search,
             type: type,
             page: page,
+            limit: effectivePageSize,
             sortBy: sortBy,
             filters: filters,
           );
@@ -438,6 +445,7 @@ class CustomerListNotifier extends StateNotifier<CustomerListState> {
         systemTotal: meta['systemTotal'] as int? ?? meta['total'] as int? ?? customers.length,
         page: meta['page'] as int? ?? page,
         totalPages: meta['totalPages'] as int? ?? 1,
+        pageSize: effectivePageSize,
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());

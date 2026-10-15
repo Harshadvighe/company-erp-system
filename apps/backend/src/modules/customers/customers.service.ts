@@ -36,7 +36,7 @@ export class CustomersService {
     sortBy?: string;
   }) {
     const page = Math.max(1, Number(query?.page) || 1);
-    const limit = Math.max(1, Math.min(100, Number(query?.limit) || 25));
+    const limit = Math.max(1, Math.min(1000, Number(query?.limit) || 25));
     const skip = (page - 1) * limit;
     const conditions: Prisma.CustomerWhereInput[] = [
       { status: query?.status || { not: 'DELETED' } },

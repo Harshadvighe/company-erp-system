@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -21,6 +22,10 @@ class CustomersListPage extends ConsumerStatefulWidget {
 class _CustomersListPageState extends ConsumerState<CustomersListPage> {
   final _searchController = TextEditingController();
   final _ratingAboveController = TextEditingController();
+  final ScrollController _tableVerticalController = ScrollController();
+  final ScrollController _tableHorizontalController = ScrollController();
+  final ScrollController _mobileListController = ScrollController();
+  int _pageSize = 25;
   final Map<String, dynamic> _filterOptions = {};
   List<String> _selectedProductSystemIds = [];
   String _valuationFilter = 'ALL';
@@ -71,6 +76,9 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
   void dispose() {
     _searchController.dispose();
     _ratingAboveController.dispose();
+    _tableVerticalController.dispose();
+    _tableHorizontalController.dispose();
+    _mobileListController.dispose();
     super.dispose();
   }
 
@@ -128,7 +136,10 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
     return filters;
   }
 
-  Future<void> _loadCompanies({int page = 1}) async {
+  Future<void> _loadCompanies({int page = 1, int? pageSize}) async {
+    if (pageSize != null) {
+      _pageSize = pageSize;
+    }
     if (_meetingFilterEnabled &&
         (_meetingFrom == null ||
             _meetingTo == null ||
@@ -142,6 +153,7 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
     await ref.read(customerListProvider.notifier).loadCustomers(
           search: _searchController.text,
           page: page,
+          pageSize: _pageSize,
           sortBy: _sortOption,
           filters: _activeFilters(),
         );
@@ -469,27 +481,21 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
           _buildHeader(isWide, state),
           _buildSortingFilters(state),
           Expanded(
-            child: Column(
-              children: [
-                Expanded(
-                  child: state.isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : state.error != null
-                          ? _buildError(state.error!)
-                          : state.customers.isEmpty
-                              ? _buildEmpty()
-                              : isWide
-                                  ? _buildDataTable(state)
-                                  : _buildCardList(state),
-                ),
-                if (!state.isLoading && state.error == null)
-                  _buildPagination(state),
-              ],
-            ),
+            child: state.isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : state.error != null
+                    ? _buildError(state.error!)
+                    : state.customers.isEmpty
+                        ? _buildEmpty()
+                        : isWide
+                            ? _buildDataTable(state)
+                            : _buildCardList(state),
           ),
+          if (!state.isLoading && state.error == null && state.customers.isNotEmpty)
+            _buildPagination(state, isWide),
         ],
       ),
-      floatingActionButton: _canCreate
+      floatingActionButton: _canCreate && !isWide
           ? FloatingActionButton.extended(
               onPressed: () => context.go('/customers/new'),
               icon: const Icon(Icons.add),
@@ -528,6 +534,16 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
           if (_canCreate) ...[
             const SizedBox(width: 12),
             ElevatedButton.icon(
+              onPressed: () => context.go('/customers/new'),
+              icon: const Icon(Icons.add, size: 16),
+              label: const Text('New Customer'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primary,
+                foregroundColor: Colors.white,
+              ),
+            ),
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
               onPressed: () => BulkImportModal.show(
                 context,
                 target: 'CUSTOMER',
@@ -535,10 +551,6 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
               ),
               icon: const Icon(Icons.upload_file, size: 16),
               label: const Text('Import Excel'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primary,
-                foregroundColor: Colors.white,
-              ),
             ),
           ],
           if (isWide && _canExport) ...[
@@ -863,48 +875,214 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
     );
   }
 
-  Widget _buildPagination(CustomerListState state) {
-    return Padding(
+  Widget _buildPagination(CustomerListState state, bool isWide) {
+    final startItem =
+        state.total == 0 ? 0 : (state.page - 1) * state.pageSize + 1;
+    final endItem = (state.page * state.pageSize) > state.total
+        ? state.total
+        : (state.page * state.pageSize);
+
+    return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          Text('Page ${state.page} of ${state.totalPages}'),
-          const SizedBox(width: 12),
-          IconButton(
-            tooltip: 'Previous page',
-            onPressed: state.page > 1
-                ? () => _loadCompanies(page: state.page - 1)
-                : null,
-            icon: const Icon(Icons.chevron_left),
-          ),
-          IconButton(
-            tooltip: 'Next page',
-            onPressed: state.page < state.totalPages
-                ? () => _loadCompanies(page: state.page + 1)
-                : null,
-            icon: const Icon(Icons.chevron_right),
-          ),
-        ],
+      decoration: const BoxDecoration(
+        color: AppTheme.darkSurface,
+        border: Border(top: BorderSide(color: AppTheme.darkBorder)),
       ),
+      child: isWide
+          ? Row(
+              children: [
+                Text(
+                  'Showing $startItem–$endItem of ${state.total} companies'
+                  '${state.systemTotal > state.total ? ' (filtered from ${state.systemTotal} total)' : ''}',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                const Spacer(),
+                const Text('Rows per page: ',
+                    style: TextStyle(fontSize: 12, color: Colors.grey)),
+                const SizedBox(width: 8),
+                DropdownButton<int>(
+                  value: state.pageSize >= 1000
+                      ? 1000
+                      : (state.pageSize == 50
+                          ? 50
+                          : (state.pageSize == 100 ? 100 : 25)),
+                  isDense: true,
+                  underline: const SizedBox(),
+                  dropdownColor: AppTheme.darkSurface,
+                  items: [
+                    const DropdownMenuItem(
+                        value: 25,
+                        child: Text('25', style: TextStyle(fontSize: 12))),
+                    const DropdownMenuItem(
+                        value: 50,
+                        child: Text('50', style: TextStyle(fontSize: 12))),
+                    const DropdownMenuItem(
+                        value: 100,
+                        child: Text('100', style: TextStyle(fontSize: 12))),
+                    DropdownMenuItem(
+                        value: 1000,
+                        child: Text(
+                            state.total > 0
+                                ? 'All (${state.total})'
+                                : 'All',
+                            style: const TextStyle(fontSize: 12))),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) {
+                      _loadCompanies(page: 1, pageSize: val);
+                    }
+                  },
+                ),
+                const SizedBox(width: 16),
+                Text('Page ${state.page} of ${state.totalPages}',
+                    style: const TextStyle(fontSize: 12)),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.first_page, size: 20),
+                  tooltip: 'First page',
+                  onPressed:
+                      state.page > 1 ? () => _loadCompanies(page: 1) : null,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.chevron_left, size: 20),
+                  tooltip: 'Previous page',
+                  onPressed: state.page > 1
+                      ? () => _loadCompanies(page: state.page - 1)
+                      : null,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.chevron_right, size: 20),
+                  tooltip: 'Next page',
+                  onPressed: state.page < state.totalPages
+                      ? () => _loadCompanies(page: state.page + 1)
+                      : null,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.last_page, size: 20),
+                  tooltip: 'Last page',
+                  onPressed: state.page < state.totalPages
+                      ? () => _loadCompanies(page: state.totalPages)
+                      : null,
+                ),
+              ],
+            )
+          : Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                Text(
+                  '$startItem–$endItem of ${state.total}',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DropdownButton<int>(
+                      value: state.pageSize >= 1000
+                          ? 1000
+                          : (state.pageSize == 50
+                              ? 50
+                              : (state.pageSize == 100 ? 100 : 25)),
+                      isDense: true,
+                      underline: const SizedBox(),
+                      dropdownColor: AppTheme.darkSurface,
+                      items: const [
+                        DropdownMenuItem(
+                            value: 25,
+                            child: Text('25', style: TextStyle(fontSize: 12))),
+                        DropdownMenuItem(
+                            value: 50,
+                            child: Text('50', style: TextStyle(fontSize: 12))),
+                        DropdownMenuItem(
+                            value: 100,
+                            child: Text('100', style: TextStyle(fontSize: 12))),
+                        DropdownMenuItem(
+                            value: 1000,
+                            child: Text('All', style: TextStyle(fontSize: 12))),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) {
+                          _loadCompanies(page: 1, pageSize: val);
+                        }
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.chevron_left, size: 18),
+                      tooltip: 'Previous',
+                      onPressed: state.page > 1
+                          ? () => _loadCompanies(page: state.page - 1)
+                          : null,
+                    ),
+                    Text('${state.page}/${state.totalPages}',
+                        style: const TextStyle(fontSize: 12)),
+                    IconButton(
+                      icon: const Icon(Icons.chevron_right, size: 18),
+                      tooltip: 'Next',
+                      onPressed: state.page < state.totalPages
+                          ? () => _loadCompanies(page: state.page + 1)
+                          : null,
+                    ),
+                  ],
+                ),
+              ],
+            ),
     );
   }
 
   Widget _buildDataTable(CustomerListState state) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Card(
-            clipBehavior: Clip.antiAlias,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                columnSpacing: 18,
-                headingRowColor:
-                    WidgetStateProperty.all(AppTheme.darkBackground),
-                columns: const [
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return ScrollConfiguration(
+          behavior: ScrollConfiguration.of(context).copyWith(
+            dragDevices: {
+              PointerDeviceKind.touch,
+              PointerDeviceKind.mouse,
+              PointerDeviceKind.trackpad,
+              PointerDeviceKind.stylus,
+            },
+            scrollbars: false,
+          ),
+          child: Scrollbar(
+            controller: _tableVerticalController,
+            thumbVisibility: true,
+            trackVisibility: true,
+            interactive: true,
+            thickness: 10,
+            radius: const Radius.circular(5),
+            child: Scrollbar(
+              controller: _tableHorizontalController,
+              thumbVisibility: true,
+              trackVisibility: true,
+              interactive: true,
+              thickness: 10,
+              radius: const Radius.circular(5),
+              notificationPredicate: (notif) => notif.depth == 1,
+              child: SingleChildScrollView(
+                controller: _tableVerticalController,
+                scrollDirection: Axis.vertical,
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+                child: SingleChildScrollView(
+                  controller: _tableHorizontalController,
+                  scrollDirection: Axis.horizontal,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minWidth: constraints.maxWidth - 24 > 1150
+                          ? constraints.maxWidth - 24
+                          : 1150,
+                    ),
+                    child: Card(
+                      margin: EdgeInsets.zero,
+                      clipBehavior: Clip.antiAlias,
+                      child: DataTable(
+                        columnSpacing: 18,
+                        headingRowColor:
+                            WidgetStateProperty.all(AppTheme.darkBackground),
+                        columns: const [
                   DataColumn(
                       label: Text('#',
                           style: TextStyle(
@@ -969,7 +1147,7 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
                 rows: state.customers.asMap().entries.map((entry) {
                   final index = entry.key;
                   final c = entry.value;
-                  final rowNum = (state.page - 1) * 25 + index + 1;
+                  final rowNum = (state.page - 1) * state.pageSize + index + 1;
                   final salesOwner =
                       c.salesOwnerName ?? c.ownerName ?? 'Unassigned';
                   final addedBy = c.addedByName ?? 'System / Admin';
@@ -1257,18 +1435,24 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
               ),
             ),
           ),
-          const SizedBox(height: 8),
-          Text('${state.total} companies found',
-              style: const TextStyle(color: Colors.grey, fontSize: 12)),
-        ],
+        ),
       ),
+    ),
+  ),
+);
+      },
     );
   }
 
   Widget _buildCardList(CustomerListState state) {
-    return ListView.separated(
-      padding: const EdgeInsets.all(12),
-      itemCount: state.customers.length,
+    return Scrollbar(
+      controller: _mobileListController,
+      thumbVisibility: true,
+      interactive: true,
+      child: ListView.separated(
+        controller: _mobileListController,
+        padding: const EdgeInsets.all(12),
+        itemCount: state.customers.length,
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (_, i) {
         final c = state.customers[i];
@@ -1415,6 +1599,7 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
           ),
         );
       },
+      ),
     );
   }
 
