@@ -720,7 +720,7 @@ class _CrmFollowUpsPageState extends ConsumerState<CrmFollowUpsPage>
                                 const ButtonSegment(
                                   value: 1,
                                   label: Text('Customer 360 Timeline'),
-                                  icon: const Icon(Icons.history, size: 16),
+                                  icon: Icon(Icons.history, size: 16),
                                 ),
                               ],
                               selected: {activeTab},
@@ -1008,7 +1008,7 @@ class _CrmFollowUpsPageState extends ConsumerState<CrmFollowUpsPage>
                                                         vertical: 2),
                                                     decoration: BoxDecoration(
                                                       color: AppTheme.primary
-                                                          .withOpacity(0.2),
+                                                          .withValues(alpha: 0.2),
                                                       borderRadius:
                                                           BorderRadius.circular(
                                                               4),
@@ -1704,7 +1704,7 @@ class _CrmFollowUpsPageState extends ConsumerState<CrmFollowUpsPage>
                               children: [
                                 Expanded(
                                   child: DropdownButtonFormField<String>(
-                                    value: activityType,
+                                    initialValue: activityType,
                                     decoration: const InputDecoration(
                                       labelText: 'Activity Type *',
                                       prefixIcon: Icon(Icons.touch_app, size: 18),
@@ -1731,7 +1731,7 @@ class _CrmFollowUpsPageState extends ConsumerState<CrmFollowUpsPage>
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: DropdownButtonFormField<String>(
-                                    value: outcome,
+                                    initialValue: outcome,
                                     decoration: const InputDecoration(
                                       labelText: 'Outcome *',
                                       prefixIcon: Icon(Icons.flag, size: 18),
@@ -1785,10 +1785,10 @@ class _CrmFollowUpsPageState extends ConsumerState<CrmFollowUpsPage>
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 12, vertical: 8),
                                 decoration: BoxDecoration(
-                                  color: Colors.amber.withOpacity(0.15),
+                                  color: Colors.amber.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(6),
                                   border: Border.all(
-                                      color: Colors.amber.withOpacity(0.4)),
+                                      color: Colors.amber.withValues(alpha: 0.4)),
                                 ),
                                 child: Row(
                                   children: [
