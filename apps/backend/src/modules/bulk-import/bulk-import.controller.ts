@@ -11,6 +11,7 @@ import {
   Req,
   Res,
   HttpStatus,
+  ForbiddenException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
@@ -38,7 +39,18 @@ export class BulkImportController {
   ) {}
 
   @Post('parse-preview')
-  @RequirePermissions('CUSTOMERS:CREATE', 'PURCHASE:CREATE', 'CUSTOMERS:VIEW', 'VENDORS:CREATE')
+  @RequirePermissions(
+    'CUSTOMERS:CREATE',
+    'CRM:CREATE',
+    'CUSTOMERS:VIEW',
+    'CRM:VIEW',
+    'PURCHASE:CREATE',
+    'PURCHASE:VIEW',
+    'VENDORS:CREATE',
+    'VENDORS:VIEW',
+    'BULK_IMPORT:CREATE',
+    'BULK_IMPORT:VIEW',
+  )
   @ApiOperation({
     summary: 'Upload Excel/CSV file, auto-detect columns, perform live GST enrichment & return preview',
   })
@@ -50,11 +62,56 @@ export class BulkImportController {
     @Req() req: any,
   ) {
     const target = (body.target as ImportTarget) || ImportTarget.CUSTOMER;
+
+    // Granular PBAC check: ensure caller has permission for the specified target entity
+    const userPerms: string[] = req.user?.permissions || [];
+    const userRoles: string[] = req.user?.roles || [];
+    const isAdmin =
+      req.user?.isAdmin === true ||
+      userRoles.some((r) => ['ROLE_ADMIN', 'ADMIN', 'SUPER_ADMIN'].includes(r));
+
+    if (!isAdmin) {
+      if (target === ImportTarget.CUSTOMER) {
+        const canCustomer = userPerms.some((p) =>
+          [
+            'CUSTOMERS:CREATE',
+            'CRM:CREATE',
+            'CUSTOMERS:VIEW',
+            'CRM:VIEW',
+            'BULK_IMPORT:CREATE',
+            'BULK_IMPORT:VIEW',
+          ].includes(p),
+        );
+        if (!canCustomer) {
+          throw new ForbiddenException(
+            'Access Denied: Missing CRM/Customer permission to parse and preview spreadsheet',
+          );
+        }
+      } else {
+        const canVendor = userPerms.some((p) =>
+          [
+            'VENDORS:CREATE',
+            'PURCHASE:CREATE',
+            'VENDORS:VIEW',
+            'PURCHASE:VIEW',
+            'BULK_IMPORT:CREATE',
+            'BULK_IMPORT:VIEW',
+          ].includes(p),
+        );
+        if (!canVendor) {
+          throw new ForbiddenException(
+            'Access Denied: Missing Vendor/Purchase permission to parse and preview spreadsheet',
+          );
+        }
+      }
+    }
+
     const fileName = file?.originalname || body.fileName || 'spreadsheet.xlsx';
     const enableGstEnrichment =
       body.enableGstEnrichment !== 'false' && body.enableGstEnrichment !== false;
     const checkDuplicates =
       body.checkDuplicates !== 'false' && body.checkDuplicates !== false;
+    const sheetName = body.sheetName ? String(body.sheetName).trim() : undefined;
 
     let columnMapping: Record<string, string> | undefined;
     if (body.columnMapping) {
@@ -71,6 +128,7 @@ export class BulkImportController {
       target,
       fileName,
       fileBase64: body.fileBase64,
+      sheetName,
       columnMapping,
       enableGstEnrichment,
       checkDuplicates,
@@ -80,16 +138,61 @@ export class BulkImportController {
   }
 
   @Post('execute')
-  @RequirePermissions('CUSTOMERS:CREATE', 'PURCHASE:CREATE', 'VENDORS:CREATE')
+  @RequirePermissions(
+    'CUSTOMERS:CREATE',
+    'CRM:CREATE',
+    'VENDORS:CREATE',
+    'PURCHASE:CREATE',
+    'BULK_IMPORT:CREATE',
+  )
   @ApiOperation({
     summary: 'Execute bulk import for approved records into database with audit trail',
   })
   async executeImport(@Body() dto: ExecuteImportDto, @Req() req: any) {
+    // Granular PBAC check: ensure caller has creation permission for the specified target entity
+    const userPerms: string[] = req.user?.permissions || [];
+    const userRoles: string[] = req.user?.roles || [];
+    const isAdmin =
+      req.user?.isAdmin === true ||
+      userRoles.some((r) => ['ROLE_ADMIN', 'ADMIN', 'SUPER_ADMIN'].includes(r));
+
+    if (!isAdmin) {
+      if (dto.target === ImportTarget.CUSTOMER) {
+        const canCustomer = userPerms.some((p) =>
+          ['CUSTOMERS:CREATE', 'CRM:CREATE', 'BULK_IMPORT:CREATE'].includes(p),
+        );
+        if (!canCustomer) {
+          throw new ForbiddenException(
+            'Access Denied: Missing CRM:CREATE or CUSTOMERS:CREATE permission to execute import',
+          );
+        }
+      } else {
+        const canVendor = userPerms.some((p) =>
+          ['VENDORS:CREATE', 'PURCHASE:CREATE', 'BULK_IMPORT:CREATE'].includes(p),
+        );
+        if (!canVendor) {
+          throw new ForbiddenException(
+            'Access Denied: Missing VENDORS:CREATE or PURCHASE:CREATE permission to execute import',
+          );
+        }
+      }
+    }
+
     return this.bulkImportService.executeImport(dto, req.user, req.ip);
   }
 
   @Get('template/:target')
-  @RequirePermissions('CUSTOMERS:EXPORT', 'VENDORS:EXPORT', 'PURCHASE:EXPORT', 'CUSTOMERS:VIEW', 'VENDORS:VIEW')
+  @RequirePermissions(
+    'CUSTOMERS:EXPORT',
+    'CRM:EXPORT',
+    'CUSTOMERS:VIEW',
+    'CRM:VIEW',
+    'VENDORS:EXPORT',
+    'PURCHASE:EXPORT',
+    'VENDORS:VIEW',
+    'PURCHASE:VIEW',
+    'BULK_IMPORT:VIEW',
+  )
   @ApiOperation({ summary: 'Download standard sample import template CSV' })
   async downloadTemplate(
     @Param('target') targetParam: string,
@@ -120,7 +223,17 @@ export class BulkImportController {
   }
 
   @Post('error-report')
-  @RequirePermissions('CUSTOMERS:EXPORT', 'VENDORS:EXPORT', 'PURCHASE:EXPORT', 'CUSTOMERS:VIEW', 'VENDORS:VIEW')
+  @RequirePermissions(
+    'CUSTOMERS:EXPORT',
+    'CRM:EXPORT',
+    'CUSTOMERS:VIEW',
+    'CRM:VIEW',
+    'VENDORS:EXPORT',
+    'PURCHASE:EXPORT',
+    'VENDORS:VIEW',
+    'PURCHASE:VIEW',
+    'BULK_IMPORT:VIEW',
+  )
   @ApiOperation({ summary: 'Generate and download sanitized CSV error report' })
   async downloadErrorReport(
     @Body() dto: GenerateErrorReportDto,
@@ -145,3 +258,4 @@ export class BulkImportController {
     res.status(HttpStatus.OK).send('\uFEFF' + csvContent);
   }
 }
+

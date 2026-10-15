@@ -69,6 +69,8 @@ export interface PreviewRow {
 export interface PreviewResult {
   target: ImportTarget;
   fileName: string;
+  sheetNames?: string[];
+  selectedSheet?: string;
   totalRows: number;
   validRows: number;
   warningRows: number;
@@ -123,7 +125,7 @@ export class BulkImportService {
     }
 
     // 1. Parse spreadsheet
-    const parsed = parseSpreadsheet(fileName, buffer);
+    const parsed = parseSpreadsheet(fileName, buffer, { sheetName: dto.sheetName });
 
     if (parsed.rowCount === 0) {
       throw new BadRequestException('The uploaded spreadsheet contains no data rows.');
@@ -186,8 +188,9 @@ export class BulkImportService {
       if (mappedData.phone) {
         const cleanPhone = mappedData.phone.replace(PHONE_CLEAN_REGEX, '');
         if (cleanPhone.length >= 7) {
-          if (!phoneCountInFile.has(cleanPhone)) phoneCountInFile.set(cleanPhone, []);
-          phoneCountInFile.get(cleanPhone)!.push(rowNumber);
+          const trackKey = cleanPhone.length >= 10 ? cleanPhone.slice(-10) : cleanPhone;
+          if (!phoneCountInFile.has(trackKey)) phoneCountInFile.set(trackKey, []);
+          phoneCountInFile.get(trackKey)!.push(rowNumber);
         }
       }
 
@@ -223,7 +226,16 @@ export class BulkImportService {
             : [],
           phoneList.length > 0
             ? this.prisma.customer.findMany({
-                where: { phone: { in: phoneList }, status: { not: 'DELETED' } },
+                where: {
+                  OR: [
+                    { phone: { in: phoneList } },
+                    ...phoneList.map((p) => {
+                      const d = p.replace(PHONE_CLEAN_REGEX, '');
+                      return { phone: { contains: d.length >= 10 ? d.slice(-10) : d } };
+                    }),
+                  ],
+                  status: { not: 'DELETED' },
+                },
                 select: { id: true, customerCode: true, companyName: true, gstin: true, phone: true },
                 take: 100,
               })
@@ -241,7 +253,13 @@ export class BulkImportService {
           if (c.gstin) existingByGstin.set(c.gstin.trim().toUpperCase(), { ...c, code: c.customerCode });
         });
         phoneMatches.forEach((c) => {
-          if (c.phone) existingByPhone.set(c.phone.trim(), { ...c, code: c.customerCode });
+          if (c.phone) {
+            existingByPhone.set(c.phone.trim(), { ...c, code: c.customerCode });
+            const digits = c.phone.replace(PHONE_CLEAN_REGEX, '');
+            if (digits.length >= 10) {
+              existingByPhone.set(digits.slice(-10), { ...c, code: c.customerCode });
+            }
+          }
         });
         nameMatches.forEach((c) => {
           if (c.companyName) existingByName.set(c.companyName.trim().toLowerCase(), { ...c, code: c.customerCode });
@@ -256,7 +274,16 @@ export class BulkImportService {
             : [],
           phoneList.length > 0
             ? this.prisma.vendor.findMany({
-                where: { phone: { in: phoneList }, status: { not: 'DELETED' } },
+                where: {
+                  OR: [
+                    { phone: { in: phoneList } },
+                    ...phoneList.map((p) => {
+                      const d = p.replace(PHONE_CLEAN_REGEX, '');
+                      return { phone: { contains: d.length >= 10 ? d.slice(-10) : d } };
+                    }),
+                  ],
+                  status: { not: 'DELETED' },
+                },
                 select: { id: true, vendorCode: true, companyName: true, gstin: true, phone: true },
                 take: 100,
               })
@@ -274,7 +301,13 @@ export class BulkImportService {
           if (v.gstin) existingByGstin.set(v.gstin.trim().toUpperCase(), { ...v, code: v.vendorCode });
         });
         phoneMatches.forEach((v) => {
-          if (v.phone) existingByPhone.set(v.phone.trim(), { ...v, code: v.vendorCode });
+          if (v.phone) {
+            existingByPhone.set(v.phone.trim(), { ...v, code: v.vendorCode });
+            const digits = v.phone.replace(PHONE_CLEAN_REGEX, '');
+            if (digits.length >= 10) {
+              existingByPhone.set(digits.slice(-10), { ...v, code: v.vendorCode });
+            }
+          }
         });
         nameMatches.forEach((v) => {
           if (v.companyName) existingByName.set(v.companyName.trim().toLowerCase(), { ...v, code: v.vendorCode });
@@ -456,16 +489,45 @@ export class BulkImportService {
       // C. Duplicate Detection (In-File & In-Database)
       let duplicateInfo: PreviewRow['duplicateInfo'] | undefined;
 
-      // 1. In-file duplicate check
+      // 1. In-file duplicate check (only flag subsequent occurrences as duplicates)
       if (rawGstin && gstinCountInFile.has(rawGstin)) {
-        const rowsWithSameGst = gstinCountInFile.get(rawGstin)!.filter((r) => r !== rowNumber);
-        if (rowsWithSameGst.length > 0) {
+        const priorRowsWithSameGst = gstinCountInFile.get(rawGstin)!.filter((r) => r < rowNumber);
+        if (priorRowsWithSameGst.length > 0) {
           duplicateInfo = {
             type: 'IN_FILE',
             field: 'gstin',
-            description: `GSTIN ${rawGstin} appears multiple times in this file (Rows ${rowsWithSameGst.join(', ')})`,
+            description: `GSTIN ${rawGstin} is a duplicate of Row ${priorRowsWithSameGst[0]} in this file`,
           };
-          warnings.push(`Duplicate GSTIN inside this file (Rows ${rowsWithSameGst.join(', ')})`);
+          warnings.push(`Duplicate GSTIN inside this file (matches Row ${priorRowsWithSameGst[0]})`);
+        }
+      }
+      if (!duplicateInfo && rawPhone) {
+        const cleanDigits = rawPhone.replace(PHONE_CLEAN_REGEX, '');
+        const trackKey = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : cleanDigits;
+        if (phoneCountInFile.has(trackKey)) {
+          const priorRowsWithSamePhone = phoneCountInFile.get(trackKey)!.filter((r) => r < rowNumber);
+          if (priorRowsWithSamePhone.length > 0) {
+            duplicateInfo = {
+              type: 'IN_FILE',
+              field: 'phone',
+              description: `Phone ${rawPhone} is a duplicate of Row ${priorRowsWithSamePhone[0]} in this file`,
+            };
+            warnings.push(`Duplicate phone inside this file (matches Row ${priorRowsWithSamePhone[0]})`);
+          }
+        }
+      }
+      if (!duplicateInfo && rawCompanyName) {
+        const cleanName = rawCompanyName.trim().toLowerCase();
+        if (nameCountInFile.has(cleanName)) {
+          const priorRowsWithSameName = nameCountInFile.get(cleanName)!.filter((r) => r < rowNumber);
+          if (priorRowsWithSameName.length > 0) {
+            duplicateInfo = {
+              type: 'IN_FILE',
+              field: 'companyName',
+              description: `Company name "${rawCompanyName}" is a duplicate of Row ${priorRowsWithSameName[0]} in this file`,
+            };
+            warnings.push(`Duplicate company name inside this file (matches Row ${priorRowsWithSameName[0]})`);
+          }
         }
       }
 
@@ -483,17 +545,22 @@ export class BulkImportService {
       }
 
       // 3. Database duplicate check (Exact Phone)
-      if (!duplicateInfo && rawPhone && existingByPhone.has(rawPhone)) {
-        const match = existingByPhone.get(rawPhone);
-        duplicateInfo = {
-          type: 'DATABASE_POSSIBLE',
-          field: 'phone',
-          existingId: match.id,
-          existingCode: match.code,
-          existingName: match.companyName,
-          description: `Phone ${rawPhone} already used by "${match.companyName}" (${match.code})`,
-        };
-        warnings.push(`Phone number matches existing record "${match.companyName}" (${match.code})`);
+      if (!duplicateInfo && rawPhone) {
+        const cleanDigits = rawPhone.replace(PHONE_CLEAN_REGEX, '');
+        const match =
+          existingByPhone.get(rawPhone) ||
+          (cleanDigits.length >= 10 ? existingByPhone.get(cleanDigits.slice(-10)) : undefined);
+        if (match) {
+          duplicateInfo = {
+            type: 'DATABASE_POSSIBLE',
+            field: 'phone',
+            existingId: match.id,
+            existingCode: match.code,
+            existingName: match.companyName,
+            description: `Phone ${rawPhone} already used by "${match.companyName}" (${match.code})`,
+          };
+          warnings.push(`Phone number matches existing record "${match.companyName}" (${match.code})`);
+        }
       }
 
       // 4. Database duplicate check (Exact Company Name)
@@ -518,7 +585,7 @@ export class BulkImportService {
       } else if (duplicateInfo?.type === 'DATABASE_EXACT') {
         validationStatus = RowValidationStatus.DUPLICATE_EXACT;
         duplicateCount++;
-      } else if (duplicateInfo?.type === 'IN_FILE') {
+      } else if (duplicateInfo?.type === 'IN_FILE' || duplicateInfo?.type === 'DATABASE_POSSIBLE') {
         validationStatus = RowValidationStatus.DUPLICATE_POSSIBLE;
         duplicateCount++;
       } else if (warnings.length > 0 || conflicts.length > 0) {
@@ -558,6 +625,8 @@ export class BulkImportService {
     return {
       target: dto.target,
       fileName,
+      sheetNames: parsed.sheetNames,
+      selectedSheet: parsed.selectedSheet,
       totalRows: previewRows.length,
       validRows: validCount,
       warningRows: warningCount,
@@ -654,7 +723,7 @@ export class BulkImportService {
       status: 'IMPORTED' | 'UPDATED' | 'SKIPPED' | 'FAILED';
       error?: string;
     }> = [];
-    const seenGstins = new Set<string>();
+    const seenIdentifiers = new Set<string>();
 
     // Find linked staff ID for owner assignment if authenticated
     let userStaffId: string | undefined;
@@ -704,10 +773,10 @@ export class BulkImportService {
             user?.id,
           );
         } catch (err: any) {
-          const error = err.message || 'GST verification proof is invalid. Retry GST lookup.';
-          errors.push({ rowNumber, companyName: companyName || undefined, error });
-          rowResults.push({ rowNumber, companyName: companyName || undefined, status: 'FAILED', error });
-          continue;
+          this.logger.warn(
+            `Row ${rowNumber}: GST verification check failed (${err.message}). Retaining row data with unverified GST status.`,
+          );
+          verification = null;
         }
       }
 
@@ -719,14 +788,6 @@ export class BulkImportService {
         rowResults.push({ rowNumber, status: 'FAILED', error });
         continue;
       }
-
-      if (gstin && dto.skipDuplicates !== false && seenGstins.has(gstin)) {
-        const error = `Duplicate GSTIN ${gstin} in this import was skipped.`;
-        skippedCount++;
-        rowResults.push({ rowNumber, companyName, status: 'SKIPPED', error });
-        continue;
-      }
-      if (gstin) seenGstins.add(gstin);
 
       const finalCompanyName = companyName;
       const cleanPhone = trimmed(combined.phone);
@@ -744,13 +805,65 @@ export class BulkImportService {
       const vendorState = cleanState || 'Maharashtra';
       const vendorPincode = cleanPincode || '400001';
 
+      // Duplicate prevention within import batch (by GSTIN, phone, or company name)
+      const phoneDigits = cleanPhone.replace(PHONE_CLEAN_REGEX, '');
+      const duplicateKey = gstin
+        ? `gstin:${gstin}`
+        : phoneDigits.length >= 10
+        ? `phone:${phoneDigits.slice(-10)}`
+        : `name:${finalCompanyName.toLowerCase().trim()}`;
+
+      if (dto.skipDuplicates !== false && seenIdentifiers.has(duplicateKey)) {
+        const error = `Duplicate row with identifier (${duplicateKey}) inside this import batch was skipped.`;
+        skippedCount++;
+        rowResults.push({ rowNumber, companyName: finalCompanyName, status: 'SKIPPED', error });
+        continue;
+      }
+      seenIdentifiers.add(duplicateKey);
+
+      // Collect unmapped non-empty spreadsheet columns
+      const unmappedEntries: string[] = [];
+      const rawData = item.rawData;
+      if (rawData) {
+        for (const [colName, val] of Object.entries(rawData)) {
+          if (colName.startsWith('_')) continue;
+          const targetField = dto.columnMapping ? dto.columnMapping[colName] : undefined;
+          const isStandardField = [
+            'companyName', 'legalName', 'tradeName', 'gstin', 'pan', 'phone',
+            'email', 'address', 'city', 'state', 'pincode', 'contactPerson',
+            'customerType', 'industry', 'turnover', 'creditLimit', 'paymentTerms',
+            'outcome', 'remarks', 'followUp1', 'followUp2', 'quotation', 'date',
+          ].includes(targetField || '');
+
+          if (!isStandardField && val && typeof val === 'string' && val.trim().length > 0) {
+            unmappedEntries.push(`${colName}: ${val.trim()}`);
+          }
+        }
+      }
+
       try {
         if (dto.target === ImportTarget.CUSTOMER) {
-          // Check existing by GSTIN
+          // Check existing customer by GSTIN, Phone (last 10 digits), or Company Name
           let existingCustomer: any = null;
           if (gstin) {
             existingCustomer = await this.prisma.customer.findFirst({
               where: { gstin, status: { not: 'DELETED' } },
+            });
+          }
+          if (!existingCustomer && phoneDigits.length >= 10) {
+            existingCustomer = await this.prisma.customer.findFirst({
+              where: {
+                phone: { contains: phoneDigits.slice(-10) },
+                status: { not: 'DELETED' },
+              },
+            });
+          }
+          if (!existingCustomer && finalCompanyName) {
+            existingCustomer = await this.prisma.customer.findFirst({
+              where: {
+                companyName: { equals: finalCompanyName },
+                status: { not: 'DELETED' },
+              },
             });
           }
 
@@ -792,9 +905,9 @@ export class BulkImportService {
               });
             }
           } else {
-            // Atomic transaction for Customer + Primary Contact + Valuation
+            // Atomic transaction for Customer + Primary Contact + Valuation + Calling Interaction
             await this.prisma.$transaction(async (tx) => {
-              await this.customersService.createInTransaction(
+              const newCustomer = await this.customersService.createInTransaction(
                 tx,
                 {
                   companyName: finalCompanyName,
@@ -804,26 +917,26 @@ export class BulkImportService {
                   pan: trimmed(combined.pan) || trimmed(gstData?.pan) || (gstin && gstin.length >= 12 ? gstin.substring(2, 12) : null),
                   customerType: combined.customerType || 'END_CUSTOMER',
                   customerCategory: combined.customerCategory || 'STANDARD',
-                  customerSegment: trimmed(combined.industry) || trimmed(combined.customerSegment) || null,
+                  customerSegment: trimmed(combined.industry) || trimmed(combined.customerSegment) || 'VFD_PANEL',
                   contactPerson: cleanContact,
                   designation: trimmed(combined.designation) || null,
                   email: cleanEmail,
                   phone: cleanPhone,
                   alternatePhone: combined.alternatePhone,
                   website: combined.website,
-                  address: cleanAddress,
+                  address: cleanAddress || 'Main Office',
                   country: combined.country || 'India',
-                  state: cleanState,
-                  district: cleanDistrict,
-                  city: cleanCity,
-                  pincode: cleanPincode,
+                  state: cleanState || 'Maharashtra',
+                  district: cleanDistrict || cleanCity || 'Pune',
+                  city: cleanCity || 'Pune',
+                  pincode: cleanPincode || '411001',
                   ownerName: ownerName || 'Self',
                   assignedStaffId: userStaffId,
                   gstStatus: gstin ? 'GST_REGISTERED' : 'NO_GST',
                   gstVerified: Boolean(verification?.gstVerified),
                   gstVerifiedAt: verification?.gstVerifiedAt,
                   gstProviderRef: verification?.gstProviderRef,
-                  companyType: trimmed(gstData?.companyType) || trimmed(combined.companyType) || null,
+                  companyType: trimmed(gstData?.companyType) || trimmed(combined.companyType) || 'PVT_LTD',
                   industry: combined.industry,
                   turnover: combined.turnover,
                   creditLimit: Number(combined.creditLimit || 0),
@@ -832,6 +945,56 @@ export class BulkImportService {
                 },
                 user?.id,
               );
+
+              // Preserve Calling Sheet calling history, outcomes, and unmapped business fields in CustomerInteraction
+              const outcome = combined.outcome || null;
+              const remarks = combined.remarks || null;
+              const followUp1 = combined.followUp1 || null;
+              const followUp2 = combined.followUp2 || null;
+              const quotation = combined.quotation || null;
+              const dateVal = combined.date || null;
+
+              if (outcome || remarks || followUp1 || followUp2 || quotation || unmappedEntries.length > 0) {
+                const descParts: string[] = [];
+                if (remarks) descParts.push(`Remarks: ${remarks}`);
+                if (followUp1) descParts.push(`Follow-Up 1: ${followUp1}`);
+                if (followUp2) descParts.push(`Follow-Up 2: ${followUp2}`);
+                if (quotation) descParts.push(`Quotation: ${quotation}`);
+                if (unmappedEntries.length > 0) {
+                  descParts.push('--- Additional Spreadsheet Data ---');
+                  descParts.push(...unmappedEntries);
+                }
+
+                let nextFollowUpDate: Date | null = null;
+                const potentialDateStr = followUp1 || followUp2;
+                if (potentialDateStr) {
+                  const parsedDate = new Date(potentialDateStr);
+                  if (!isNaN(parsedDate.getTime())) {
+                    nextFollowUpDate = parsedDate;
+                  }
+                }
+
+                let callDate = new Date();
+                if (dateVal) {
+                  const parsedCallDate = new Date(dateVal);
+                  if (!isNaN(parsedCallDate.getTime())) {
+                    callDate = parsedCallDate;
+                  }
+                }
+
+                await tx.customerInteraction.create({
+                  data: {
+                    customerId: newCustomer.id,
+                    interactionType: 'CALL',
+                    interactionDate: callDate,
+                    subject: `Calling Record - ${outcome || 'Initial Contact'}`,
+                    description: descParts.join('\n') || 'Imported calling record',
+                    outcome: outcome || 'LOGGED',
+                    nextFollowUp: nextFollowUpDate,
+                    recordedBy: ownerName || 'Excel Import',
+                  },
+                });
+              }
             });
 
             successCount++;
@@ -843,6 +1006,22 @@ export class BulkImportService {
           if (gstin) {
             existingVendor = await this.prisma.vendor.findFirst({
               where: { gstin, status: { not: 'DELETED' } },
+            });
+          }
+          if (!existingVendor && phoneDigits.length >= 10) {
+            existingVendor = await this.prisma.vendor.findFirst({
+              where: {
+                phone: { contains: phoneDigits.slice(-10) },
+                status: { not: 'DELETED' },
+              },
+            });
+          }
+          if (!existingVendor && finalCompanyName) {
+            existingVendor = await this.prisma.vendor.findFirst({
+              where: {
+                companyName: { equals: finalCompanyName },
+                status: { not: 'DELETED' },
+              },
             });
           }
 

@@ -4,6 +4,8 @@ export interface ParsedSheet {
   headers: string[];
   rawRows: Array<Record<string, string>>;
   rowCount: number;
+  sheetNames?: string[];
+  selectedSheet?: string;
 }
 
 export interface ColumnMappingDefinition {
@@ -36,7 +38,7 @@ export const CUSTOMER_COLUMN_DEFINITIONS: ColumnMappingDefinition[] = [
     field: 'contactPerson',
     label: 'Contact Person',
     required: false,
-    synonyms: ['contact person', 'contact name', 'person name', 'owner name', 'owner', 'contact', 'authorized person', 'representative', 'key person'],
+    synonyms: ['contact person', 'contact name', 'person name', 'owner name', 'owner', 'contact', 'authorized person', 'representative', 'key person', 'caller'],
   },
   {
     field: 'designation',
@@ -72,7 +74,7 @@ export const CUSTOMER_COLUMN_DEFINITIONS: ColumnMappingDefinition[] = [
     field: 'city',
     label: 'City / Town',
     required: false,
-    synonyms: ['city', 'town', 'district/city', 'city name', 'place'],
+    synonyms: ['city', 'town', 'district/city', 'city name', 'place', 'city/location'],
   },
   {
     field: 'district',
@@ -84,7 +86,7 @@ export const CUSTOMER_COLUMN_DEFINITIONS: ColumnMappingDefinition[] = [
     field: 'state',
     label: 'State',
     required: false,
-    synonyms: ['state', 'province', 'state name', 'state code'],
+    synonyms: ['state', 'province', 'state name', 'state code', 'lacation', 'location', 'state/location', 'place of supply'],
   },
   {
     field: 'pincode',
@@ -135,10 +137,22 @@ export const CUSTOMER_COLUMN_DEFINITIONS: ColumnMappingDefinition[] = [
     synonyms: ['payment terms', 'credit terms', 'terms', 'payment term'],
   },
   {
+    field: 'outcome',
+    label: 'Call / Lead Outcome',
+    required: false,
+    synonyms: ['outcome', 'call outcome', 'lead outcome', 'status', 'call status', 'lead status', 'disposition'],
+  },
+  {
+    field: 'followUp',
+    label: 'Follow-Up Notes',
+    required: false,
+    synonyms: ['follow-up', 'follow up', 'followup', 'follow-up 1', 'follow-up 2', 'next step', 'action item'],
+  },
+  {
     field: 'notes',
     label: 'Notes / Remarks',
     required: false,
-    synonyms: ['notes', 'remarks', 'comments', 'description', 'special notes'],
+    synonyms: ['notes', 'remarks', 'comments', 'description', 'special notes', 'remark', 'calling remarks'],
   },
 ];
 
@@ -307,6 +321,39 @@ export function sanitizeInputCell(value: unknown): string {
 }
 
 /**
+ * Excel serial date parser (days since 1899-12-30)
+ */
+export function parseExcelSerialDate(val: string): string {
+  const trimmed = val.trim();
+  const num = parseFloat(trimmed);
+  // Valid Excel serial dates typically between 30000 (1982) and 65000 (2077)
+  if (!isNaN(num) && num >= 30000 && num <= 65000 && /^\d+(\.\d+)?$/.test(trimmed)) {
+    const utcDays = Math.floor(num - 25569);
+    const date = new Date(utcDays * 86400 * 1000);
+    if (!isNaN(date.getTime())) {
+      const year = date.getUTCFullYear();
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+  }
+  return val;
+}
+
+/**
+ * Clean phone numbers: avoid floating point notation or scientific notation
+ */
+export function parseCleanPhone(val: string): string {
+  if (!val) return '';
+  const trimmed = val.trim();
+  const num = Number(trimmed);
+  if (!isNaN(num) && num > 1000000 && num < 1e15 && /^\d+(\.0+)?$/.test(trimmed)) {
+    return String(Math.floor(num));
+  }
+  return trimmed.replace(/\.0+$/, '');
+}
+
+/**
  * Parse CSV buffer or string with full support for quotes, commas, semicolons, and CRLF
  */
 export function parseCsv(content: string | Buffer): ParsedSheet {
@@ -380,36 +427,100 @@ export function parseCsv(content: string | Buffer): ParsedSheet {
   }
 
   if (rows.length === 0) {
-    return { headers: [], rawRows: [], rowCount: 0 };
+    return { headers: [], rawRows: [], rowCount: 0, sheetNames: ['Default'], selectedSheet: 'Default' };
   }
 
-  const rawHeaders = rows[0].map((h) => h.trim());
-  const headers = rawHeaders.map((h, idx) => (h.length > 0 ? h : `Column_${idx + 1}`));
+  // Find header row: first non-empty row
+  let headerRowIdx = 0;
+  while (headerRowIdx < rows.length && !rows[headerRowIdx].some((c) => c.trim().length > 0)) {
+    headerRowIdx++;
+  }
+  if (headerRowIdx >= rows.length) {
+    return { headers: [], rawRows: [], rowCount: 0, sheetNames: ['Default'], selectedSheet: 'Default' };
+  }
+
+  const rawHeaderRow = rows[headerRowIdx];
+  const maxCol = Math.max(...rows.map((r) => r.length)) - 1;
+
+  // Filter out trailing columns that have NO header AND all rows are empty
+  const activeCols: number[] = [];
+  for (let c = 0; c <= maxCol; c++) {
+    const headerVal = (rawHeaderRow[c] || '').trim();
+    let colHasData = headerVal.length > 0;
+    if (!colHasData) {
+      for (let r = headerRowIdx + 1; r < rows.length; r++) {
+        if ((rows[r][c] || '').trim().length > 0) {
+          colHasData = true;
+          break;
+        }
+      }
+    }
+    if (colHasData) {
+      activeCols.push(c);
+    }
+  }
+
+  // Deduplicate headers
+  const headerCounts: Record<string, number> = {};
+  const headers: string[] = [];
+  for (const c of activeCols) {
+    let h = (rawHeaderRow[c] || '').trim();
+    if (!h) h = `Column_${c + 1}`;
+    if (!headerCounts[h]) {
+      headerCounts[h] = 1;
+      headers.push(h);
+    } else {
+      headerCounts[h]++;
+      headers.push(`${h} (${headerCounts[h]})`);
+    }
+  }
 
   const rawRows: Array<Record<string, string>> = [];
-  for (let r = 1; r < rows.length; r++) {
+  for (let r = headerRowIdx + 1; r < rows.length; r++) {
     const rowValues = rows[r];
-    // Skip empty lines
     if (!rowValues.some((v) => v.trim().length > 0)) continue;
+
     const rowObj: Record<string, string> = { _originalRowNumber: String(r + 1) };
-    headers.forEach((h, colIdx) => {
-      rowObj[h] = rowValues[colIdx] !== undefined ? rowValues[colIdx].trim() : '';
-    });
-    rawRows.push(rowObj);
+    let rowHasData = false;
+
+    for (let i = 0; i < activeCols.length; i++) {
+      const colIdx = activeCols[i];
+      const headerName = headers[i];
+      let val = rowValues[colIdx] !== undefined ? rowValues[colIdx].trim() : '';
+
+      if (val.length > 0) {
+        rowHasData = true;
+        if (/date/i.test(headerName)) {
+          val = parseExcelSerialDate(val);
+        } else if (/phone|mobile/i.test(headerName)) {
+          val = parseCleanPhone(val);
+        }
+      }
+      rowObj[headerName] = val;
+    }
+
+    if (rowHasData) {
+      rawRows.push(rowObj);
+    }
   }
 
   return {
     headers,
     rawRows,
     rowCount: rawRows.length,
+    sheetNames: ['Default'],
+    selectedSheet: 'Default',
   };
 }
 
 /**
  * Fast and robust XLSX Workbook Parser using fflate and XML parsing.
- * Reads sharedStrings.xml and sheet1.xml, extracting string and numeric cells safely.
+ * Supports multiple worksheets, header deduplication, date/number formatting, and trailing column pruning.
  */
-export function parseXlsx(buffer: Buffer | Uint8Array): ParsedSheet {
+export function parseXlsx(
+  buffer: Buffer | Uint8Array,
+  options?: { sheetName?: string },
+): ParsedSheet {
   const u8 = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
   let unzipped: fflate.Unzipped;
   try {
@@ -425,10 +536,8 @@ export function parseXlsx(buffer: Buffer | Uint8Array): ParsedSheet {
   );
   if (sharedStringsEntry && unzipped[sharedStringsEntry]) {
     const sstXml = fflate.strFromU8(unzipped[sharedStringsEntry]);
-    // Extract <si>...</si> entries
     const siMatches = sstXml.match(/<si\b[^>]*>[\s\S]*?<\/si>/gi) || [];
     for (const si of siMatches) {
-      // Extract all <t>...</t> content within the <si>
       const tMatches = si.match(/<t\b[^>]*>([\s\S]*?)<\/t>/gi) || [];
       const text = tMatches
         .map((tTag) => {
@@ -440,18 +549,83 @@ export function parseXlsx(buffer: Buffer | Uint8Array): ParsedSheet {
     }
   }
 
-  // 2. Find first worksheet XML (usually xl/worksheets/sheet1.xml)
-  const sheetEntry =
-    Object.keys(unzipped).find((k) => /xl\/worksheets\/sheet1\.xml$/i.test(k)) ||
-    Object.keys(unzipped).find((k) => /xl\/worksheets\/sheet\d+\.xml$/i.test(k));
+  // 2. Discover sheets from xl/workbook.xml & xl/_rels/workbook.xml.rels
+  const sheetMetadata: Array<{ name: string; rId: string; target: string }> = [];
+  const wbEntry = Object.keys(unzipped).find((k) => /xl\/workbook\.xml$/i.test(k));
+  const relsEntry = Object.keys(unzipped).find((k) => /xl\/_rels\/workbook\.xml\.rels$/i.test(k));
 
-  if (!sheetEntry || !unzipped[sheetEntry]) {
+  if (wbEntry && unzipped[wbEntry]) {
+    const wbXml = fflate.strFromU8(unzipped[wbEntry]);
+    const relsXml = relsEntry && unzipped[relsEntry] ? fflate.strFromU8(unzipped[relsEntry]) : '';
+
+    const sheetTags = wbXml.match(/<sheet\b[^>]*\/>/gi) || [];
+    for (const tag of sheetTags) {
+      const nameMatch = tag.match(/\bname="([^"]+)"/i);
+      const rIdMatch = tag.match(/r:id="([^"]+)"/i);
+      const name = nameMatch ? nameMatch[1] : 'Sheet';
+      const rId = rIdMatch ? rIdMatch[1] : '';
+
+      let target = '';
+      if (relsXml && rId) {
+        const relMatch = relsXml.match(
+          new RegExp('<Relationship\\b[^>]*Id="' + rId + '"[^>]*Target="([^"]+)"', 'i'),
+        );
+        if (relMatch) {
+          target = relMatch[1];
+        }
+      }
+      if (!target) {
+        target = `worksheets/sheet${sheetMetadata.length + 1}.xml`;
+      }
+      if (!target.toLowerCase().startsWith('xl/')) {
+        target = 'xl/' + target.replace(/^\//, '');
+      }
+      sheetMetadata.push({ name, rId, target });
+    }
+  }
+
+  const sheetNames = sheetMetadata.map((s) => s.name);
+
+  // 3. Resolve target worksheet XML entry
+  let targetSheetEntry: string | undefined;
+  let selectedSheetName = 'Sheet1';
+
+  if (options?.sheetName) {
+    const matched = sheetMetadata.find(
+      (s) => s.name.toLowerCase() === options.sheetName!.toLowerCase(),
+    );
+    if (matched && unzipped[matched.target]) {
+      targetSheetEntry = matched.target;
+      selectedSheetName = matched.name;
+    }
+  }
+
+  if (!targetSheetEntry && sheetMetadata.length > 0) {
+    for (const s of sheetMetadata) {
+      if (unzipped[s.target]) {
+        targetSheetEntry = s.target;
+        selectedSheetName = s.name;
+        break;
+      }
+    }
+  }
+
+  if (!targetSheetEntry) {
+    targetSheetEntry =
+      Object.keys(unzipped).find((k) => /xl\/worksheets\/sheet1\.xml$/i.test(k)) ||
+      Object.keys(unzipped).find((k) => /xl\/worksheets\/sheet\d+\.xml$/i.test(k));
+    if (targetSheetEntry && sheetNames.length > 0) {
+      selectedSheetName = sheetNames[0];
+    }
+  }
+
+  if (!targetSheetEntry || !unzipped[targetSheetEntry]) {
     throw new Error('No valid worksheet found in Excel file');
   }
 
-  const sheetXml = fflate.strFromU8(unzipped[sheetEntry]);
+  const sheetXml = fflate.strFromU8(unzipped[targetSheetEntry]);
 
-  // 3. Parse rows and cells
+  // 4. Parse rows and cells
   const rowMatches = sheetXml.match(/<row\b[^>]*>[\s\S]*?<\/row>/gi) || [];
   const tableRows: Array<Map<number, string>> = [];
 
@@ -498,10 +672,16 @@ export function parseXlsx(buffer: Buffer | Uint8Array): ParsedSheet {
   }
 
   if (tableRows.length === 0) {
-    return { headers: [], rawRows: [], rowCount: 0 };
+    return {
+      headers: [],
+      rawRows: [],
+      rowCount: 0,
+      sheetNames: sheetNames.length > 0 ? sheetNames : ['Sheet1'],
+      selectedSheet: selectedSheetName,
+    };
   }
 
-  // Determine maximum column index
+  // 5. Determine maximum column index
   let maxCol = 0;
   for (const row of tableRows) {
     for (const colIdx of row.keys()) {
@@ -509,24 +689,84 @@ export function parseXlsx(buffer: Buffer | Uint8Array): ParsedSheet {
     }
   }
 
-  // First row is headers
-  const headerRow = tableRows[0];
-  const headers: string[] = [];
-  for (let c = 0; c <= maxCol; c++) {
-    const h = (headerRow.get(c) || '').trim();
-    headers.push(h.length > 0 ? h : `Column_${c + 1}`);
+  // 6. Find header row: first row with non-empty cell
+  let headerRowIdx = 0;
+  while (headerRowIdx < tableRows.length) {
+    let hasCell = false;
+    for (const val of tableRows[headerRowIdx].values()) {
+      if (val.trim().length > 0) {
+        hasCell = true;
+        break;
+      }
+    }
+    if (hasCell) break;
+    headerRowIdx++;
+  }
+  if (headerRowIdx >= tableRows.length) {
+    return {
+      headers: [],
+      rawRows: [],
+      rowCount: 0,
+      sheetNames,
+      selectedSheet: selectedSheetName,
+    };
   }
 
+  const headerRow = tableRows[headerRowIdx];
+
+  // 7. Filter out trailing columns that have NO header AND all rows are empty
+  const activeCols: number[] = [];
+  for (let c = 0; c <= maxCol; c++) {
+    const headerVal = (headerRow.get(c) || '').trim();
+    let colHasData = headerVal.length > 0;
+    if (!colHasData) {
+      for (let r = headerRowIdx + 1; r < tableRows.length; r++) {
+        if ((tableRows[r].get(c) || '').trim().length > 0) {
+          colHasData = true;
+          break;
+        }
+      }
+    }
+    if (colHasData) {
+      activeCols.push(c);
+    }
+  }
+
+  // 8. Deduplicate headers
+  const headerCounts: Record<string, number> = {};
+  const headers: string[] = [];
+  for (const c of activeCols) {
+    let h = (headerRow.get(c) || '').trim();
+    if (!h) h = `Column_${c + 1}`;
+    if (!headerCounts[h]) {
+      headerCounts[h] = 1;
+      headers.push(h);
+    } else {
+      headerCounts[h]++;
+      headers.push(`${h} (${headerCounts[h]})`);
+    }
+  }
+
+  // 9. Build data rows with Excel date & numeric phone handling
   const rawRows: Array<Record<string, string>> = [];
-  for (let r = 1; r < tableRows.length; r++) {
+  for (let r = headerRowIdx + 1; r < tableRows.length; r++) {
     const rowMap = tableRows[r];
     const rowObj: Record<string, string> = { _originalRowNumber: String(r + 1) };
     let hasData = false;
 
-    for (let c = 0; c <= maxCol; c++) {
-      const headerName = headers[c];
-      const val = (rowMap.get(c) || '').trim();
-      if (val.length > 0) hasData = true;
+    for (let i = 0; i < activeCols.length; i++) {
+      const colIdx = activeCols[i];
+      const headerName = headers[i];
+      let val = (rowMap.get(colIdx) || '').trim();
+
+      if (val.length > 0) {
+        hasData = true;
+        if (/date/i.test(headerName)) {
+          val = parseExcelSerialDate(val);
+        } else if (/phone|mobile/i.test(headerName)) {
+          val = parseCleanPhone(val);
+        }
+      }
       rowObj[headerName] = val;
     }
 
@@ -539,6 +779,8 @@ export function parseXlsx(buffer: Buffer | Uint8Array): ParsedSheet {
     headers,
     rawRows,
     rowCount: rawRows.length,
+    sheetNames: sheetNames.length > 0 ? sheetNames : [selectedSheetName],
+    selectedSheet: selectedSheetName,
   };
 }
 
@@ -570,6 +812,7 @@ function unescapeXml(xml: string): string {
 export function parseSpreadsheet(
   filename: string,
   buffer: Buffer,
+  options?: { sheetName?: string },
 ): ParsedSheet {
   const lowerName = filename.toLowerCase();
   if (lowerName.endsWith('.csv') || lowerName.endsWith('.txt')) {
@@ -578,7 +821,7 @@ export function parseSpreadsheet(
   if (lowerName.endsWith('.xlsx') || lowerName.endsWith('.xlsm') || lowerName.endsWith('.xls')) {
     // Check if it's zip based (PK..)
     if (buffer.length >= 4 && buffer[0] === 0x50 && buffer[1] === 0x4b) {
-      return parseXlsx(buffer);
+      return parseXlsx(buffer, options);
     }
     // Fallback: try parsing as CSV if plain text disguised as xls
     try {
@@ -589,7 +832,7 @@ export function parseSpreadsheet(
   }
   // Try XLSX then CSV
   try {
-    return parseXlsx(buffer);
+    return parseXlsx(buffer, options);
   } catch {
     return parseCsv(buffer);
   }

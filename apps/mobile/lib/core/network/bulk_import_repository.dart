@@ -13,6 +13,7 @@ class BulkImportRepository {
     required String target, // 'CUSTOMER' | 'VENDOR'
     required String fileName,
     required List<int> bytes,
+    String? sheetName,
     Map<String, String>? columnMapping,
     bool enableGstEnrichment = true,
     bool checkDuplicates = true,
@@ -23,6 +24,7 @@ class BulkImportRepository {
       'target': target,
       'fileName': fileName,
       'fileBase64': base64String,
+      'sheetName': sheetName,
       'columnMapping': columnMapping,
       'enableGstEnrichment': enableGstEnrichment,
       'checkDuplicates': checkDuplicates,
@@ -43,6 +45,7 @@ class BulkImportRepository {
   Future<Map<String, dynamic>> executeImport({
     required String target,
     required List<Map<String, dynamic>> rows,
+    Map<String, String>? columnMapping,
     bool skipDuplicates = true,
     bool updateExisting = false,
     String? fileName,
@@ -50,6 +53,7 @@ class BulkImportRepository {
     final payload = {
       'target': target,
       'rows': rows,
+      'columnMapping': columnMapping,
       'skipDuplicates': skipDuplicates,
       'updateExisting': updateExisting,
       'fileName': fileName,

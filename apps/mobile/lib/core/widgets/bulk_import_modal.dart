@@ -58,6 +58,12 @@ class _BulkImportModalState extends ConsumerState<BulkImportModal> {
   bool _skipDuplicates = true;
   bool _updateExisting = false;
 
+  // Sheet & Mapping State
+  String? _selectedSheet;
+  List<String> _availableSheets = [];
+  Map<String, String> _customColumnMapping = {};
+  bool _isMappingExpanded = false;
+
   // Preview Data
   Map<String, dynamic>? _previewData;
   List<Map<String, dynamic>> _rows = [];
@@ -86,12 +92,18 @@ class _BulkImportModalState extends ConsumerState<BulkImportModal> {
           _selectedFileName = fileName;
           _selectedFileBytes = bytes;
           _errorMessage = null;
+          _selectedSheet = null;
+          _availableSheets = [];
+          _customColumnMapping = {};
         });
       },
     );
   }
 
-  Future<void> _startParsingAndPreview() async {
+  Future<void> _startParsingAndPreview({
+    String? sheet,
+    Map<String, String>? columnMapping,
+  }) async {
     if (_selectedFileBytes == null || _selectedFileName == null) {
       setState(() => _errorMessage =
           'Please select a spreadsheet file (.xlsx or .csv) first.');
@@ -105,10 +117,15 @@ class _BulkImportModalState extends ConsumerState<BulkImportModal> {
 
     try {
       final repo = ref.read(bulkImportRepositoryProvider);
+      final targetSheet = sheet ?? _selectedSheet;
+      final targetMapping = columnMapping ?? (_customColumnMapping.isNotEmpty ? _customColumnMapping : null);
+
       final result = await repo.parseAndPreview(
         target: widget.target,
         fileName: _selectedFileName!,
         bytes: _selectedFileBytes!,
+        sheetName: targetSheet,
+        columnMapping: targetMapping,
         enableGstEnrichment: _enableGstEnrichment,
         checkDuplicates: _checkDuplicates,
       );
@@ -116,10 +133,25 @@ class _BulkImportModalState extends ConsumerState<BulkImportModal> {
       final rawRows = (result['rows'] as List? ?? [])
           .map((r) => Map<String, dynamic>.from(r as Map))
           .toList();
+      final sheets = (result['sheetNames'] as List? ?? [])
+          .map((s) => s.toString())
+          .toList();
+      final activeSheet = result['selectedSheet']?.toString() ??
+          (sheets.isNotEmpty ? sheets.first : null);
+      final rawMapping = result['columnMapping'] as Map? ?? {};
+      final newMapping = <String, String>{};
+      rawMapping.forEach((k, v) {
+        if (k != null && v != null) {
+          newMapping[k.toString()] = v.toString();
+        }
+      });
 
       setState(() {
         _previewData = result;
         _rows = rawRows;
+        _availableSheets = sheets;
+        _selectedSheet = activeSheet;
+        _customColumnMapping = newMapping;
         _currentStep = 1;
         _isLoading = false;
       });
@@ -152,6 +184,7 @@ class _BulkImportModalState extends ConsumerState<BulkImportModal> {
         return {
           'rowNumber': r['rowNumber'],
           'data': r['enrichedData'] ?? r['mappedData'] ?? {},
+          'rawData': r['rawData'] ?? {},
           'gstData': r['gstDetails'],
           'gstVerificationToken': r['gstDetails']?['verificationToken'],
           'isIncluded': true,
@@ -163,6 +196,7 @@ class _BulkImportModalState extends ConsumerState<BulkImportModal> {
       final result = await repo.executeImport(
         target: widget.target,
         rows: rowsPayload,
+        columnMapping: _customColumnMapping,
         skipDuplicates: _skipDuplicates,
         updateExisting: _updateExisting,
         fileName: _selectedFileName,
@@ -585,13 +619,16 @@ class _BulkImportModalState extends ConsumerState<BulkImportModal> {
                   meta['gstSuccessCount'] ?? 0, meta['gstFailCount'] ?? 0),
               if ((meta['gstFailCount'] as num? ?? 0) > 0)
                 OutlinedButton.icon(
-                  onPressed: _startParsingAndPreview,
+                  onPressed: () => _startParsingAndPreview(),
                   icon: const Icon(Icons.refresh, size: 15),
                   label: const Text('Retry GST lookups'),
                 ),
             ],
           ),
         ),
+
+        // Sheet & Column Mapping Toolbar
+        _buildSheetAndMappingToolbar(),
 
         // Search & Options Bar
         Container(
@@ -971,6 +1008,209 @@ class _BulkImportModalState extends ConsumerState<BulkImportModal> {
             Text(' ($fail failed)',
                 style: const TextStyle(fontSize: 11, color: Colors.amber)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSheetAndMappingToolbar() {
+    final detectedHeaders = (_previewData?['detectedHeaders'] as List? ?? [])
+        .map((h) => h.toString())
+        .toList();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: const BoxDecoration(
+        color: AppTheme.darkBackground,
+        border: Border(bottom: BorderSide(color: AppTheme.darkBorder)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              if (_availableSheets.length > 1) ...[
+                const Icon(Icons.tab, size: 16, color: AppTheme.primary),
+                const SizedBox(width: 6),
+                const Text('Worksheet:',
+                    style: TextStyle(fontSize: 12, color: Colors.grey)),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.darkCard,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: AppTheme.darkBorder),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _selectedSheet,
+                      isDense: true,
+                      dropdownColor: AppTheme.darkCard,
+                      items: _availableSheets
+                          .map((s) => DropdownMenuItem(
+                                value: s,
+                                child: Text(s,
+                                    style: const TextStyle(fontSize: 12)),
+                              ))
+                          .toList(),
+                      onChanged: (newSheet) {
+                        if (newSheet != null && newSheet != _selectedSheet) {
+                          setState(() => _selectedSheet = newSheet);
+                          _startParsingAndPreview(sheet: newSheet);
+                        }
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+              ] else if (_selectedSheet != null) ...[
+                const Icon(Icons.table_chart, size: 14, color: Colors.grey),
+                const SizedBox(width: 6),
+                Text('Worksheet: $_selectedSheet',
+                    style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                const SizedBox(width: 16),
+              ],
+              OutlinedButton.icon(
+                onPressed: () =>
+                    setState(() => _isMappingExpanded = !_isMappingExpanded),
+                icon: Icon(
+                    _isMappingExpanded ? Icons.expand_less : Icons.tune,
+                    size: 14),
+                label: Text(
+                  'Column Mapping (${_customColumnMapping.length} of ${detectedHeaders.length} mapped)',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor:
+                      _isMappingExpanded ? AppTheme.primary : Colors.white70,
+                  side: BorderSide(
+                      color: _isMappingExpanded
+                          ? AppTheme.primary
+                          : AppTheme.darkBorder),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                ),
+              ),
+              const Spacer(),
+              if (_isMappingExpanded)
+                ElevatedButton.icon(
+                  onPressed: () => _startParsingAndPreview(
+                    sheet: _selectedSheet,
+                    columnMapping: _customColumnMapping,
+                  ),
+                  icon: const Icon(Icons.refresh, size: 14),
+                  label: const Text('Re-scan with Updated Mappings',
+                      style: TextStyle(fontSize: 12)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primary,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 6),
+                  ),
+                ),
+            ],
+          ),
+          if (_isMappingExpanded) ...[
+            const SizedBox(height: 10),
+            _buildColumnMappingGrid(detectedHeaders),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildColumnMappingGrid(List<String> headers) {
+    final availableDefs = (_previewData?['availableDefinitions'] as List? ?? [])
+        .map((d) => Map<String, dynamic>.from(d as Map))
+        .toList();
+
+    final List<Map<String, String>> fieldOptions = [
+      {'field': '', 'label': '(Skip / Store as Note)'},
+      ...availableDefs.map((d) => {
+            'field': d['field']?.toString() ?? '',
+            'label': '${d['label']} ${d['required'] == true ? '*' : ''}',
+          }),
+      {'field': 'outcome', 'label': 'Call Outcome'},
+      {'field': 'remarks', 'label': 'Remarks / Notes'},
+      {'field': 'followUp1', 'label': 'Follow-Up 1'},
+      {'field': 'followUp2', 'label': 'Follow-Up 2'},
+      {'field': 'quotation', 'label': 'Quotation / Potential'},
+      {'field': 'date', 'label': 'Date'},
+    ];
+
+    // Ensure uniqueness of field options
+    final seen = <String>{};
+    final uniqueFieldOptions =
+        fieldOptions.where((f) => seen.add(f['field']!)).toList();
+
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 180),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppTheme.darkCard,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppTheme.darkBorder),
+      ),
+      child: SingleChildScrollView(
+        child: Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          children: headers.map((header) {
+            final currentField = _customColumnMapping[header] ?? '';
+            final validValue =
+                uniqueFieldOptions.any((f) => f['field'] == currentField)
+                    ? currentField
+                    : '';
+
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppTheme.darkBackground,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: validValue.isNotEmpty
+                      ? AppTheme.primary.withValues(alpha: 0.5)
+                      : AppTheme.darkBorder,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    header,
+                    style: const TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.arrow_forward, size: 12, color: Colors.grey),
+                  const SizedBox(width: 8),
+                  DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: validValue,
+                      isDense: true,
+                      dropdownColor: AppTheme.darkSurface,
+                      items: uniqueFieldOptions.map((f) {
+                        return DropdownMenuItem<String>(
+                          value: f['field'],
+                          child: Text(f['label']!,
+                              style: const TextStyle(fontSize: 11)),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        setState(() {
+                          if (val == null || val.isEmpty) {
+                            _customColumnMapping.remove(header);
+                          } else {
+                            _customColumnMapping[header] = val;
+                          }
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
       ),
     );
   }

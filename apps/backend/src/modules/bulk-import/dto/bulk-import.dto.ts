@@ -59,6 +59,11 @@ export class ParseAndPreviewDto {
   @IsOptional()
   enableGstEnrichment?: boolean = true;
 
+  @ApiPropertyOptional({ description: 'Optional specific sheet name to parse' })
+  @IsString()
+  @IsOptional()
+  sheetName?: string;
+
   @ApiPropertyOptional({ description: 'Check database for duplicate GSTIN/names', default: true })
   @IsBoolean()
   @IsOptional()
@@ -75,6 +80,11 @@ export class ImportRowItemDto {
   @IsObject()
   @IsNotEmpty()
   data!: Record<string, any>;
+
+  @ApiPropertyOptional({ description: 'Raw spreadsheet row dictionary for preserving unmapped values' })
+  @IsObject()
+  @IsOptional()
+  rawData?: Record<string, string>;
 
   @ApiPropertyOptional({ description: 'Enriched data from GST portal' })
   @IsObject()
@@ -118,6 +128,10 @@ export class ExecuteImportDto {
   @IsString()
   @IsOptional()
   fileName?: string;
+
+  @ApiPropertyOptional({ description: 'Applied column mapping dictionary' })
+  @IsOptional()
+  columnMapping?: Record<string, string>;
 }
 
 export class GenerateErrorReportDto {
