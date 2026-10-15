@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
 import { CrmController } from './crm.controller';
 import { CrmService } from './crm.service';
+import { CrmSchedulerService } from './crm-scheduler.service';
 import { GstVerificationService } from './gst-verification.service';
 import { SequenceService } from '../../core/database/sequence.service';
 import { AuditService } from '../../core/audit/audit.service';
+import { NotificationService } from '../../core/notifications/notification.service';
 import {
   FileStorageService,
   LocalFileStorageService,
@@ -15,6 +17,8 @@ import {
   controllers: [CrmController],
   providers: [
     CrmService,
+    CrmSchedulerService,
+    NotificationService,
     GstVerificationService,
     AuditService,
     SequenceService,
@@ -28,6 +32,7 @@ import {
       },
     },
   ],
-  exports: [CrmService, GstVerificationService, FileStorageService],
+  exports: [CrmService, CrmSchedulerService, GstVerificationService, FileStorageService],
 })
 export class CrmModule {}
+

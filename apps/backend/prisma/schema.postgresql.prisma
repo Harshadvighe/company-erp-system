@@ -799,6 +799,8 @@ model CrmFollowUp {
   @@index([status])
   @@index([scheduledDate])
   @@index([parentFollowUpId])
+  @@index([reminderSentAt])
+  @@index([escalatedAt])
 }
 
 model CustomerDocument {
@@ -863,6 +865,20 @@ model CrmAttachment {
   @@index([activityId])
   @@index([uploadedById])
   @@index([mediaClass])
+}
+
+model CrmDigestLog {
+  id            String   @id @default(uuid())
+  digestDate    String   // Format: "YYYY-MM-DD" in Asia/Kolkata timezone
+  staffId       String
+  userId        String
+  activityCount Int      @default(0)
+  dispatchedAt  DateTime @default(now())
+
+  @@unique([digestDate, staffId])
+  @@index([digestDate])
+  @@index([userId])
+  @@map("crm_digest_logs")
 }
 
 model CrmSavedFilter {

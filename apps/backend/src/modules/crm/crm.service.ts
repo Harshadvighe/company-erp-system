@@ -6,6 +6,7 @@ import { AuditService } from '../../core/audit/audit.service';
 import { GstVerificationService } from './gst-verification.service';
 import { FileStorageService } from '../../core/storage/file-storage.service';
 import { ResolveFollowUpDto } from './dto/resolve-followup.dto';
+import { calculateNextWorkingDayIST } from './crm-scheduler.service';
 
 @Injectable()
 export class CrmService {
@@ -1543,16 +1544,41 @@ export class CrmService {
       throw new BadRequestException('Discussion, notes or subject is required to resolve a follow-up');
     }
 
-    const scheduleNext = dto.scheduleNext === true;
-    const nextScheduledDate = dto.nextScheduledDate ? new Date(dto.nextScheduledDate) : null;
+    const activityType = dto.activityType || followUp.activityType || 'CALL';
+    const isCallActivity = activityType === 'CALL';
+    const callOutcome = (dto.callOutcome || dto.outcome || '').toUpperCase();
+    const isNoAnswerOrBusy = isCallActivity && (callOutcome === 'NO_ANSWER' || callOutcome === 'BUSY');
+
+    let scheduleNext = dto.scheduleNext === true;
+    let nextScheduledDate = dto.nextScheduledDate ? new Date(dto.nextScheduledDate) : null;
+
+    // A. Automatic callback suggestions:
+    // When outcome is NO_ANSWER or BUSY, automatically suggest and prefill next working day at 11:00 AM Asia/Kolkata
+    if (isNoAnswerOrBusy && dto.scheduleNext !== false) {
+      scheduleNext = true;
+      if (!nextScheduledDate) {
+        nextScheduledDate = calculateNextWorkingDayIST();
+      }
+      if (!dto.nextActivityType) {
+        dto.nextActivityType = 'CALL';
+      }
+      if (!dto.nextSubject) {
+        dto.nextSubject = `Callback: ${callOutcome} (${followUp.followUpNumber})`;
+      }
+      if (!dto.nextAction) {
+        dto.nextAction = `Retry callback due to ${callOutcome}`;
+      }
+      if (!dto.nextPriority) {
+        dto.nextPriority = followUp.priority || 'MEDIUM';
+      }
+    }
+
     if (scheduleNext && (!nextScheduledDate || Number.isNaN(nextScheduledDate.getTime()))) {
       throw new BadRequestException('A valid nextScheduledDate is required when scheduleNext is true');
     }
     if (scheduleNext && nextScheduledDate && nextScheduledDate <= new Date()) {
       throw new BadRequestException('nextScheduledDate must be in the future');
     }
-
-    const activityType = dto.activityType || followUp.activityType || 'CALL';
 
     // 5. Execute atomic database transaction
     const result = await this.prisma.$transaction(async (tx) => {

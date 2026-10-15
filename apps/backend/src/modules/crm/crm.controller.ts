@@ -18,6 +18,7 @@ import { FilesInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { Response } from 'express';
 import { CrmService } from './crm.service';
+import { CrmSchedulerService } from './crm-scheduler.service';
 import { ResolveFollowUpDto } from './dto/resolve-followup.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -28,7 +29,10 @@ import { RequirePermissions } from '../../common/decorators/permissions.decorato
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('api/v1/crm')
 export class CrmController {
-  constructor(private readonly crmService: CrmService) {}
+  constructor(
+    private readonly crmService: CrmService,
+    private readonly crmSchedulerService: CrmSchedulerService,
+  ) {}
 
   // ─── DASHBOARD ────────────────────────────────────────────────────────────
   @Get('dashboard')
@@ -247,6 +251,36 @@ export class CrmController {
     @Req() req: any,
   ) {
     return this.crmService.rescheduleFollowUp(id, dto, req.user);
+  }
+
+  // ─── SCHEDULER & CALLBACK SUGGESTIONS ─────────────────────────────────────
+  @Get('follow-ups/callback-suggestion')
+  @RequirePermissions('CRM:VIEW')
+  @ApiOperation({ summary: 'Get automated callback date/time suggestion (11:00 AM Asia/Kolkata next working day)' })
+  getCallbackSuggestion(@Query('date') date?: string) {
+    const fromDate = date ? new Date(date) : undefined;
+    return this.crmSchedulerService.getNextWorkingDayCallback(fromDate);
+  }
+
+  @Post('scheduler/reminders/trigger')
+  @RequirePermissions('CRM:EDIT')
+  @ApiOperation({ summary: 'Manually trigger CRM due reminders check' })
+  triggerDueReminders() {
+    return this.crmSchedulerService.checkAndDispatchDueReminders();
+  }
+
+  @Post('scheduler/escalations/trigger')
+  @RequirePermissions('CRM:EDIT')
+  @ApiOperation({ summary: 'Manually trigger CRM overdue escalations check' })
+  triggerOverdueEscalations() {
+    return this.crmSchedulerService.checkAndDispatchOverdueEscalations(false);
+  }
+
+  @Post('scheduler/digest/trigger')
+  @RequirePermissions('CRM:EDIT')
+  @ApiOperation({ summary: 'Manually trigger CRM daily My Day digest dispatch' })
+  triggerDailyDigest(@Query('date') date?: string) {
+    return this.crmSchedulerService.dispatchDailyDigest(date, false);
   }
 
   // ─── ANALYTICS ────────────────────────────────────────────────────────────
