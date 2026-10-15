@@ -209,6 +209,92 @@ class CrmRepository {
     return response.data as Map<String, dynamic>;
   }
 
+  /// Phase 3: Atomically resolve a follow-up, record activity outcome,
+  /// link uploaded media, and optionally schedule next follow-up with idempotency key.
+  Future<Map<String, dynamic>> resolveFollowUp(
+    String id,
+    Map<String, dynamic> data,
+  ) async {
+    final response = await _dio.post('/crm/follow-ups/$id/resolve', data: data);
+    final resData = response.data;
+    if (resData is Map && resData['data'] is Map) {
+      return Map<String, dynamic>.from(resData['data'] as Map);
+    }
+    if (resData is Map) {
+      return Map<String, dynamic>.from(resData);
+    }
+    throw const FormatException('Unexpected resolve follow-up response');
+  }
+
+  /// Phase 3: Fetch automated callback date/time suggestion (11:00 AM IST next working day)
+  Future<Map<String, dynamic>> getCallbackSuggestion({DateTime? date}) async {
+    final response = await _dio.get(
+      '/crm/follow-ups/callback-suggestion',
+      queryParameters: {
+        if (date != null) 'date': date.toIso8601String(),
+      },
+    );
+    final resData = response.data;
+    if (resData is Map && resData['data'] is Map) {
+      return Map<String, dynamic>.from(resData['data'] as Map);
+    }
+    if (resData is Map) {
+      return Map<String, dynamic>.from(resData);
+    }
+    throw const FormatException('Unexpected callback suggestion response');
+  }
+
+  /// Phase 3: Upload multi-file CRM attachments (audio, images, docs, videos)
+  Future<List<Map<String, dynamic>>> uploadCrmAttachments({
+    required List<({String fileName, List<int> bytes})> files,
+    String? customerId,
+    String? followUpId,
+    String? activityId,
+    String? sourceCategory,
+    String? description,
+  }) async {
+    if (files.isEmpty) return [];
+    final formData = FormData();
+    if (customerId != null && customerId.isNotEmpty) {
+      formData.fields.add(MapEntry('customerId', customerId));
+    }
+    if (followUpId != null && followUpId.isNotEmpty) {
+      formData.fields.add(MapEntry('followUpId', followUpId));
+    }
+    if (activityId != null && activityId.isNotEmpty) {
+      formData.fields.add(MapEntry('activityId', activityId));
+    }
+    if (sourceCategory != null && sourceCategory.isNotEmpty) {
+      formData.fields.add(MapEntry('sourceCategory', sourceCategory));
+    }
+    if (description != null && description.isNotEmpty) {
+      formData.fields.add(MapEntry('description', description));
+    }
+
+    for (final file in files) {
+      formData.files.add(MapEntry(
+        'files',
+        MultipartFile.fromBytes(file.bytes, filename: file.fileName),
+      ));
+    }
+
+    final response = await _dio.post('/crm/attachments/upload', data: formData);
+    final resData = response.data;
+    if (resData is Map && resData['data'] is List) {
+      return (resData['data'] as List)
+          .whereType<Map>()
+          .map((m) => Map<String, dynamic>.from(m))
+          .toList();
+    }
+    if (resData is List) {
+      return resData
+          .whereType<Map>()
+          .map((m) => Map<String, dynamic>.from(m))
+          .toList();
+    }
+    return [];
+  }
+
   Future<Map<String, dynamic>> createFollowUp(Map<String, dynamic> data) async {
     final response = await _dio.post('/crm/follow-ups', data: data);
     return response.data as Map<String, dynamic>;
@@ -225,7 +311,22 @@ class CrmRepository {
     return response.data as Map<String, dynamic>;
   }
 
+  /// Phase 1/3: Unified company activity timeline with attachments & media
+  Future<List<dynamic>> getCompanyTimeline(String companyId) async {
+    final response = await _dio.get('/crm/companies/$companyId/timeline');
+    final data = response.data;
+    if (data is Map && data['data'] is List) {
+      return data['data'] as List;
+    }
+    if (data is List) return data;
+    return [];
+  }
+
   Future<List<dynamic>> getCustomerTimeline(String customerId) async {
+    try {
+      final res = await getCompanyTimeline(customerId);
+      if (res.isNotEmpty) return res;
+    } catch (_) {}
     final response = await _dio.get('/customers/$customerId/timeline');
     final data = response.data;
     if (data is Map) return data['data'] as List? ?? [];
@@ -542,6 +643,17 @@ class FollowUpListNotifier extends StateNotifier<FollowUpListState> {
       if (outcome != null) 'discussion': outcome,
     });
     await loadFollowUps(status: state.filterStatus);
+  }
+
+  /// Phase 3: Atomically resolve follow-up with outcome, callback suggestion,
+  /// media attachment ids, and idempotency key.
+  Future<Map<String, dynamic>> resolve(
+    String id,
+    Map<String, dynamic> data,
+  ) async {
+    final result = await _repo.resolveFollowUp(id, data);
+    await loadFollowUps(status: state.filterStatus);
+    return result;
   }
 }
 
