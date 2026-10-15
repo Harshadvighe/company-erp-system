@@ -42,6 +42,8 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
   bool _meetingFilterEnabled = false;
   DateTime? _meetingFrom;
   DateTime? _meetingTo;
+  final Set<String> _selectedCustomerIds = {};
+  bool _isActionProcessing = false;
 
   bool get _canCreate {
     final user = ref.read(authProvider).user;
@@ -61,6 +63,15 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
   bool get _canExport {
     final user = ref.read(authProvider).user;
     return user?.isAdmin == true || user?.canExport('CUSTOMERS') == true || user?.canExport('CRM') == true;
+  }
+
+  bool get _canAccessRecycleBin {
+    final user = ref.read(authProvider).user;
+    return user?.isAdmin == true ||
+        user?.canDelete('CUSTOMERS') == true ||
+        user?.canDelete('CRM') == true ||
+        user?.hasPermission('CUSTOMERS', 'DELETE_PERMANENT') == true ||
+        user?.hasPermission('CUSTOMERS', 'RESTORE') == true;
   }
 
   @override
@@ -480,6 +491,7 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
         children: [
           _buildHeader(isWide, state),
           _buildSortingFilters(state),
+          if (_selectedCustomerIds.isNotEmpty) _buildBulkActionBar(state),
           Expanded(
             child: state.isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -559,6 +571,14 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
               onPressed: () => _exportToExcel(state),
               icon: const Icon(Icons.download, size: 16),
               label: const Text('Export'),
+            ),
+          ],
+          if (_canAccessRecycleBin) ...[
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              onPressed: () => context.go('/customers/recycle-bin'),
+              icon: const Icon(Icons.delete_outline, size: 16, color: Colors.orangeAccent),
+              label: const Text('Recycle Bin', style: TextStyle(color: Colors.orangeAccent)),
             ),
           ],
         ],
@@ -1082,6 +1102,16 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
                         columnSpacing: 18,
                         headingRowColor:
                             WidgetStateProperty.all(AppTheme.darkBackground),
+                        onSelectAll: (val) {
+                          setState(() {
+                            if (val == true) {
+                              _selectedCustomerIds
+                                  .addAll(state.customers.map((c) => c.id));
+                            } else {
+                              _selectedCustomerIds.clear();
+                            }
+                          });
+                        },
                         columns: const [
                   DataColumn(
                       label: Text('#',
@@ -1156,51 +1186,66 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
                       : (c.gstStatus == 'NO_GST' ? 'Unregistered' : 'Pending');
 
                   return DataRow(
-                    onSelectChanged: (_) => context.go('/customers/${c.id}'),
+                    selected: _selectedCustomerIds.contains(c.id),
+                    onSelectChanged: (selected) {
+                      setState(() {
+                        if (selected == true) {
+                          _selectedCustomerIds.add(c.id);
+                        } else {
+                          _selectedCustomerIds.remove(c.id);
+                        }
+                      });
+                    },
                     cells: [
                       DataCell(Text('$rowNum',
                           style: const TextStyle(
                               fontSize: 11, color: Colors.grey))),
-                      DataCell(Text(c.customerCode,
-                          style: const TextStyle(
-                              fontSize: 12,
-                              fontFamily: 'monospace',
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.primary))),
-                      DataCell(Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          CircleAvatar(
-                            radius: 14,
-                            backgroundColor:
-                                AppTheme.primary.withValues(alpha: 0.2),
-                            child: Text(c.initials,
-                                style: const TextStyle(
-                                    fontSize: 10,
-                                    color: AppTheme.primary,
-                                    fontWeight: FontWeight.bold)),
-                          ),
-                          const SizedBox(width: 8),
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 180),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(c.companyName,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600)),
-                                if (c.customerType.isNotEmpty)
-                                  Text(c.customerType.replaceAll('_', ' '),
-                                      style: const TextStyle(
-                                          fontSize: 10, color: Colors.grey)),
-                              ],
+                      DataCell(InkWell(
+                        onTap: () => context.go('/customers/${c.id}'),
+                        child: Text(c.customerCode,
+                            style: const TextStyle(
+                                fontSize: 12,
+                                fontFamily: 'monospace',
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.primary)),
+                      )),
+                      DataCell(InkWell(
+                        onTap: () => context.go('/customers/${c.id}'),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircleAvatar(
+                              radius: 14,
+                              backgroundColor:
+                                  AppTheme.primary.withValues(alpha: 0.2),
+                              child: Text(c.initials,
+                                  style: const TextStyle(
+                                      fontSize: 10,
+                                      color: AppTheme.primary,
+                                      fontWeight: FontWeight.bold)),
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 8),
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 180),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(c.companyName,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600)),
+                                  if (c.customerType.isNotEmpty)
+                                    Text(c.customerType.replaceAll('_', ' '),
+                                        style: const TextStyle(
+                                            fontSize: 10, color: Colors.grey)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       )),
                       DataCell(Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -1646,16 +1691,176 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
     );
   }
 
+  Widget _buildBulkActionBar(CustomerListState state) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: Colors.orangeAccent.withValues(alpha: 0.12),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle_outline, color: Colors.orangeAccent, size: 18),
+          const SizedBox(width: 8),
+          Text(
+            '${_selectedCustomerIds.length} customer(s) selected',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          ),
+          const Spacer(),
+          if (_canDelete) ...[
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orangeAccent,
+                foregroundColor: Colors.black87,
+              ),
+              onPressed: _isActionProcessing ? null : () => _confirmBulkTrash(state),
+              icon: const Icon(Icons.delete_outline, size: 16),
+              label: const Text('Move to Recycle Bin'),
+            ),
+            const SizedBox(width: 8),
+          ],
+          OutlinedButton(
+            onPressed: () => setState(() => _selectedCustomerIds.clear()),
+            child: const Text('Clear Selection'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmBulkTrash(CustomerListState state) async {
+    if (_selectedCustomerIds.isEmpty || _isActionProcessing) return;
+
+    final selectedCustomers = state.customers
+        .where((c) => _selectedCustomerIds.contains(c.id))
+        .toList();
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.darkSurface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: AppTheme.darkBorder),
+        ),
+        title: Row(
+          children: [
+            const Icon(Icons.delete_outline, color: Colors.orangeAccent, size: 22),
+            const SizedBox(width: 8),
+            Text('Move ${_selectedCustomerIds.length} Customer(s) to Recycle Bin?',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: SizedBox(
+          width: 440,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'The selected customer(s) will be moved to the Recycle Bin. You can restore them or permanently delete them from the Recycle Bin later.',
+                style: TextStyle(color: Colors.white70, fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                constraints: const BoxConstraints(maxHeight: 180),
+                decoration: BoxDecoration(
+                  color: AppTheme.darkCard,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppTheme.darkBorder),
+                ),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: selectedCustomers.length,
+                  separatorBuilder: (_, __) =>
+                      const Divider(color: AppTheme.darkBorder, height: 1),
+                  itemBuilder: (_, i) {
+                    final c = selectedCustomers[i];
+                    return ListTile(
+                      dense: true,
+                      title: Text(c.companyName,
+                          style: const TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w600)),
+                      subtitle: Text(
+                          '${c.customerCode} · ${c.contactPerson.isNotEmpty ? c.contactPerson : 'No contact'}',
+                          style:
+                              const TextStyle(fontSize: 10, color: Colors.grey)),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orangeAccent,
+              foregroundColor: Colors.black87,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.delete_outline, size: 16),
+            label: Text('Move to Trash (${_selectedCustomerIds.length})'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _isActionProcessing = true);
+    try {
+      final res = await ref
+          .read(customersRepositoryProvider)
+          .bulkTrash(_selectedCustomerIds.toList());
+      final count = res['data']?['movedCount'] ?? _selectedCustomerIds.length;
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✓ Moved $count customer(s) to Recycle Bin'),
+            backgroundColor: AppTheme.success,
+          ),
+        );
+        _selectedCustomerIds.clear();
+        _loadCompanies(page: state.page);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to move customers to Recycle Bin: $e'),
+            backgroundColor: AppTheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isActionProcessing = false);
+    }
+  }
+
   void _confirmDeleteCustomer(Customer customer) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.darkSurface,
-        title: const Text('Delete Customer?',
-            style: TextStyle(color: Colors.white)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: AppTheme.darkBorder),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.delete_outline, color: Colors.orangeAccent, size: 22),
+            SizedBox(width: 8),
+            Text('Move to Recycle Bin?',
+                style: TextStyle(color: Colors.white, fontSize: 16)),
+          ],
+        ),
         content: Text(
-            'Are you sure you want to delete ${customer.companyName}? This action cannot be undone and will delete all associated data.',
-            style: const TextStyle(color: Colors.grey)),
+          'Are you sure you want to move "${customer.companyName}" (${customer.customerCode}) to the Recycle Bin? You can restore it later or permanently delete it from the Recycle Bin.',
+          style: const TextStyle(color: Colors.white70, fontSize: 13),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -1663,8 +1868,9 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent,
-                foregroundColor: Colors.white),
+              backgroundColor: Colors.orangeAccent,
+              foregroundColor: Colors.black87,
+            ),
             onPressed: () async {
               Navigator.pop(ctx);
               try {
@@ -1672,20 +1878,24 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
                     .read(customersRepositoryProvider)
                     .deleteCustomer(customer.id);
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text('Customer deleted successfully'),
-                      backgroundColor: AppTheme.success));
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text(
+                        '✓ Moved "${customer.companyName}" to Recycle Bin'),
+                    backgroundColor: AppTheme.success,
+                  ));
+                  _selectedCustomerIds.remove(customer.id);
                   _loadCompanies(page: ref.read(customerListProvider).page);
                 }
               } catch (e) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Text('Failed to delete: $e'),
-                      backgroundColor: AppTheme.error));
+                    content: Text('Failed to move to Recycle Bin: $e'),
+                    backgroundColor: AppTheme.error,
+                  ));
                 }
               }
             },
-            child: const Text('Delete'),
+            child: const Text('Move to Trash'),
           ),
         ],
       ),

@@ -155,6 +155,69 @@ class Customer {
   }
 }
 
+// ─── Trashed Customer Model ───────────────────────────────────────────────────
+
+class TrashedCustomer {
+  final String id;
+  final String customerCode;
+  final String companyName;
+  final String customerType;
+  final String contactPerson;
+  final String email;
+  final String phone;
+  final String city;
+  final String state;
+  final String status;
+  final DateTime? deletedAt;
+  final String? deletedBy;
+  final bool hasStatutoryRecords;
+  final String? statutoryReason;
+
+  const TrashedCustomer({
+    required this.id,
+    required this.customerCode,
+    required this.companyName,
+    required this.customerType,
+    required this.contactPerson,
+    required this.email,
+    required this.phone,
+    required this.city,
+    required this.state,
+    required this.status,
+    this.deletedAt,
+    this.deletedBy,
+    this.hasStatutoryRecords = false,
+    this.statutoryReason,
+  });
+
+  factory TrashedCustomer.fromJson(Map<String, dynamic> json) {
+    return TrashedCustomer(
+      id: json['id'] ?? '',
+      customerCode: json['customerCode'] ?? '',
+      companyName: json['companyName'] ?? '',
+      customerType: json['customerType'] ?? 'END_CUSTOMER',
+      contactPerson: json['contactPerson'] ?? '',
+      email: json['email'] ?? '',
+      phone: json['phone'] ?? '',
+      city: json['city'] ?? '',
+      state: json['state'] ?? '',
+      status: json['status'] ?? 'DELETED',
+      deletedAt: json['deletedAt'] != null
+          ? DateTime.tryParse(json['deletedAt'].toString())
+          : null,
+      deletedBy: json['deletedBy'],
+      hasStatutoryRecords: json['hasStatutoryRecords'] == true,
+      statutoryReason: json['statutoryReason'],
+    );
+  }
+
+  String get initials {
+    final parts = companyName.split(' ');
+    if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    return companyName.isNotEmpty ? companyName[0].toUpperCase() : 'C';
+  }
+}
+
 // ─── Customers Repository ─────────────────────────────────────────────────────
 
 class CustomersRepository {
@@ -213,6 +276,56 @@ class CustomersRepository {
 
   Future<void> deleteCustomer(String id) async {
     await _dio.delete('/customers/$id');
+  }
+
+  Future<Map<String, dynamic>> bulkTrash(List<String> ids, {String? reason}) async {
+    final response = await _dio.post('/customers/bulk-trash', data: {
+      'ids': ids,
+      if (reason != null && reason.isNotEmpty) 'reason': reason,
+    });
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getTrash({
+    String? search,
+    int page = 1,
+    int limit = 25,
+  }) async {
+    final response = await _dio.get('/customers/trash', queryParameters: {
+      if (search != null && search.isNotEmpty) 'search': search,
+      'page': page,
+      'limit': limit,
+    });
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> restoreCustomer(String id) async {
+    final response = await _dio.post('/customers/$id/restore');
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> bulkRestore(List<String> ids) async {
+    final response = await _dio.post('/customers/bulk-restore', data: {
+      'ids': ids,
+    });
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> permanentDeleteCustomer(String id) async {
+    final response = await _dio.delete('/customers/$id/permanent');
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> bulkPermanentDelete(List<String> ids) async {
+    final response = await _dio.post('/customers/bulk-permanent-delete', data: {
+      'ids': ids,
+    });
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> emptyRecycleBin() async {
+    final response = await _dio.post('/customers/recycle-bin/empty');
+    return response.data as Map<String, dynamic>;
   }
 
   Future<Map<String, dynamic>> addContact(

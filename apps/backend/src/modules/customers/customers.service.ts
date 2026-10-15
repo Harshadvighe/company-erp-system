@@ -558,8 +558,9 @@ export class CustomersService {
       if (exists) throw new ConflictException(`A customer with GSTIN ${dto.gstin} already exists`);
     }
 
-    const customer = await this.prisma.$transaction((tx) =>
-      this.createInTransaction(tx, dto, userId),
+    const customer = await this.prisma.$transaction(
+      (tx) => this.createInTransaction(tx, dto, userId),
+      { timeout: 30000, maxWait: 15000 },
     );
 
     if (dto.productSystemIds && Array.isArray(dto.productSystemIds)) {
@@ -733,27 +734,430 @@ export class CustomersService {
     return customer;
   }
 
-  async delete(id: string, userId?: string, userEmail?: string) {
+  async delete(id: string, userId?: string, userEmail?: string, req?: any) {
     const existing = await this.prisma.customer.findUnique({
       where: { id },
       include: { _count: { select: { enquiries: true, leads: true } } },
     });
     if (!existing) throw new NotFoundException('Customer not found');
 
-    // Soft delete — mark inactive rather than physical delete
-    await this.prisma.customer.update({ where: { id }, data: { status: 'DELETED' } });
+    // Soft delete — move to Recycle Bin
+    await this.prisma.customer.update({
+      where: { id },
+      data: {
+        status: 'DELETED',
+        updatedByUserId: userId || null,
+      },
+    });
 
     await this.auditService.log({
       userId,
       userEmail,
-      action: 'DELETE',
+      action: 'CUSTOMER_TRASH',
       module: 'CUSTOMERS',
       entityType: 'Customer',
       entityId: id,
-      details: `Soft-deleted Customer: ${existing.companyName} (${existing.customerCode})`,
+      details: `Moved Customer to Recycle Bin: ${existing.companyName} (${existing.customerCode})`,
+      ipAddress: req?.ip || req?.socket?.remoteAddress,
     });
 
-    return { message: 'Customer marked as deleted' };
+    return { message: 'Customer moved to Recycle Bin', id, customerCode: existing.customerCode };
+  }
+
+  async bulkTrash(ids: string[], userId?: string, userEmail?: string, reason?: string, req?: any) {
+    const cleanIds = (ids || []).filter(
+      (id): id is string => typeof id === 'string' && id.trim().length > 0,
+    );
+    if (cleanIds.length === 0) {
+      throw new BadRequestException('No customer IDs provided for moving to Recycle Bin');
+    }
+
+    const customers = await this.prisma.customer.findMany({
+      where: { id: { in: cleanIds } },
+      select: { id: true, customerCode: true, companyName: true, status: true },
+    });
+
+    if (customers.length === 0) {
+      throw new NotFoundException('None of the requested customers were found');
+    }
+
+    const activeCustomers = customers.filter((c) => c.status !== 'DELETED');
+    if (activeCustomers.length === 0) {
+      return {
+        message: 'All selected customer(s) are already in the Recycle Bin',
+        count: 0,
+        affectedIds: [],
+      };
+    }
+
+    const activeIds = activeCustomers.map((c) => c.id);
+
+    await this.prisma.customer.updateMany({
+      where: { id: { in: activeIds } },
+      data: {
+        status: 'DELETED',
+        updatedByUserId: userId || null,
+      },
+    });
+
+    await this.auditService.log({
+      userId,
+      userEmail,
+      action: 'CUSTOMER_TRASH',
+      module: 'CUSTOMERS',
+      entityType: 'Customer',
+      details: JSON.stringify({
+        count: activeIds.length,
+        customerCodes: activeCustomers.map((c) => c.customerCode),
+        customerNames: activeCustomers.map((c) => c.companyName),
+        reason: reason || 'Moved to Recycle Bin in bulk',
+      }),
+      ipAddress: req?.ip || req?.socket?.remoteAddress,
+    });
+
+    return {
+      message: `Moved ${activeIds.length} customer(s) to Recycle Bin`,
+      count: activeIds.length,
+      affectedIds: activeIds,
+    };
+  }
+
+  async getTrash(query?: {
+    search?: string;
+    page?: number;
+    limit?: number;
+    sortBy?: string;
+  }) {
+    const page = Math.max(1, Number(query?.page) || 1);
+    const limit = Math.max(1, Math.min(1000, Number(query?.limit) || 25));
+    const skip = (page - 1) * limit;
+
+    const conditions: Prisma.CustomerWhereInput[] = [{ status: 'DELETED' }];
+
+    if (query?.search && query.search.trim()) {
+      const q = query.search.trim();
+      conditions.push({
+        OR: [
+          { companyName: { contains: q } },
+          { customerCode: { contains: q } },
+          { contactPerson: { contains: q } },
+          { email: { contains: q } },
+          { phone: { contains: q } },
+          { city: { contains: q } },
+          { state: { contains: q } },
+        ],
+      });
+    }
+
+    const where: Prisma.CustomerWhereInput = { AND: conditions };
+
+    const [total, customers] = await Promise.all([
+      this.prisma.customer.count({ where }),
+      this.prisma.customer.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { updatedAt: 'desc' },
+        include: {
+          updatedByUser: {
+            select: { id: true, fullName: true, email: true },
+          },
+          _count: {
+            select: {
+              salesOrders: true,
+              salesInvoices: true,
+              salesPayments: true,
+              quotations: true,
+              projects: true,
+              contacts: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      data: customers.map((c) => {
+        const counts = c._count || { salesOrders: 0, salesInvoices: 0, salesPayments: 0, quotations: 0, projects: 0, contacts: 0 };
+        const statutoryBlockers: string[] = [];
+        if (counts.salesInvoices > 0) statutoryBlockers.push(`${counts.salesInvoices} invoice(s)`);
+        if (counts.salesPayments > 0) statutoryBlockers.push(`${counts.salesPayments} payment(s)`);
+        if (counts.salesOrders > 0) statutoryBlockers.push(`${counts.salesOrders} sales order(s)`);
+        if (counts.quotations > 0) statutoryBlockers.push(`${counts.quotations} quotation(s)`);
+        if (counts.projects > 0) statutoryBlockers.push(`${counts.projects} project(s)`);
+
+        return {
+          id: c.id,
+          customerCode: c.customerCode,
+          companyName: c.companyName,
+          contactPerson: c.contactPerson,
+          email: c.email,
+          phone: c.phone,
+          city: c.city,
+          state: c.state,
+          customerType: c.customerType,
+          status: c.status,
+          deletedAt: c.updatedAt,
+          deletedByUserId: c.updatedByUserId,
+          deletedBy: c.updatedByUser?.fullName || c.updatedByUser?.email || 'System / Admin',
+          hasStatutoryRecords: statutoryBlockers.length > 0,
+          statutoryReason: statutoryBlockers.length > 0
+            ? `Retained: Associated with ${statutoryBlockers.join(', ')}`
+            : null,
+          contactsCount: counts.contacts || 0,
+        };
+      }),
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    };
+  }
+
+  async restore(id: string, userId?: string, userEmail?: string, req?: any) {
+    const customer = await this.prisma.customer.findUnique({
+      where: { id },
+      select: { id: true, customerCode: true, companyName: true, status: true },
+    });
+
+    if (!customer) throw new NotFoundException(`Customer with ID ${id} not found`);
+    if (customer.status !== 'DELETED') {
+      throw new BadRequestException(
+        `Customer "${customer.companyName}" (${customer.customerCode}) is not in the Recycle Bin (status: ${customer.status})`,
+      );
+    }
+
+    await this.prisma.customer.update({
+      where: { id },
+      data: {
+        status: 'ACTIVE',
+        updatedByUserId: userId || null,
+      },
+    });
+
+    await this.auditService.log({
+      userId,
+      userEmail,
+      action: 'CUSTOMER_RESTORE',
+      module: 'CUSTOMERS',
+      entityType: 'Customer',
+      entityId: id,
+      details: `Restored Customer from Recycle Bin: ${customer.companyName} (${customer.customerCode})`,
+      ipAddress: req?.ip || req?.socket?.remoteAddress,
+    });
+
+    return {
+      message: `Customer "${customer.companyName}" restored successfully`,
+      id,
+      customerCode: customer.customerCode,
+    };
+  }
+
+  async bulkRestore(ids: string[], userId?: string, userEmail?: string, req?: any) {
+    const cleanIds = (ids || []).filter(
+      (id): id is string => typeof id === 'string' && id.trim().length > 0,
+    );
+    if (cleanIds.length === 0) {
+      throw new BadRequestException('No customer IDs provided for restore');
+    }
+
+    const customers = await this.prisma.customer.findMany({
+      where: { id: { in: cleanIds }, status: 'DELETED' },
+      select: { id: true, customerCode: true, companyName: true },
+    });
+
+    if (customers.length === 0) {
+      return {
+        message: 'No deleted customers found among selected IDs to restore',
+        count: 0,
+        affectedIds: [],
+      };
+    }
+
+    const restoreIds = customers.map((c) => c.id);
+
+    await this.prisma.customer.updateMany({
+      where: { id: { in: restoreIds } },
+      data: {
+        status: 'ACTIVE',
+        updatedByUserId: userId || null,
+      },
+    });
+
+    await this.auditService.log({
+      userId,
+      userEmail,
+      action: 'CUSTOMER_RESTORE',
+      module: 'CUSTOMERS',
+      entityType: 'Customer',
+      details: JSON.stringify({
+        count: restoreIds.length,
+        customerCodes: customers.map((c) => c.customerCode),
+        customerNames: customers.map((c) => c.companyName),
+      }),
+      ipAddress: req?.ip || req?.socket?.remoteAddress,
+    });
+
+    return {
+      message: `Restored ${restoreIds.length} customer(s) to active directory`,
+      count: restoreIds.length,
+      affectedIds: restoreIds,
+    };
+  }
+
+  async permanentDelete(id: string, userId?: string, userEmail?: string, req?: any) {
+    const customer = await this.prisma.customer.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            salesOrders: true,
+            salesInvoices: true,
+            salesPayments: true,
+            quotations: true,
+            projects: true,
+          },
+        },
+      },
+    });
+
+    if (!customer) {
+      throw new NotFoundException(`Customer with ID ${id} not found`);
+    }
+
+    if (customer.status !== 'DELETED') {
+      throw new BadRequestException(
+        `Customer "${customer.companyName}" (${customer.customerCode}) is currently ${customer.status}. Only customers in the Recycle Bin can be permanently deleted.`,
+      );
+    }
+
+    const counts = customer._count || { salesOrders: 0, salesInvoices: 0, salesPayments: 0, quotations: 0, projects: 0 };
+    const blockers: string[] = [];
+    if (counts.salesInvoices > 0) blockers.push(`${counts.salesInvoices} invoice(s)`);
+    if (counts.salesPayments > 0) blockers.push(`${counts.salesPayments} payment(s)`);
+    if (counts.salesOrders > 0) blockers.push(`${counts.salesOrders} sales order(s)`);
+    if (counts.quotations > 0) blockers.push(`${counts.quotations} quotation(s)`);
+    if (counts.projects > 0) blockers.push(`${counts.projects} project(s)`);
+
+    if (blockers.length > 0) {
+      throw new BadRequestException(
+        `Cannot permanently delete customer "${customer.companyName}" (${customer.customerCode}): Customer has associated statutory business records (${blockers.join(', ')}) that must be preserved for legal retention.`,
+      );
+    }
+
+    await this.prisma.$transaction(
+      async (tx) => {
+        await tx.customerContact.deleteMany({ where: { customerId: id } });
+        await tx.customerInteraction.deleteMany({ where: { customerId: id } });
+        await tx.customerValuation.deleteMany({ where: { customerId: id } });
+        await tx.companyValuationHistory.deleteMany({ where: { customerId: id } });
+        await tx.companyProductInterest.deleteMany({ where: { customerId: id } });
+        await tx.lead.deleteMany({ where: { customerId: id } });
+        await tx.enquiry.deleteMany({ where: { customerId: id } });
+        await tx.opportunity.deleteMany({ where: { customerId: id } });
+        await tx.crmActivity.deleteMany({ where: { customerId: id } });
+        await tx.crmFollowUp.deleteMany({ where: { customerId: id } });
+        await tx.customerDocument.deleteMany({ where: { customerId: id } });
+        await tx.customerMedia.deleteMany({ where: { customerId: id } });
+        await tx.panelSpecification.deleteMany({ where: { customerId: id } });
+        await tx.customer.delete({ where: { id } });
+      },
+      { timeout: 30000, maxWait: 15000 },
+    );
+
+    await this.auditService.log({
+      userId,
+      userEmail,
+      action: 'CUSTOMER_PERMANENT_DELETE',
+      module: 'CUSTOMERS',
+      entityType: 'Customer',
+      entityId: id,
+      details: `Permanently deleted customer: ${customer.companyName} (${customer.customerCode})`,
+      ipAddress: req?.ip || req?.socket?.remoteAddress,
+    });
+
+    return {
+      message: `Customer "${customer.companyName}" permanently deleted from database`,
+      id,
+      customerCode: customer.customerCode,
+      companyName: customer.companyName,
+    };
+  }
+
+  async bulkPermanentDelete(ids: string[], userId?: string, userEmail?: string, req?: any) {
+    const cleanIds = (ids || []).filter(
+      (id): id is string => typeof id === 'string' && id.trim().length > 0,
+    );
+    if (cleanIds.length === 0) {
+      throw new BadRequestException('No customer IDs provided for permanent deletion');
+    }
+
+    const results: { id: string; customerCode?: string; companyName?: string; success: boolean; error?: string }[] = [];
+    let deletedCount = 0;
+
+    for (const id of cleanIds) {
+      try {
+        const res = await this.permanentDelete(id, userId, userEmail, req);
+        results.push({
+          id,
+          customerCode: res.customerCode,
+          companyName: res.companyName,
+          success: true,
+        });
+        deletedCount++;
+      } catch (err: any) {
+        results.push({ id, success: false, error: err.message });
+      }
+    }
+
+    return {
+      message: `Permanently deleted ${deletedCount} of ${ids.length} customer(s)`,
+      deletedCount,
+      failedCount: ids.length - deletedCount,
+      results,
+    };
+  }
+
+  async emptyRecycleBin(userId?: string, userEmail?: string, req?: any) {
+    const trashed = await this.prisma.customer.findMany({
+      where: { status: 'DELETED' },
+      select: { id: true, customerCode: true, companyName: true },
+    });
+
+    if (trashed.length === 0) {
+      return {
+        message: 'Recycle Bin is already empty',
+        deletedCount: 0,
+        skippedCount: 0,
+        results: [],
+      };
+    }
+
+    const trashedIds = trashed.map((t) => t.id);
+    const res = await this.bulkPermanentDelete(trashedIds, userId, userEmail, req);
+
+    await this.auditService.log({
+      userId,
+      userEmail,
+      action: 'CUSTOMER_RECYCLE_BIN_EMPTY',
+      module: 'CUSTOMERS',
+      entityType: 'Customer',
+      details: JSON.stringify({
+        attemptedCount: trashedIds.length,
+        deletedCount: res.deletedCount,
+        skippedCount: res.failedCount,
+      }),
+      ipAddress: req?.ip || req?.socket?.remoteAddress,
+    });
+
+    return {
+      message: `Recycle Bin emptied: ${res.deletedCount} permanently deleted, ${res.failedCount} retained due to statutory business records.`,
+      deletedCount: res.deletedCount,
+      skippedCount: res.failedCount,
+      results: res.results,
+    };
   }
 
   // ─── CONTACTS ──────────────────────────────────────────────────────────────

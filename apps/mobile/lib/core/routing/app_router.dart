@@ -8,6 +8,7 @@ import 'package:saark_erp_mobile/features/dashboard/presentation/pages/dashboard
 import 'package:saark_erp_mobile/features/customers/presentation/pages/customers_list_page.dart';
 import 'package:saark_erp_mobile/features/customers/presentation/pages/customer_detail_page.dart';
 import 'package:saark_erp_mobile/features/customers/presentation/pages/customer_form_page.dart';
+import 'package:saark_erp_mobile/features/customers/presentation/pages/customers_recycle_bin_page.dart';
 import 'package:saark_erp_mobile/features/vendors/presentation/pages/vendors_list_page.dart';
 import 'package:saark_erp_mobile/features/products/presentation/pages/products_list_page.dart';
 import 'package:saark_erp_mobile/features/crm/presentation/pages/leads_list_page.dart';
@@ -164,6 +165,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const CustomerFormPage(),
           ),
           GoRoute(
+            path: '/customers/recycle-bin',
+            name: 'customers-recycle-bin',
+            builder: (context, state) => const CustomersRecycleBinPage(),
+          ),
+          GoRoute(
             path: '/customers/:id',
             name: 'customer-detail',
             builder: (context, state) =>
@@ -205,6 +211,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: '/crm/companies/new',
             name: 'crm-company-new',
             builder: (context, state) => const CustomerFormPage(),
+          ),
+          GoRoute(
+            path: '/crm/companies/recycle-bin',
+            name: 'crm-companies-recycle-bin',
+            builder: (context, state) => const CustomersRecycleBinPage(),
+          ),
+          GoRoute(
+            path: '/crm/recycle-bin',
+            name: 'crm-recycle-bin',
+            builder: (context, state) => const CustomersRecycleBinPage(),
           ),
           GoRoute(
             path: '/crm/companies/:id',

@@ -55,6 +55,41 @@ export class CustomersController {
     return this.customersService.mergeCustomers(body.sourceId, body.targetId, req.user);
   }
 
+  @Get('trash')
+  @RequirePermissions('CUSTOMERS:VIEW', 'CRM:VIEW')
+  @ApiOperation({ summary: 'Get trashed / soft-deleted customers in Recycle Bin' })
+  getTrash(@Query() query: any) {
+    return this.customersService.getTrash(query);
+  }
+
+  @Post('bulk-trash')
+  @RequirePermissions('CUSTOMERS:DELETE', 'CRM:DELETE')
+  @ApiOperation({ summary: 'Move multiple customers to Recycle Bin' })
+  bulkTrash(@Body() body: { ids: string[]; reason?: string }, @Req() req: any) {
+    return this.customersService.bulkTrash(body.ids, req.user?.id, req.user?.email, body.reason, req);
+  }
+
+  @Post('bulk-restore')
+  @RequirePermissions('CUSTOMERS:RESTORE', 'CRM:RESTORE', 'CUSTOMERS:EDIT', 'CRM:EDIT')
+  @ApiOperation({ summary: 'Restore multiple customers from Recycle Bin' })
+  bulkRestore(@Body() body: { ids: string[] }, @Req() req: any) {
+    return this.customersService.bulkRestore(body.ids, req.user?.id, req.user?.email, req);
+  }
+
+  @Post('bulk-permanent-delete')
+  @RequirePermissions('CUSTOMERS:DELETE_PERMANENT', 'CRM:DELETE_PERMANENT')
+  @ApiOperation({ summary: 'Permanently delete multiple customers from Recycle Bin' })
+  bulkPermanentDelete(@Body() body: { ids: string[] }, @Req() req: any) {
+    return this.customersService.bulkPermanentDelete(body.ids, req.user?.id, req.user?.email, req);
+  }
+
+  @Post('recycle-bin/empty')
+  @RequirePermissions('CUSTOMERS:DELETE_PERMANENT', 'CRM:DELETE_PERMANENT')
+  @ApiOperation({ summary: 'Empty all eligible customers in Recycle Bin' })
+  emptyRecycleBin(@Req() req: any) {
+    return this.customersService.emptyRecycleBin(req.user?.id, req.user?.email, req);
+  }
+
   @Get(':id')
   @RequirePermissions('CUSTOMERS:VIEW', 'CRM:VIEW')
   @ApiOperation({ summary: 'Get full customer profile — contacts, interactions, leads, enquiries' })
@@ -85,9 +120,23 @@ export class CustomersController {
 
   @Delete(':id')
   @RequirePermissions('CUSTOMERS:DELETE', 'CRM:DELETE')
-  @ApiOperation({ summary: 'Soft-delete customer (marks status as DELETED)' })
+  @ApiOperation({ summary: 'Soft-delete customer (moves to Recycle Bin)' })
   delete(@Param('id') id: string, @Req() req: any) {
-    return this.customersService.delete(id, req.user?.id, req.user?.email);
+    return this.customersService.delete(id, req.user?.id, req.user?.email, req);
+  }
+
+  @Post(':id/restore')
+  @RequirePermissions('CUSTOMERS:RESTORE', 'CRM:RESTORE', 'CUSTOMERS:EDIT', 'CRM:EDIT')
+  @ApiOperation({ summary: 'Restore a single customer from Recycle Bin' })
+  restore(@Param('id') id: string, @Req() req: any) {
+    return this.customersService.restore(id, req.user?.id, req.user?.email, req);
+  }
+
+  @Delete(':id/permanent')
+  @RequirePermissions('CUSTOMERS:DELETE_PERMANENT', 'CRM:DELETE_PERMANENT')
+  @ApiOperation({ summary: 'Permanently delete a customer from database' })
+  permanentDelete(@Param('id') id: string, @Req() req: any) {
+    return this.customersService.permanentDelete(id, req.user?.id, req.user?.email, req);
   }
 
   // ─── CONTACTS ─────────────────────────────────────────────────────────────
