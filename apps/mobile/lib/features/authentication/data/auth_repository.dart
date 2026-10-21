@@ -22,6 +22,19 @@ class AuthRepository {
     final response = await _dio.get('/auth/me');
     return response.data as Map<String, dynamic>;
   }
+
+  Future<Map<String, dynamic>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    final response = await _dio.post('/auth/change-password', data: {
+      'currentPassword': currentPassword,
+      'newPassword': newPassword,
+      'confirmPassword': confirmPassword,
+    });
+    return response.data as Map<String, dynamic>;
+  }
 }
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {

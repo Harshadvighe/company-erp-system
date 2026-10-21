@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:saark_erp_mobile/core/auth/auth_provider.dart';
 import 'package:saark_erp_mobile/core/theme/app_theme.dart';
+import 'package:saark_erp_mobile/features/authentication/presentation/widgets/change_password_dialog.dart';
 
 // ─── Responsive Shell ────────────────────────────────────────────────────────
 
@@ -310,7 +311,13 @@ class _DesktopShell extends ConsumerWidget {
                         ),
                       ),
                       IconButton(
+                        icon: const Icon(Icons.lock_reset, size: 16, color: Colors.grey),
+                        tooltip: 'Change Password',
+                        onPressed: () => ChangePasswordDialog.show(context),
+                      ),
+                      IconButton(
                         icon: const Icon(Icons.logout, size: 16, color: Colors.grey),
+                        tooltip: 'Logout',
                         onPressed: () async {
                           await ref.read(authProvider.notifier).logout();
                           if (context.mounted) context.go('/login');
@@ -627,6 +634,14 @@ class _MobileShellState extends ConsumerState<_MobileShell> {
               ),
             ),
             ListTile(
+              leading: const Icon(Icons.lock_reset, size: 20, color: Color(0xFFF26522)),
+              title: const Text('Change Password', style: TextStyle(color: Colors.white, fontSize: 14)),
+              onTap: () {
+                Navigator.pop(context);
+                ChangePasswordDialog.show(context);
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.logout, size: 20, color: Colors.grey),
               title: const Text('Logout', style: TextStyle(color: Colors.grey, fontSize: 14)),
               onTap: () async {
@@ -782,14 +797,18 @@ class _TopHeader extends StatelessWidget {
                 const Icon(Icons.keyboard_arrow_down, size: 16, color: Colors.grey),
               ],
             ),
-            itemBuilder: (_) => <PopupMenuEntry>[
+            itemBuilder: (popupCtx) => <PopupMenuEntry>[
               PopupMenuItem(
-                child: const Row(children: [Icon(Icons.person_outline, size: 16), SizedBox(width: 8), Text('My Profile')]),
-                onTap: () {},
+                child: const Row(children: [Icon(Icons.person_outline, size: 16), SizedBox(width: 8), Text('My Profile / Work')]),
+                onTap: () {
+                  Future.microtask(() => context.go('/my-work'));
+                },
               ),
               PopupMenuItem(
-                child: const Row(children: [Icon(Icons.settings_outlined, size: 16), SizedBox(width: 8), Text('Settings')]),
-                onTap: () {},
+                child: const Row(children: [Icon(Icons.lock_reset, size: 16, color: Color(0xFFF26522)), SizedBox(width: 8), Text('Change Password')]),
+                onTap: () {
+                  Future.microtask(() => ChangePasswordDialog.show(context));
+                },
               ),
               const PopupMenuDivider(),
               PopupMenuItem(

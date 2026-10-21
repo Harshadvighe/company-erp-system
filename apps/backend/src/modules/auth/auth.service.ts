@@ -106,4 +106,51 @@ export class AuthService {
       permissions: permResult.effectivePermissions,
     };
   }
+
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+    confirmPassword: string,
+  ) {
+    if (!newPassword || newPassword.length < 8) {
+      throw new BadRequestException('New password must be at least 8 characters.');
+    }
+
+    if (newPassword !== confirmPassword) {
+      throw new BadRequestException('New password and confirmation do not match.');
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException('User account not found.');
+    }
+
+    const isCurrentValid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isCurrentValid) {
+      throw new UnauthorizedException('Current password is incorrect.');
+    }
+
+    if (await bcrypt.compare(newPassword, user.passwordHash)) {
+      throw new BadRequestException('New password must be different from the current password.');
+    }
+
+    const newHash = await bcrypt.hash(newPassword, 12);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: newHash },
+    });
+
+    // Audit log — no password values recorded
+    await this.auditService.log({
+      userId: user.id,
+      userEmail: user.email,
+      action: 'PASSWORD_CHANGE',
+      module: 'AUTH',
+      details: `User ${user.fullName} (${user.username}) changed their own password.`,
+    });
+
+    return { success: true, message: 'Password updated successfully. Please log in again.' };
+  }
 }

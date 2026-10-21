@@ -22,4 +22,16 @@ export class AuthController {
   async getProfile(@Req() req: any) {
     return this.authService.getCurrentProfile(req.user.id);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('change-password')
+  @ApiOperation({ summary: 'Change own password (requires current password verification)' })
+  async changePassword(
+    @Req() req: any,
+    @Body('currentPassword') currentPassword: string,
+    @Body('newPassword') newPassword: string,
+    @Body('confirmPassword') confirmPassword: string,
+  ) {
+    return this.authService.changePassword(req.user.id, currentPassword, newPassword, confirmPassword);
+  }
 }

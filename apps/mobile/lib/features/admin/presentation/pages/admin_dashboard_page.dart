@@ -105,7 +105,181 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
     }
   }
 
+  /// Show reset-password-only dialog for already-provisioned employees
+  void _showResetPasswordDialog(Employee employee) {
+    final newPassCtrl = TextEditingController();
+    final confirmPassCtrl = TextEditingController();
+    bool obscureNew = true;
+    bool obscureConfirm = true;
+    bool isSubmitting = false;
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1E2024),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(6),
+                side: const BorderSide(color: Color(0xFF2C2E33)),
+              ),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Icon(Icons.lock_reset, color: Colors.blueAccent, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Reset Employee Password',
+                            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${employee.fullName} (${employee.employeeCode})',
+                          style: const TextStyle(color: Colors.white54, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 420,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Colors.blue.withValues(alpha: 0.25)),
+                      ),
+                      child: const Text(
+                        '⚠️ This will immediately change the employee login password. The employee must use the new password on next login.',
+                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('New Password (min 8 characters):',
+                        style: TextStyle(color: Colors.white70, fontSize: 11)),
+                    const SizedBox(height: 6),
+                    _buildDialogInput(
+                      controller: newPassCtrl,
+                      hint: 'Enter new password',
+                      obscureText: obscureNew,
+                      prefixIcon: const Icon(Icons.lock_outline, size: 16, color: Colors.white38),
+                      suffixIcon: IconButton(
+                        icon: Icon(obscureNew ? Icons.visibility_off : Icons.visibility,
+                            size: 16, color: Colors.white54),
+                        onPressed: () => setDialogState(() => obscureNew = !obscureNew),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text('Confirm New Password:',
+                        style: TextStyle(color: Colors.white70, fontSize: 11)),
+                    const SizedBox(height: 6),
+                    _buildDialogInput(
+                      controller: confirmPassCtrl,
+                      hint: 'Re-enter new password',
+                      obscureText: obscureConfirm,
+                      prefixIcon: const Icon(Icons.lock_outline, size: 16, color: Colors.white38),
+                      suffixIcon: IconButton(
+                        icon: Icon(obscureConfirm ? Icons.visibility_off : Icons.visibility,
+                            size: 16, color: Colors.white54),
+                        onPressed: () => setDialogState(() => obscureConfirm = !obscureConfirm),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSubmitting ? null : () => Navigator.pop(ctx),
+                  child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+                ),
+                ElevatedButton.icon(
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          final np = newPassCtrl.text.trim();
+                          final cp = confirmPassCtrl.text.trim();
+                          if (np.length < 8) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Password must be at least 8 characters')),
+                            );
+                            return;
+                          }
+                          if (np != cp) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Passwords do not match'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                            return;
+                          }
+                          setDialogState(() => isSubmitting = true);
+                          try {
+                            final repo = ref.read(adminRepositoryProvider);
+                            await repo.resetEmployeePassword(employee.id, newPassword: np);
+                            if (mounted) {
+                              Navigator.pop(ctx);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('🔑 Password reset for ${employee.fullName}'),
+                                  backgroundColor: Colors.blueAccent[700],
+                                  duration: const Duration(seconds: 4),
+                                ),
+                              );
+                            }
+                          } catch (err) {
+                            setDialogState(() => isSubmitting = false);
+                            String errorMsg = err.toString();
+                            if (err is DioException && err.response?.data != null) {
+                              final d = err.response!.data;
+                              if (d is Map && d['message'] != null) errorMsg = d['message'].toString();
+                            }
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Reset failed: $errorMsg'), backgroundColor: Colors.red),
+                              );
+                            }
+                          }
+                        },
+                  icon: isSubmitting
+                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.lock_reset, size: 16),
+                  label: Text(isSubmitting ? 'Resetting...' : 'Reset Password'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blueAccent[700],
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _showProvisioningDialog(Employee employee) {
+    // Detect whether this employee already has a provisioned user account
+    final bool alreadyProvisioned = employee.userId != null && employee.userId!.isNotEmpty;
+
     // Find initial department ID
     String? initialDeptId = employee.departmentId;
     if (initialDeptId == null || !_departments.any((d) => d.id == initialDeptId)) {
@@ -154,24 +328,30 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF26522).withValues(alpha: 0.15),
+                      color: (alreadyProvisioned ? Colors.teal : const Color(0xFFF26522)).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: const Icon(Icons.verified_user_rounded, color: Color(0xFFF26522), size: 22),
+                    child: Icon(
+                      alreadyProvisioned ? Icons.manage_accounts : Icons.verified_user_rounded,
+                      color: alreadyProvisioned ? Colors.tealAccent : const Color(0xFFF26522),
+                      size: 22,
+                    ),
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Review & Provision Employee Account',
-                          style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                          alreadyProvisioned ? 'Manage Employee Account' : 'Review & Provision Employee Account',
+                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                         ),
-                        SizedBox(height: 2),
+                        const SizedBox(height: 2),
                         Text(
-                          'Assign department, set login credentials, and grant system role',
-                          style: TextStyle(color: Colors.white60, fontSize: 11),
+                          alreadyProvisioned
+                              ? 'Update department, username, role — leave password blank to keep existing'
+                              : 'Assign department, set login credentials, and grant system role',
+                          style: const TextStyle(color: Colors.white60, fontSize: 11),
                         ),
                       ],
                     ),
@@ -230,13 +410,23 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: Colors.orange.withValues(alpha: 0.18),
+                                color: alreadyProvisioned
+                                    ? Colors.teal.withValues(alpha: 0.18)
+                                    : Colors.orange.withValues(alpha: 0.18),
                                 borderRadius: BorderRadius.circular(3),
-                                border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
+                                border: Border.all(
+                                  color: alreadyProvisioned
+                                      ? Colors.teal.withValues(alpha: 0.4)
+                                      : Colors.orange.withValues(alpha: 0.4),
+                                ),
                               ),
-                              child: const Text(
-                                'Pending Approval',
-                                style: TextStyle(color: Colors.orangeAccent, fontSize: 11, fontWeight: FontWeight.w600),
+                              child: Text(
+                                alreadyProvisioned ? 'Account Exists' : 'Pending Approval',
+                                style: TextStyle(
+                                  color: alreadyProvisioned ? Colors.tealAccent : Colors.orangeAccent,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ],
@@ -339,7 +529,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                                 const SizedBox(height: 4),
                                 _buildDialogInput(
                                   controller: passwordCtrl,
-                                  hint: 'At least 6 characters',
+                                  hint: alreadyProvisioned ? 'Blank to keep existing' : 'At least 6 characters',
                                   obscureText: obscurePassword,
                                   prefixIcon: const Icon(Icons.lock_outline, size: 16, color: Colors.white38),
                                   suffixIcon: IconButton(
@@ -400,62 +590,86 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                 ),
               ),
               actions: [
+                if (alreadyProvisioned)
+                  OutlinedButton.icon(
+                    onPressed: isSubmitting
+                        ? null
+                        : () {
+                            Navigator.pop(ctx);
+                            _showResetPasswordDialog(employee);
+                          },
+                    icon: const Icon(Icons.lock_reset, size: 15, color: Colors.blueAccent),
+                    label: const Text('Reset Password', style: TextStyle(color: Colors.blueAccent, fontSize: 12)),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: Colors.blueAccent.withValues(alpha: 0.5)),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                    ),
+                  ),
+                const Spacer(),
                 TextButton(
                   onPressed: isSubmitting ? null : () => Navigator.pop(ctx),
                   child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
                 ),
-                TextButton(
-                  onPressed: isSubmitting
-                      ? null
-                      : () async {
-                          setDialogState(() => isSubmitting = true);
-                          try {
-                            final repo = ref.read(adminRepositoryProvider);
-                            await repo.rejectEmployeeRequest(employee.id);
-                            if (mounted) {
-                              Navigator.pop(ctx);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Employee request ${employee.employeeCode} rejected.'),
-                                  backgroundColor: Colors.redAccent,
-                                ),
-                              );
-                              _refreshRequests();
-                            }
-                          } catch (err) {
-                            setDialogState(() => isSubmitting = false);
-                            String errorMsg = err.toString();
-                            if (err is DioException && err.response?.data != null) {
-                              final d = err.response!.data;
-                              if (d is Map && d['message'] != null) {
-                                errorMsg = d['message'].toString();
+                if (!alreadyProvisioned)
+                  TextButton(
+                    onPressed: isSubmitting
+                        ? null
+                        : () async {
+                            setDialogState(() => isSubmitting = true);
+                            try {
+                              final repo = ref.read(adminRepositoryProvider);
+                              await repo.rejectEmployeeRequest(employee.id);
+                              if (mounted) {
+                                Navigator.pop(ctx);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Employee request ${employee.employeeCode} rejected.'),
+                                    backgroundColor: Colors.redAccent,
+                                  ),
+                                );
+                                _refreshRequests();
+                              }
+                            } catch (err) {
+                              setDialogState(() => isSubmitting = false);
+                              String errorMsg = err.toString();
+                              if (err is DioException && err.response?.data != null) {
+                                final d = err.response!.data;
+                                if (d is Map && d['message'] != null) {
+                                  errorMsg = d['message'].toString();
+                                }
+                              }
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Error: $errorMsg'), backgroundColor: Colors.red),
+                                );
                               }
                             }
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Error: $errorMsg'), backgroundColor: Colors.red),
-                              );
-                            }
-                          }
-                        },
-                  child: const Text('Reject', style: TextStyle(color: Colors.redAccent)),
-                ),
+                          },
+                    child: const Text('Reject', style: TextStyle(color: Colors.redAccent)),
+                  ),
                 ElevatedButton.icon(
                   onPressed: isSubmitting
                       ? null
                       : () async {
                           final username = usernameCtrl.text.trim();
                           final password = passwordCtrl.text.trim();
-                          final designation = desigCtrl.text.trim();
 
-                          if (username.isEmpty || password.isEmpty) {
+                          if (username.isEmpty) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Username and password are required')),
+                              const SnackBar(content: Text('Username is required')),
                             );
                             return;
                           }
 
-                          if (password.length < 6) {
+                          if (!alreadyProvisioned && password.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Password is required for account creation')),
+                            );
+                            return;
+                          }
+
+                          if (password.isNotEmpty && password.length < 6) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('Password must be at least 6 characters')),
                             );
@@ -469,7 +683,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                             await repo.approveEmployeeRequest(
                               employee.id,
                               username: username,
-                              password: password,
+                              password: password.isNotEmpty ? password : null,
                               departmentId: selectedDeptId.isNotEmpty ? selectedDeptId : null,
                               roleIds: selectedRoleId != null ? [selectedRoleId!] : null,
                             );
@@ -479,7 +693,9 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(
-                                    '✅ Employee ${employee.fullName} approved!\nUser account "$username" created with assigned department and role.',
+                                    alreadyProvisioned
+                                        ? '✅ Employee ${employee.fullName} account details updated successfully!'
+                                        : '✅ Employee ${employee.fullName} approved!\nUser account "$username" created with assigned department and role.',
                                   ),
                                   backgroundColor: Colors.green[800],
                                   duration: const Duration(seconds: 4),
@@ -499,7 +715,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text('Failed to approve employee: $errorMsg'),
+                                  content: Text('Failed: $errorMsg'),
                                   backgroundColor: Colors.red,
                                 ),
                               );
@@ -508,10 +724,14 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                         },
                   icon: isSubmitting
                       ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Icon(Icons.check_circle_outline, size: 16),
-                  label: Text(isSubmitting ? 'Provisioning...' : 'Approve & Create Account'),
+                      : Icon(alreadyProvisioned ? Icons.save_outlined : Icons.check_circle_outline, size: 16),
+                  label: Text(
+                    isSubmitting
+                        ? (alreadyProvisioned ? 'Saving...' : 'Provisioning...')
+                        : (alreadyProvisioned ? 'Update Employee Details' : 'Approve & Create Account'),
+                  ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF26522),
+                    backgroundColor: alreadyProvisioned ? Colors.teal[700] : const Color(0xFFF26522),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
@@ -1001,8 +1221,11 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                                       ),
                                     )),
                                     DataCell(
-                                      isPending
-                                          ? ElevatedButton.icon(
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (isPending && (r.userId == null || r.userId!.isEmpty))
+                                            ElevatedButton.icon(
                                               onPressed: () => _showProvisioningDialog(r),
                                               icon: const Icon(Icons.how_to_reg_rounded, size: 14),
                                               label: const Text('Review & Provision User'),
@@ -1014,21 +1237,34 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                                                 textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
                                               ),
                                             )
-                                          : Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                              decoration: BoxDecoration(
-                                                color: Colors.white.withValues(alpha: 0.06),
-                                                borderRadius: BorderRadius.circular(3),
-                                              ),
-                                              child: const Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Icon(Icons.check_circle, color: Colors.greenAccent, size: 14),
-                                                  SizedBox(width: 4),
-                                                  Text('User Created', style: TextStyle(color: Colors.white70, fontSize: 11)),
-                                                ],
+                                          else ...[
+                                            ElevatedButton.icon(
+                                              onPressed: () => _showProvisioningDialog(r),
+                                              icon: const Icon(Icons.manage_accounts, size: 14),
+                                              label: const Text('Manage Account'),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.teal[800],
+                                                foregroundColor: Colors.white,
+                                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(3)),
+                                                textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
                                               ),
                                             ),
+                                            const SizedBox(width: 6),
+                                            OutlinedButton.icon(
+                                              onPressed: () => _showResetPasswordDialog(r),
+                                              icon: const Icon(Icons.lock_reset, size: 14, color: Colors.blueAccent),
+                                              label: const Text('Reset Password', style: TextStyle(color: Colors.blueAccent)),
+                                              style: OutlinedButton.styleFrom(
+                                                side: BorderSide(color: Colors.blueAccent.withValues(alpha: 0.5)),
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(3)),
+                                                textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
                                     ),
                                   ],
                                 );

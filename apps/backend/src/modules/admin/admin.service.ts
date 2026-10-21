@@ -848,8 +848,95 @@ export class AdminService {
 
     if (!employee) throw new NotFoundException(`Employee '${employeeId}' not found`);
 
+    // ── ALREADY-LINKED ACCOUNT: manage existing user instead of blocking ──
     if (employee.userId) {
-      throw new BadRequestException('This employee already has a linked user account');
+      const existingLinkedUser = await this.prisma.user.findUnique({
+        where: { id: employee.userId },
+      });
+      if (!existingLinkedUser) {
+        // Stale userId pointer — clear it and continue to create a fresh account
+        await this.prisma.employee.update({
+          where: { id: employee.id },
+          data: { userId: null },
+        });
+      } else {
+        // Update the existing linked user account (username, dept, roles)
+        // Only re-hash + update password if a new one was explicitly provided
+        const targetDeptId = dto.departmentId || employee.departmentId || existingLinkedUser.departmentId;
+        const updateData: any = {
+          username: dto.username,
+          fullName: `${employee.firstName} ${employee.lastName}`.trim(),
+          phone: employee.phone,
+          designation: employee.designation,
+          departmentId: targetDeptId,
+          status: 'ACTIVE',
+        };
+
+        // Only hash & update password when caller explicitly provides one
+        if (dto.password && dto.password.trim().length >= 6) {
+          updateData.passwordHash = await bcrypt.hash(dto.password, 12);
+        }
+
+        const updatedUser = await this.prisma.user.update({
+          where: { id: existingLinkedUser.id },
+          data: updateData,
+        });
+
+        // Refresh roles
+        await this.prisma.userRole.deleteMany({ where: { userId: updatedUser.id } });
+        const validRoleIds = (dto.roleIds || []).filter(
+          (roleId) => Boolean(roleId) && typeof roleId === 'string' && roleId.trim().length > 0,
+        );
+        if (validRoleIds.length > 0) {
+          await this.assertAdminRoleAssignmentSafe(validRoleIds, adminUser);
+          await this.prisma.userRole.createMany({
+            data: validRoleIds.map((roleId) => ({ userId: updatedUser.id, roleId })),
+          });
+        } else {
+          const defaultRole = await this.prisma.role.findFirst({ where: { code: 'ROLE_EMPLOYEE' } });
+          if (defaultRole) {
+            await this.prisma.userRole.create({ data: { userId: updatedUser.id, roleId: defaultRole.id } });
+          }
+        }
+
+        // Sync employee status to ACTIVE
+        const syncedEmployee = await this.prisma.employee.update({
+          where: { id: employee.id },
+          data: { departmentId: targetDeptId, status: 'ACTIVE' },
+          include: { department: true },
+        });
+
+        try {
+          const auditUserId = adminUser?.id || updatedUser.id;
+          await this.prisma.auditLog.create({
+            data: {
+              userId: auditUserId,
+              userEmail: adminUser?.email || updatedUser.email,
+              action: 'UPDATE',
+              module: 'ADMIN_HR',
+              entityType: 'EMPLOYEE',
+              entityId: employee.id,
+              details: `Admin updated existing linked account for Employee ${employee.employeeCode} (${employee.firstName} ${employee.lastName}). Username set to: ${updatedUser.username}`,
+            },
+          });
+        } catch (e) {
+          console.error('Failed to write account-update audit log:', e);
+        }
+
+        return {
+          success: true,
+          message: `Employee ${employee.employeeCode} account updated. Username: ${updatedUser.username}`,
+          accountAction: 'UPDATED_EXISTING',
+          employee: syncedEmployee,
+          user: {
+            id: updatedUser.id,
+            username: updatedUser.username,
+            email: updatedUser.email,
+            fullName: updatedUser.fullName,
+            status: updatedUser.status,
+          },
+        };
+      }
     }
 
 
@@ -1078,7 +1165,73 @@ export class AdminService {
     };
   }
 
+  // ─── ADMIN: RESET EMPLOYEE PASSWORD ─────────────────────────────────────────
+
+  async resetEmployeePassword(
+    employeeId: string,
+    newPassword: string,
+    adminUser?: any,
+  ) {
+    if (adminUser && !this.isAdministratorUser(adminUser)) {
+      throw new ForbiddenException('Only administrators can reset employee passwords.');
+    }
+
+    if (!newPassword || newPassword.trim().length < 8) {
+      throw new BadRequestException('New password must be at least 8 characters.');
+    }
+
+    const employee = await this.prisma.employee.findFirst({
+      where: { OR: [{ id: employeeId }, { employeeCode: employeeId }] },
+    });
+
+    if (!employee) throw new NotFoundException(`Employee '${employeeId}' not found`);
+
+    if (!employee.userId) {
+      throw new BadRequestException(
+        'This employee does not have a linked user account yet. Approve and provision the account first.',
+      );
+    }
+
+    const linkedUser = await this.prisma.user.findUnique({ where: { id: employee.userId } });
+    if (!linkedUser) {
+      throw new NotFoundException('Linked user account not found. The account may have been deleted.');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword.trim(), 12);
+
+    await this.prisma.user.update({
+      where: { id: linkedUser.id },
+      data: { passwordHash, status: 'ACTIVE' },
+    });
+
+    // Audit log — never record the password value
+    try {
+      const auditUserId = adminUser?.id || linkedUser.id;
+      await this.prisma.auditLog.create({
+        data: {
+          userId: auditUserId,
+          userEmail: adminUser?.email || linkedUser.email,
+          action: 'PASSWORD_RESET',
+          module: 'ADMIN_HR',
+          entityType: 'USER',
+          entityId: linkedUser.id,
+          details: `Password reset by admin for Employee ${employee.employeeCode} (${employee.firstName} ${employee.lastName}), User: ${linkedUser.username}. Initiated by: ${adminUser?.email || 'System Admin'}`,
+        },
+      });
+    } catch (e) {
+      console.error('Failed to write password reset audit log:', e);
+    }
+
+    return {
+      success: true,
+      message: `Password successfully reset for ${employee.firstName} ${employee.lastName} (${employee.employeeCode})`,
+      userId: linkedUser.id,
+      username: linkedUser.username,
+    };
+  }
+
   // ─── EMPLOYEE ACCESS MANAGEMENT & PERMISSION OVERRIDES ──────────────────────
+
 
   async getEmployeesAccessList(query: {
     search?: string;

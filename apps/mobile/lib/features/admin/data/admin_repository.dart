@@ -165,14 +165,14 @@ class AdminRepository {
   Future<Map<String, dynamic>> approveEmployeeRequest(
     String employeeId, {
     required String username,
-    required String password,
+    String? password,
     String? departmentId,
     String? designationId,
     List<String>? roleIds,
   }) async {
     final response = await _dio.post('/admin/employee-requests/$employeeId/approve', data: {
       'username': username,
-      'password': password,
+      if (password != null && password.isNotEmpty) 'password': password,
       if (departmentId != null) 'departmentId': departmentId,
       if (designationId != null) 'designationId': designationId,
       if (roleIds != null && roleIds.isNotEmpty) 'roleIds': roleIds,
@@ -234,6 +234,16 @@ class AdminRepository {
     final response = await _dio.get('/admin/employees/$employeeId/access');
     final payload = _payload(response.data);
     return Map<String, dynamic>.from(payload is Map ? payload : response.data);
+  }
+
+  Future<Map<String, dynamic>> resetEmployeePassword(
+    String employeeId, {
+    required String newPassword,
+  }) async {
+    final response = await _dio.post('/admin/employee-requests/$employeeId/reset-password', data: {
+      'newPassword': newPassword,
+    });
+    return response.data['data'] ?? response.data;
   }
 
   Future<Map<String, dynamic>> updateEmployeeAccess(

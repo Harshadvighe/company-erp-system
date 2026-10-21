@@ -297,7 +297,22 @@ export class AdminController {
     return this.adminService.rejectEmployeeRequest(id, reason, req.user);
   }
 
+  @Post('employee-requests/:id/reset-password')
+  @RequirePermissions('USERS:EDIT')
+  @ApiOperation({ summary: 'Admin: reset password for an existing provisioned employee account' })
+  resetEmployeePassword(
+    @Param('id') id: string,
+    @Body('newPassword') newPassword: string,
+    @Req() req: any,
+  ) {
+    if (!newPassword || newPassword.trim().length < 8) {
+      throw new BadRequestException('newPassword must be at least 8 characters.');
+    }
+    return this.adminService.resetEmployeePassword(id, newPassword, req.user);
+  }
+
   // ─── EMPLOYEE ACCESS MANAGEMENT (PHASE 2 & 3) ─────────────────────────────
+
 
   @Get('employees/access')
   @RequirePermissions('USERS:VIEW')

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:saark_erp_mobile/core/theme/app_theme.dart';
 import 'package:saark_erp_mobile/core/auth/auth_provider.dart';
+import 'package:saark_erp_mobile/features/authentication/presentation/widgets/change_password_dialog.dart';
 import 'package:saark_erp_mobile/features/my_work/data/my_work_repository.dart';
 import 'package:saark_erp_mobile/features/tasks/data/tasks_repository.dart';
 
@@ -55,7 +56,7 @@ class MyWorkPage extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Greeting & Profile Header
-                  _buildProfileHeader(user),
+                  _buildProfileHeader(context, user),
                   const SizedBox(height: 20),
 
                   // Stat Counters
@@ -126,7 +127,7 @@ class MyWorkPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildProfileHeader(AuthUser? user) {
+  Widget _buildProfileHeader(BuildContext context, AuthUser? user) {
     return Card(
       color: AppTheme.darkSurface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -171,6 +172,16 @@ class MyWorkPage extends ConsumerWidget {
                             fontWeight: FontWeight.w600)),
                   ],
                 ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            OutlinedButton.icon(
+              onPressed: () => ChangePasswordDialog.show(context),
+              icon: const Icon(Icons.lock_reset, size: 16, color: Color(0xFFF26522)),
+              label: const Text('Change Password', style: TextStyle(color: Color(0xFFF26522), fontSize: 12)),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Color(0xFFF26522)),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
             ),
           ],

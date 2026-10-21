@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
 import 'package:saark_erp_mobile/features/admin/data/admin_repository.dart';
 
 class AdminEmployeeAccessPage extends ConsumerStatefulWidget {
@@ -129,6 +130,207 @@ class _AdminEmployeeAccessPageState extends ConsumerState<AdminEmployeeAccessPag
         });
       }
     }
+  }
+
+  void _showResetPasswordDialog(Map<String, dynamic> emp) {
+    final newPassCtrl = TextEditingController();
+    final confirmPassCtrl = TextEditingController();
+    bool obscureNew = true;
+    bool obscureConfirm = true;
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1E2024),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.blueAccent.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Icon(Icons.lock_reset, color: Colors.blueAccent, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Reset Password: ${emp['fullName'] ?? 'Employee'}',
+                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Employee Code: ${emp['employeeCode'] ?? ''}',
+                          style: const TextStyle(color: Colors.white60, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 440,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.blueAccent.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Colors.blueAccent.withValues(alpha: 0.3)),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.info_outline, size: 16, color: Colors.blueAccent),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'As an administrator, you are resetting this employee account password. The new password must be at least 8 characters.',
+                              style: TextStyle(color: Colors.white70, fontSize: 11),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('New Password *', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                    const SizedBox(height: 6),
+                    Container(
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF141517),
+                        borderRadius: BorderRadius.circular(3),
+                        border: Border.all(color: const Color(0xFF2C2E33)),
+                      ),
+                      child: TextField(
+                        controller: newPassCtrl,
+                        obscureText: obscureNew,
+                        style: const TextStyle(color: Colors.white, fontSize: 13),
+                        decoration: InputDecoration(
+                          hintText: 'At least 8 characters',
+                          hintStyle: const TextStyle(color: Colors.white24, fontSize: 12),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                          border: InputBorder.none,
+                          prefixIcon: const Icon(Icons.lock_outline, size: 16, color: Colors.white38),
+                          suffixIcon: IconButton(
+                            icon: Icon(obscureNew ? Icons.visibility_off : Icons.visibility, size: 16, color: Colors.white54),
+                            onPressed: () => setDialogState(() => obscureNew = !obscureNew),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text('Confirm New Password *', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                    const SizedBox(height: 6),
+                    Container(
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF141517),
+                        borderRadius: BorderRadius.circular(3),
+                        border: Border.all(color: const Color(0xFF2C2E33)),
+                      ),
+                      child: TextField(
+                        controller: confirmPassCtrl,
+                        obscureText: obscureConfirm,
+                        style: const TextStyle(color: Colors.white, fontSize: 13),
+                        decoration: InputDecoration(
+                          hintText: 'Re-enter new password',
+                          hintStyle: const TextStyle(color: Colors.white24, fontSize: 12),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                          border: InputBorder.none,
+                          prefixIcon: const Icon(Icons.lock_outline, size: 16, color: Colors.white38),
+                          suffixIcon: IconButton(
+                            icon: Icon(obscureConfirm ? Icons.visibility_off : Icons.visibility, size: 16, color: Colors.white54),
+                            onPressed: () => setDialogState(() => obscureConfirm = !obscureConfirm),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSubmitting ? null : () => Navigator.pop(ctx),
+                  child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+                ),
+                ElevatedButton.icon(
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          final np = newPassCtrl.text.trim();
+                          final cp = confirmPassCtrl.text.trim();
+                          if (np.length < 8) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Password must be at least 8 characters')),
+                            );
+                            return;
+                          }
+                          if (np != cp) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Passwords do not match'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                            return;
+                          }
+                          setDialogState(() => isSubmitting = true);
+                          try {
+                            final repo = ref.read(adminRepositoryProvider);
+                            final empId = emp['id'] as String;
+                            await repo.resetEmployeePassword(empId, newPassword: np);
+                            if (mounted) {
+                              Navigator.pop(ctx);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('🔑 Password reset for ${emp['fullName']}'),
+                                  backgroundColor: Colors.blueAccent[700],
+                                  duration: const Duration(seconds: 4),
+                                ),
+                              );
+                            }
+                          } catch (err) {
+                            setDialogState(() => isSubmitting = false);
+                            String errorMsg = err.toString();
+                            if (err is DioException && err.response?.data != null) {
+                              final d = err.response!.data;
+                              if (d is Map && d['message'] != null) errorMsg = d['message'].toString();
+                            }
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Reset failed: $errorMsg'), backgroundColor: Colors.red),
+                              );
+                            }
+                          }
+                        },
+                  icon: isSubmitting
+                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.lock_reset, size: 16),
+                  label: Text(isSubmitting ? 'Resetting...' : 'Reset Password'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blueAccent[700],
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   void _stagePermissionChange(String permId, String? currentOverride, bool inherited, String newEffect) {
@@ -801,6 +1003,19 @@ class _AdminEmployeeAccessPageState extends ConsumerState<AdminEmployeeAccessPag
               ),
             ),
           ),
+          if (user != null) ...[
+            const SizedBox(width: 10),
+            OutlinedButton.icon(
+              onPressed: () => _showResetPasswordDialog(emp!),
+              icon: const Icon(Icons.lock_reset, size: 14, color: Colors.blueAccent),
+              label: const Text('Reset Password', style: TextStyle(color: Colors.blueAccent, fontSize: 11)),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: Colors.blueAccent.withValues(alpha: 0.5)),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(3)),
+              ),
+            ),
+          ],
         ],
       ),
     );
