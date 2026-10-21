@@ -167,21 +167,21 @@ export class CrmController {
   @RequirePermissions('CRM:CREATE')
   @ApiOperation({ summary: 'Log phone call conversation and outcome' })
   logCall(@Body() dto: any, @Req() req: any) {
-    return this.crmService.logCall(dto, req.user);
+    return this.crmService.createCall(dto, req.user);
   }
 
   @Post('activities/meeting')
   @RequirePermissions('CRM:CREATE')
   @ApiOperation({ summary: 'Schedule client meeting' })
   scheduleMeeting(@Body() dto: any, @Req() req: any) {
-    return this.crmService.scheduleMeeting(dto, req.user);
+    return this.crmService.createMeeting(dto, req.user);
   }
 
   @Post('activities/site-visit')
   @RequirePermissions('CRM:CREATE')
   @ApiOperation({ summary: 'Log engineering site visit with measurements and photos' })
   logSiteVisit(@Body() dto: any, @Req() req: any) {
-    return this.crmService.logSiteVisit(dto, req.user);
+    return this.crmService.createSiteVisit(dto, req.user);
   }
 
   // ─── FOLLOW-UPS ───────────────────────────────────────────────────────────

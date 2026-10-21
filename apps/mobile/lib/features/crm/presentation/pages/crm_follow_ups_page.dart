@@ -14,8 +14,15 @@ import 'package:saark_erp_mobile/features/customers/data/customers_repository.da
 
 class CrmFollowUpsPage extends ConsumerStatefulWidget {
   final String? initialCustomerId;
+  final String? initialActivityFilter;
+  final String? initialAction;
 
-  const CrmFollowUpsPage({super.key, this.initialCustomerId});
+  const CrmFollowUpsPage({
+    super.key,
+    this.initialCustomerId,
+    this.initialActivityFilter,
+    this.initialAction,
+  });
 
   @override
   ConsumerState<CrmFollowUpsPage> createState() => _CrmFollowUpsPageState();
@@ -31,6 +38,7 @@ class _CrmFollowUpsPageState extends ConsumerState<CrmFollowUpsPage>
     'PENDING',
     'COMPLETED'
   ];
+  String _selectedActivityFilter = 'ALL';
   final _searchController = TextEditingController();
   Timer? _searchTimer;
   List<Map<String, dynamic>> _companies = [];
@@ -49,6 +57,10 @@ class _CrmFollowUpsPageState extends ConsumerState<CrmFollowUpsPage>
   @override
   void initState() {
     super.initState();
+    if (widget.initialActivityFilter != null &&
+        widget.initialActivityFilter!.isNotEmpty) {
+      _selectedActivityFilter = widget.initialActivityFilter!.toUpperCase();
+    }
     _staffFuture = ref.read(staffRepositoryProvider).getStaffList();
     _tabController = TabController(length: _filters.length, vsync: this);
     _tabController.addListener(() {
@@ -58,7 +70,23 @@ class _CrmFollowUpsPageState extends ConsumerState<CrmFollowUpsPage>
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadCurrentTab();
+      if (widget.initialAction != null && widget.initialAction!.isNotEmpty) {
+        _handleInitialAction(widget.initialAction!);
+      }
     });
+  }
+
+  void _handleInitialAction(String action) {
+    String type = 'CALL';
+    final act = action.toLowerCase();
+    if (act.contains('meet')) {
+      type = 'MEETING';
+    } else if (act.contains('site') || act.contains('visit')) {
+      type = 'SITE_VISIT';
+    } else if (act.contains('follow')) {
+      type = 'FOLLOW_UP';
+    }
+    _showUnifiedInteractionDialog(initialType: type);
   }
 
   void _loadCurrentTab() {
@@ -155,9 +183,9 @@ class _CrmFollowUpsPageState extends ConsumerState<CrmFollowUpsPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('CRM & Sales  /  Follow-ups',
+            Text('CRM & Sales  /  Interactions',
                 style: TextStyle(fontSize: 11, color: Colors.white60)),
-            Text('Follow-ups & Next Actions',
+            Text('Unified CRM Interaction Workspace',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
           ],
         ),
@@ -197,12 +225,17 @@ class _CrmFollowUpsPageState extends ConsumerState<CrmFollowUpsPage>
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.event_available_outlined),
-            onPressed: () => _showScheduleMeetingDialog(
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            onPressed: () => _showUnifiedInteractionDialog(
               initialCustomer: _selectedCompany,
             ),
-            tooltip: 'Schedule a meeting',
+            icon: const Icon(Icons.add, size: 16),
+            label: const Text('Log Interaction'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primary,
+              visualDensity: VisualDensity.compact,
+            ),
           ),
           const SizedBox(width: 8),
           IconButton(
@@ -213,16 +246,22 @@ class _CrmFollowUpsPageState extends ConsumerState<CrmFollowUpsPage>
           const SizedBox(width: 8),
         ],
       ),
-      floatingActionButton: _selectedCompany == null
-          ? null
-          : FloatingActionButton.extended(
-              backgroundColor: AppTheme.primary,
-              onPressed: () => _showCompanyFollowUpDialog(_selectedCompany!),
-              icon: const Icon(Icons.add_task, color: Colors.white),
-              label: const Text('Add Follow-up',
-                  style: TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.bold)),
-            ),
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: AppTheme.primary,
+        onPressed: () => _showUnifiedInteractionDialog(
+          initialCustomer: _selectedCompany,
+        ),
+        icon: const Icon(Icons.add_task, color: Colors.white),
+        label: Text(
+          _selectedCompany != null
+              ? 'Log Interaction (${_selectedCompany!['companyName'] ?? 'Selected'})'
+              : 'Log Interaction',
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
       body: Column(
         children: [
           Padding(
@@ -296,6 +335,7 @@ class _CrmFollowUpsPageState extends ConsumerState<CrmFollowUpsPage>
               ),
             ),
           ),
+          _buildActivityFilterBar(),
           if (_selectedCompany != null)
             _buildSelectedCompany(_selectedCompany!),
           Expanded(
@@ -317,14 +357,26 @@ class _CrmFollowUpsPageState extends ConsumerState<CrmFollowUpsPage>
                           ],
                         ),
                       )
-                    : _companies.isEmpty
-                        ? const Center(
-                            child: Text(
-                                'No companies match this follow-up filter.',
-                                style: TextStyle(color: Colors.grey)))
+                    : _displayedCompanies.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.filter_list_off,
+                                    size: 36, color: Colors.grey),
+                                const SizedBox(height: 8),
+                                Text(
+                                  _selectedActivityFilter == 'ALL'
+                                      ? 'No companies match this follow-up filter.'
+                                      : 'No companies match the ${_selectedActivityFilter.replaceAll('_', ' ')} filter.',
+                                  style: const TextStyle(color: Colors.grey),
+                                ),
+                              ],
+                            ),
+                          )
                         : _isTableView
-                            ? _buildCompanyTable(_companies)
-                            : _buildCompanyCards(_companies),
+                            ? _buildCompanyTable(_displayedCompanies)
+                            : _buildCompanyCards(_displayedCompanies),
           ),
           if (_companiesTotalPages > 1)
             Padding(
@@ -357,6 +409,72 @@ class _CrmFollowUpsPageState extends ConsumerState<CrmFollowUpsPage>
     );
   }
 
+  List<Map<String, dynamic>> get _displayedCompanies {
+    if (_selectedActivityFilter == 'ALL') {
+      return _companies;
+    }
+    return _companies.where((company) {
+      final followUps =
+          (company['followUps'] as List? ?? const []).whereType<Map>();
+      if (followUps.isEmpty) {
+        return true;
+      }
+      return followUps.any((fu) {
+        final actType =
+            (fu['activityType'] ?? fu['type'] ?? '').toString().toUpperCase();
+        if (_selectedActivityFilter == 'CALL') {
+          return actType.contains('CALL') || actType.contains('PHONE');
+        } else if (_selectedActivityFilter == 'MEETING') {
+          return actType.contains('MEET');
+        } else if (_selectedActivityFilter == 'SITE_VISIT') {
+          return actType.contains('SITE') || actType.contains('VISIT');
+        } else if (_selectedActivityFilter == 'FOLLOW_UP') {
+          return actType.contains('FOLLOW') || actType.isEmpty;
+        }
+        return true;
+      });
+    }).toList();
+  }
+
+  Widget _buildActivityFilterBar() {
+    final filters = [
+      ('ALL', 'All Activities', Icons.dashboard_outlined),
+      ('CALL', 'Calls & Logs', Icons.phone_in_talk_outlined),
+      ('MEETING', 'Meetings & Approvals', Icons.calendar_month_outlined),
+      ('SITE_VISIT', 'Site Visits', Icons.engineering_outlined),
+      ('FOLLOW_UP', 'Follow-ups & SLA', Icons.assignment_turned_in_outlined),
+    ];
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Row(
+        children: filters.map((f) {
+          final isSelected = _selectedActivityFilter == f.$1;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(
+              avatar: Icon(
+                f.$3,
+                size: 16,
+                color: isSelected ? Colors.white : AppTheme.primary,
+              ),
+              label: Text(f.$2),
+              selected: isSelected,
+              selectedColor: AppTheme.primary,
+              onSelected: (selected) {
+                if (selected) {
+                  setState(() {
+                    _selectedActivityFilter = f.$1;
+                  });
+                }
+              },
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
   Map<String, dynamic>? get _selectedCompany {
     for (final company in _companies) {
       if (company['id'] == _selectedCompanyId) return company;
@@ -375,35 +493,98 @@ class _CrmFollowUpsPageState extends ConsumerState<CrmFollowUpsPage>
         border: Border.all(color: AppTheme.primary.withValues(alpha: 0.45)),
         borderRadius: BorderRadius.circular(10),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.business, color: AppTheme.primary),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(company['companyName']?.toString() ?? '',
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
-                Text('${company['phone'] ?? ''}  ·  ${company['city'] ?? ''}',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                Text(
-                  '${followUps.length} follow-ups  ·  Last: ${_formatDate(company['lastInteraction'])}  ·  Next: ${_formatDate(company['nextFollowUp'])}',
-                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+          Row(
+            children: [
+              const Icon(Icons.business, color: AppTheme.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(company['companyName']?.toString() ?? '',
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text(
+                        '${company['contactPerson'] ?? ''}  ·  ${company['phone'] ?? ''}  ·  ${company['city'] ?? ''}',
+                        style:
+                            const TextStyle(fontSize: 12, color: Colors.grey)),
+                    Text(
+                      '${followUps.length} interactions  ·  Last: ${_formatDate(company['lastInteraction'])}  ·  Next: ${_formatDate(company['nextFollowUp'])}',
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => _showCompanyHistory(company),
+                icon: const Icon(Icons.history, size: 16),
+                label: const Text('Unified History'),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
+                onPressed: () =>
+                    _showUnifiedInteractionDialog(initialCustomer: company),
+                icon: const Icon(Icons.add_task, size: 16),
+                label: const Text('Log Interaction'),
+                style:
+                    ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
+              ),
+            ],
           ),
-          TextButton.icon(
-            onPressed: () => _showCompanyHistory(company),
-            icon: const Icon(Icons.history, size: 16),
-            label: const Text('History'),
-          ),
-          const SizedBox(width: 4),
-          ElevatedButton.icon(
-            onPressed: () => _showCompanyFollowUpDialog(company),
-            icon: const Icon(Icons.add, size: 16),
-            label: const Text('Add'),
+          const SizedBox(height: 10),
+          // Quick Action Bar
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              ActionChip(
+                avatar: const Icon(Icons.phone_in_talk,
+                    size: 14, color: Colors.greenAccent),
+                label: const Text('Log Call'),
+                onPressed: () => _showUnifiedInteractionDialog(
+                  initialCustomer: company,
+                  initialType: 'CALL',
+                ),
+              ),
+              ActionChip(
+                avatar: const Icon(Icons.calendar_month,
+                    size: 14, color: Colors.blueAccent),
+                label: const Text('Book Meeting'),
+                onPressed: () => _showUnifiedInteractionDialog(
+                  initialCustomer: company,
+                  initialType: 'MEETING',
+                ),
+              ),
+              ActionChip(
+                avatar: const Icon(Icons.engineering,
+                    size: 14, color: Colors.orangeAccent),
+                label: const Text('Arrange Site Visit'),
+                onPressed: () => _showUnifiedInteractionDialog(
+                  initialCustomer: company,
+                  initialType: 'SITE_VISIT',
+                ),
+              ),
+              ActionChip(
+                avatar: const Icon(Icons.assignment_turned_in,
+                    size: 14, color: Colors.amberAccent),
+                label: const Text('Add Follow-up'),
+                onPressed: () => _showUnifiedInteractionDialog(
+                  initialCustomer: company,
+                  initialType: 'FOLLOW_UP',
+                ),
+              ),
+              ActionChip(
+                avatar: const Icon(Icons.attach_file,
+                    size: 14, color: Colors.purpleAccent),
+                label: const Text('Customer Media'),
+                onPressed: () => _showUnifiedInteractionDialog(
+                  initialCustomer: company,
+                  initialFocusMedia: true,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -673,6 +854,7 @@ class _CrmFollowUpsPageState extends ConsumerState<CrmFollowUpsPage>
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setHistoryState) {
           int activeTab = 0;
+          String timelineFilter = 'ALL';
           return StatefulBuilder(
             builder: (context, setInnerState) {
               return Dialog(
@@ -735,10 +917,15 @@ class _CrmFollowUpsPageState extends ConsumerState<CrmFollowUpsPage>
                             ElevatedButton.icon(
                               onPressed: () {
                                 Navigator.pop(dialogContext);
-                                _showCompanyFollowUpDialog(company);
+                                _showUnifiedInteractionDialog(
+                                  initialCustomer: company,
+                                );
                               },
-                              icon: const Icon(Icons.add, size: 16),
-                              label: const Text('Add Follow-up'),
+                              icon: const Icon(Icons.add_task, size: 16),
+                              label: const Text('Log Interaction'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.primary,
+                              ),
                             ),
                           ],
                         ),
@@ -926,11 +1113,64 @@ class _CrmFollowUpsPageState extends ConsumerState<CrmFollowUpsPage>
                                         );
                                       },
                                     ))
-                              : FutureBuilder<List<dynamic>>(
-                                  future: ref
-                                      .read(crmRepositoryProvider)
-                                      .getCustomerTimeline(companyId),
-                                  builder: (context, snapshot) {
+                              : Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    SingleChildScrollView(
+                                      scrollDirection: Axis.horizontal,
+                                      child: Row(
+                                        children: [
+                                          ChoiceChip(
+                                            label: const Text('All'),
+                                            selected: timelineFilter == 'ALL',
+                                            onSelected: (val) => setInnerState(
+                                                () => timelineFilter = 'ALL'),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          ChoiceChip(
+                                            label: const Text('Calls'),
+                                            selected: timelineFilter == 'CALL',
+                                            onSelected: (val) => setInnerState(
+                                                () => timelineFilter = 'CALL'),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          ChoiceChip(
+                                            label: const Text('Meetings'),
+                                            selected: timelineFilter == 'MEETING',
+                                            onSelected: (val) => setInnerState(
+                                                () => timelineFilter = 'MEETING'),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          ChoiceChip(
+                                            label: const Text('Site Visits'),
+                                            selected: timelineFilter == 'SITE_VISIT',
+                                            onSelected: (val) => setInnerState(
+                                                () => timelineFilter = 'SITE_VISIT'),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          ChoiceChip(
+                                            label: const Text('Follow-ups'),
+                                            selected: timelineFilter == 'FOLLOW_UP',
+                                            onSelected: (val) => setInnerState(
+                                                () => timelineFilter = 'FOLLOW_UP'),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          ChoiceChip(
+                                            label: const Text('With Media'),
+                                            selected: timelineFilter == 'MEDIA',
+                                            onSelected: (val) => setInnerState(
+                                                () => timelineFilter = 'MEDIA'),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Expanded(
+                                      child: FutureBuilder<List<dynamic>>(
+                                        future: ref
+                                            .read(crmRepositoryProvider)
+                                            .getCustomerTimeline(companyId),
+                                        builder: (context, snapshot) {
                                     if (snapshot.connectionState ==
                                         ConnectionState.waiting) {
                                       return const Center(
@@ -945,8 +1185,22 @@ class _CrmFollowUpsPageState extends ConsumerState<CrmFollowUpsPage>
                                         ),
                                       );
                                     }
-                                    final timeline = snapshot.data ?? const [];
-                                    if (timeline.isEmpty) {
+                                    final rawTimeline = snapshot.data ?? const [];
+                                          final timeline = rawTimeline.where((item) {
+                                            if (item is! Map) return false;
+                                            if (timelineFilter == 'ALL') return true;
+                                            final itemType = (item['type'] ?? item['activityType'] ?? '').toString().toUpperCase();
+                                            if (timelineFilter == 'CALL') return itemType.contains('CALL');
+                                            if (timelineFilter == 'MEETING') return itemType.contains('MEETING');
+                                            if (timelineFilter == 'SITE_VISIT') return itemType.contains('SITE') || itemType.contains('VISIT');
+                                            if (timelineFilter == 'FOLLOW_UP') return itemType.contains('FOLLOW');
+                                            if (timelineFilter == 'MEDIA') {
+                                              final atts = (item['attachments'] as List?) ?? const [];
+                                              return atts.isNotEmpty;
+                                            }
+                                            return true;
+                                          }).toList();
+                                          if (timeline.isEmpty) {
                                       return const Center(
                                         child: Text(
                                           'No timeline records found.',
@@ -1133,6 +1387,9 @@ class _CrmFollowUpsPageState extends ConsumerState<CrmFollowUpsPage>
                                     );
                                   },
                                 ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -1147,301 +1404,9 @@ class _CrmFollowUpsPageState extends ConsumerState<CrmFollowUpsPage>
   }
 
   void _showCompanyFollowUpDialog(Map<String, dynamic> company) {
-    final subjectController = TextEditingController();
-    final discussionController = TextEditingController();
-    final outcomeController = TextEditingController();
-    final nextActionController = TextEditingController();
-    final notesController = TextEditingController();
-    String activityType = 'CALL';
-    String priority = 'MEDIUM';
-    int? reminderMinutes = 30;
-    bool schedule = false;
-    DateTime scheduledAt = DateTime.now().add(const Duration(days: 1));
-    StaffMember? selectedStaff;
-    final staffFuture = ref.read(staffRepositoryProvider).getStaffList();
-
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => Dialog(
-          backgroundColor: AppTheme.darkSurface,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 620, maxHeight: 760),
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        const Expanded(
-                            child: Text('Add Follow-up',
-                                style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold))),
-                        IconButton(
-                            onPressed: () => Navigator.pop(dialogContext),
-                            icon: const Icon(Icons.close)),
-                      ],
-                    ),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                          color: AppTheme.darkCard,
-                          borderRadius: BorderRadius.circular(8)),
-                      child: Text(
-                          '${company['companyName'] ?? ''}\n${company['phone'] ?? ''}  ·  ${company['city'] ?? ''}',
-                          style: const TextStyle(fontWeight: FontWeight.w600)),
-                    ),
-                    const SizedBox(height: 12),
-                    const Text('Follow-up type'),
-                    const SizedBox(height: 4),
-                    DropdownButtonFormField<String>(
-                      initialValue: activityType,
-                      items: const [
-                        'CALL',
-                        'EMAIL',
-                        'WHATSAPP',
-                        'MEETING',
-                        'SITE_VISIT',
-                        'DEMO',
-                        'OTHER'
-                      ]
-                          .map((type) => DropdownMenuItem(
-                              value: type,
-                              child: Text(type.replaceAll('_', ' '))))
-                          .toList(),
-                      onChanged: (value) =>
-                          setDialogState(() => activityType = value ?? 'CALL'),
-                    ),
-                    const SizedBox(height: 12),
-                    SegmentedButton<bool>(
-                      segments: const [
-                        ButtonSegment(
-                            value: false,
-                            label: Text('Complete Now'),
-                            icon: Icon(Icons.check_circle_outline)),
-                        ButtonSegment(
-                            value: true,
-                            label: Text('Schedule'),
-                            icon: Icon(Icons.calendar_month)),
-                      ],
-                      selected: {schedule},
-                      onSelectionChanged: (values) =>
-                          setDialogState(() => schedule = values.first),
-                    ),
-                    if (schedule) ...[
-                      const SizedBox(height: 12),
-                      OutlinedButton.icon(
-                        onPressed: () async {
-                          final date = await showDatePicker(
-                            context: dialogContext,
-                            initialDate: scheduledAt,
-                            firstDate: DateTime.now(),
-                            lastDate:
-                                DateTime.now().add(const Duration(days: 3650)),
-                          );
-                          if (date == null || !dialogContext.mounted) return;
-                          final time = await showTimePicker(
-                              context: dialogContext,
-                              initialTime: TimeOfDay.fromDateTime(scheduledAt));
-                          if (time == null) return;
-                          setDialogState(() => scheduledAt = DateTime(date.year,
-                              date.month, date.day, time.hour, time.minute));
-                        },
-                        icon: const Icon(Icons.event),
-                        label: Text(DateFormat('dd MMM yyyy, hh:mm a')
-                            .format(scheduledAt)),
-                      ),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<int?>(
-                        initialValue: reminderMinutes,
-                        decoration:
-                            const InputDecoration(labelText: 'Reminder'),
-                        items: [
-                          const DropdownMenuItem<int?>(
-                              value: null, child: Text('No reminder')),
-                          ...[5, 15, 30, 60]
-                              .map((minutes) => DropdownMenuItem<int?>(
-                                    value: minutes,
-                                    child: Text('$minutes minutes before'),
-                                  )),
-                        ],
-                        onChanged: (value) =>
-                            setDialogState(() => reminderMinutes = value),
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    TextField(
-                        controller: subjectController,
-                        decoration: const InputDecoration(
-                            labelText: 'Subject / purpose')),
-                    if (!schedule) ...[
-                      const SizedBox(height: 12),
-                      TextField(
-                          controller: discussionController,
-                          maxLines: 3,
-                          decoration: const InputDecoration(
-                              labelText: 'Discussion / interaction *')),
-                      const SizedBox(height: 12),
-                      TextField(
-                          controller: outcomeController,
-                          decoration:
-                              const InputDecoration(labelText: 'Outcome')),
-                      const SizedBox(height: 12),
-                      TextField(
-                          controller: nextActionController,
-                          decoration:
-                              const InputDecoration(labelText: 'Next action')),
-                    ],
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      initialValue: priority,
-                      decoration: const InputDecoration(labelText: 'Priority'),
-                      items: const ['LOW', 'MEDIUM', 'HIGH', 'URGENT']
-                          .map((value) => DropdownMenuItem(
-                              value: value, child: Text(value)))
-                          .toList(),
-                      onChanged: (value) =>
-                          setDialogState(() => priority = value ?? 'MEDIUM'),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                        controller: notesController,
-                        maxLines: 2,
-                        decoration: const InputDecoration(
-                            labelText: 'Notes (optional)')),
-                    const SizedBox(height: 12),
-                    FutureBuilder<List<StaffMember>>(
-                      future: staffFuture,
-                      builder: (context, snapshot) {
-                        if (snapshot.hasError) {
-                          return Text(
-                              'Unable to load employees: ${snapshot.error}',
-                              style: const TextStyle(color: AppTheme.error));
-                        }
-                        if (!snapshot.hasData) {
-                          return const LinearProgressIndicator();
-                        }
-                        final staff = snapshot.data!;
-                        return DropdownButtonFormField<StaffMember>(
-                          initialValue: selectedStaff,
-                          decoration: const InputDecoration(
-                              labelText: 'Assigned employee (optional)'),
-                          items: staff
-                              .map((member) => DropdownMenuItem(
-                                  value: member, child: Text(member.fullName)))
-                              .toList(),
-                          onChanged: (value) =>
-                              setDialogState(() => selectedStaff = value),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 18),
-                    StatefulBuilder(
-                      builder: (context, setBtnState) {
-                        bool isSavingFollowUp = false;
-                        return StatefulBuilder(
-                          builder: (context, setSubState) {
-                            return SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                onPressed: isSavingFollowUp
-                                    ? null
-                                    : () async {
-                                        if (subjectController.text.trim().isEmpty) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(const SnackBar(
-                                                  content: Text(
-                                                      'Subject / purpose is required.')));
-                                          return;
-                                        }
-                                        if (!schedule &&
-                                            discussionController.text
-                                                .trim()
-                                                .isEmpty) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(const SnackBar(
-                                                  content: Text(
-                                                      'Enter the interaction details to complete now.')));
-                                          return;
-                                        }
-                                        setSubState(() => isSavingFollowUp = true);
-                                        try {
-                                          await ref
-                                              .read(crmRepositoryProvider)
-                                              .createFollowUp({
-                                            'customerId': company['id'],
-                                            'mode': schedule
-                                                ? 'SCHEDULE'
-                                                : 'COMPLETE_NOW',
-                                            'activityType': activityType,
-                                            'subject': subjectController.text.trim(),
-                                            'discussion': discussionController.text.trim(),
-                                            'outcome': outcomeController.text.trim(),
-                                            'nextAction': nextActionController.text.trim(),
-                                            'priority': priority,
-                                            'notes': notesController.text.trim(),
-                                            if (selectedStaff != null)
-                                              'assignedStaffId': selectedStaff!.id,
-                                            if (schedule)
-                                              'scheduledDate': scheduledAt.toIso8601String(),
-                                            if (schedule)
-                                              'reminderMinutes': reminderMinutes,
-                                          });
-                                          if (dialogContext.mounted) {
-                                            Navigator.pop(dialogContext);
-                                          }
-                                          await _loadCompanies();
-                                          await ref
-                                              .read(followUpListProvider.notifier)
-                                              .loadFollowUps();
-                                          if (mounted) {
-                                            ScaffoldMessenger.of(this.context)
-                                                .showSnackBar(const SnackBar(
-                                                    content: Text('Follow-up saved.'),
-                                                    backgroundColor:
-                                                        AppTheme.success));
-                                          }
-                                        } catch (error) {
-                                          setSubState(() => isSavingFollowUp = false);
-                                          if (mounted) {
-                                            ScaffoldMessenger.of(this.context)
-                                                .showSnackBar(SnackBar(
-                                                    content: Text(
-                                                        'Could not save follow-up: $error'),
-                                                    backgroundColor: AppTheme.error));
-                                          }
-                                        }
-                                      },
-                                icon: isSavingFollowUp
-                                    ? const SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Colors.white),
-                                      )
-                                    : const Icon(Icons.save),
-                                label: Text(isSavingFollowUp
-                                    ? 'Saving...'
-                                    : 'Save Follow-up'),
-                              ),
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
+    _showUnifiedInteractionDialog(
+      initialCustomer: company,
+      initialType: 'FOLLOW_UP',
     );
   }
 
@@ -2348,424 +2313,1891 @@ class _CrmFollowUpsPageState extends ConsumerState<CrmFollowUpsPage>
   // ─── Schedule Meeting & Follow-up Dialog ───────────────────────────────────────
 
   void _showScheduleMeetingDialog({Map<String, dynamic>? initialCustomer}) {
+    _showUnifiedInteractionDialog(
+      initialCustomer: initialCustomer,
+      initialType: 'MEETING',
+    );
+  }
+
+  /// ─── Unified CRM Interaction Workspace Dialog ─────────────────────────────
+  /// Consolidates Calls, Follow-ups, Meetings, Site Visits, and Media into ONE single screen.
+  void _showUnifiedInteractionDialog({
+    Map<String, dynamic>? initialCustomer,
+    String? initialType,
+    bool initialFocusMedia = false,
+  }) {
     ref.read(customerListProvider.notifier).loadCustomers();
-    final actionCtrl = TextEditingController(text: 'MEETING');
-    final subjectCtrl = TextEditingController();
-    final locationCtrl =
-        TextEditingController(text: 'Client Site / Office Meeting Room');
-    final notesCtrl = TextEditingController();
-    final customerNameCtrl = TextEditingController(
-        text:
-            initialCustomer?['companyName'] ?? initialCustomer?['name'] ?? '');
-    String selectedPriority = 'HIGH';
-    DateTime selectedDate = DateTime.now().add(const Duration(days: 1));
+    final staffFuture = ref.read(staffRepositoryProvider).getStaffList();
+
+    // Text editing controllers
+    final subjectController = TextEditingController();
+    final discussionController = TextEditingController();
+    final notesController = TextEditingController();
+    final phoneCorrectionController = TextEditingController();
+    final notInterestedReasonController = TextEditingController();
+    final locationController = TextEditingController(
+      text: initialCustomer?['city'] != null &&
+              initialCustomer!['city'].toString().isNotEmpty
+          ? 'Site: ${initialCustomer['city']}'
+          : 'Client Site / Office',
+    );
+    final checklistNotesController = TextEditingController();
+    final customerNameController = TextEditingController(
+      text: initialCustomer?['companyName']?.toString() ??
+          initialCustomer?['name']?.toString() ??
+          '',
+    );
+
+    // Next action controllers
+    final nextSubjectController = TextEditingController();
+    final nextActionController = TextEditingController();
+    final nextNotesController = TextEditingController();
+
+    // State variables
+    String? selectedCustomerId = initialCustomer?['id']?.toString();
+    Map<String, dynamic>? currentCustomer = initialCustomer;
+
+    String activityType = (initialType ?? 'CALL').toUpperCase();
+    if (![
+      'CALL',
+      'MEETING',
+      'SITE_VISIT',
+      'FOLLOW_UP',
+      'DEMO',
+      'EMAIL',
+      'WHATSAPP',
+      'OTHER'
+    ].contains(activityType)) {
+      activityType = 'CALL';
+    }
+
+    DateTime interactionDate = DateTime.now();
     StaffMember? selectedStaff;
-    String? selectedCustomerId = initialCustomer?['id'] as String?;
 
-    showDialog(
+    // CALL specific state
+    String callDirection = 'OUTBOUND';
+    int? callDurationSec = 60;
+    String callOutcome = 'CONNECTED';
+    bool scheduleNext = false;
+    DateTime nextDate = DateTime.now().add(const Duration(days: 1));
+    String nextActivityType = 'CALL';
+    String nextPriority = 'MEDIUM';
+    StaffMember? nextStaff;
+    bool isFetchingSuggestion = false;
+    String? suggestionMessage;
+    bool optOutOfCallback = false;
+
+    // MEETING specific state
+    String meetingMode = 'CLIENT_SITE';
+    DateTime meetingStartTime =
+        DateTime.now().add(const Duration(days: 1, hours: 2));
+    DateTime meetingEndTime =
+        DateTime.now().add(const Duration(days: 1, hours: 3));
+    String meetingPriority = 'HIGH';
+    StaffMember? hostStaff;
+
+    // SITE VISIT specific state
+    int teamSize = 1;
+    final List<String> selectedTeamMemberIds = [];
+    String voltageReading = '415V 3-Phase';
+    String pumpRatingHp = '50';
+    String panelDimensions = '1800x800x600 IP55';
+    String siteEnvironment = 'Standard Outdoor / Pump House';
+
+    // FOLLOW-UP specific state
+    bool scheduleFollowUp = true;
+    int? reminderMinutes = 30;
+    String followUpPriority = 'MEDIUM';
+
+    // Attachment upload state
+    bool isSubmitting = false;
+    bool isUploadingAttachment = false;
+    String? uploadStatusMessage;
+    final List<Map<String, dynamic>> uploadedAttachments = [];
+    final idempotencyKey =
+        'unified-int-${DateTime.now().millisecondsSinceEpoch}-${Random().nextInt(999999)}';
+
+    showDialog<void>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setModalState) => Dialog(
-          backgroundColor: AppTheme.darkSurface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: const BorderSide(color: AppTheme.darkBorder),
-          ),
-          child: Container(
-            width: 600,
-            padding: const EdgeInsets.all(20),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(Icons.calendar_month,
-                              color: AppTheme.primary, size: 22),
-                          SizedBox(width: 8),
-                          Text('Schedule Meeting / Follow-up',
-                              style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white)),
-                        ],
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close,
-                            color: Colors.white54, size: 20),
-                        onPressed: () => Navigator.pop(ctx),
-                      ),
-                    ],
-                  ),
-                  const Divider(color: AppTheme.darkBorder, height: 20),
+      barrierDismissible: !isSubmitting,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          Future<void> onCallOutcomeChanged(String? newOutcome) async {
+            if (newOutcome == null) return;
+            setDialogState(() {
+              callOutcome = newOutcome;
+            });
 
-                  // Customer Selector Dropdown
-                  const Text('Select Customer *',
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white70)),
-                  const SizedBox(height: 4),
-                  Consumer(
-                    builder: (context, ref, _) {
-                      final customersState = ref.watch(customerListProvider);
-                      final customers = customersState.customers;
-                      return DropdownButtonFormField<String>(
-                        decoration: const InputDecoration(
-                          hintText: 'Select Existing Customer',
-                          prefixIcon: Icon(Icons.business, size: 18),
-                        ),
-                        dropdownColor: AppTheme.darkCard,
-                        isExpanded: true,
-                        initialValue: selectedCustomerId,
-                        items: customers.map((c) {
-                          return DropdownMenuItem<String>(
-                            value: c.id,
-                            child: Text('${c.companyName} (${c.customerCode})',
-                                overflow: TextOverflow.ellipsis),
-                          );
-                        }).toList(),
-                        onChanged: (val) {
-                          if (val != null) {
-                            final match =
-                                customers.firstWhere((c) => c.id == val);
-                            setModalState(() {
-                              selectedCustomerId = val;
-                              customerNameCtrl.text = match.companyName;
-                              initialCustomer = {
-                                'id': match.id,
-                                'companyName': match.companyName
-                              };
-                            });
-                          }
-                        },
+            if (newOutcome == 'NO_ANSWER' || newOutcome == 'BUSY') {
+              if (optOutOfCallback) return;
+              setDialogState(() {
+                scheduleNext = true;
+                nextActivityType = 'CALL';
+                isFetchingSuggestion = true;
+                suggestionMessage = 'Fetching automated callback suggestion...';
+                if (newOutcome == 'NO_ANSWER') {
+                  nextSubjectController.text =
+                      'Callback: Customer did not answer call';
+                  nextActionController.text =
+                      'Retry phone call (Customer was unreachable / No Answer)';
+                } else {
+                  nextSubjectController.text =
+                      'Callback: Phone line was busy';
+                  nextActionController.text =
+                      'Retry phone call (Customer line was busy)';
+                }
+              });
+
+              try {
+                final suggestion = await ref
+                    .read(crmRepositoryProvider)
+                    .getCallbackSuggestion();
+                final iso = suggestion['suggestedDateIso']?.toString() ??
+                    suggestion['suggestedDate']?.toString();
+                DateTime parsed = DateTime.now().add(const Duration(days: 1));
+                if (iso != null) {
+                  parsed = DateTime.tryParse(iso)?.toLocal() ?? parsed;
+                }
+                final formatted = suggestion['formattedIST'] ??
+                    DateFormat('dd MMM yyyy, hh:mm a').format(parsed);
+
+                setDialogState(() {
+                  nextDate = parsed;
+                  isFetchingSuggestion = false;
+                  suggestionMessage =
+                      '💡 Automated callback applied: $formatted (${suggestion['dayOfWeek'] ?? 'Next working day'})';
+                });
+              } catch (_) {
+                final tomorrow = DateTime.now().add(const Duration(days: 1));
+                final fallbackDate = DateTime(
+                    tomorrow.year, tomorrow.month, tomorrow.day, 11, 0);
+                setDialogState(() {
+                  nextDate = fallbackDate;
+                  isFetchingSuggestion = false;
+                  suggestionMessage =
+                      '💡 Callback scheduled for ${DateFormat('dd MMM yyyy, hh:mm a').format(fallbackDate)}';
+                });
+              }
+            } else if (newOutcome == 'WRONG_NUMBER') {
+              setDialogState(() {
+                scheduleNext = false;
+                suggestionMessage =
+                    '⚠️ Invalid Contact / Wrong number noted. Enter corrected phone number below.';
+              });
+            } else if (newOutcome == 'NOT_INTERESTED') {
+              setDialogState(() {
+                scheduleNext = false;
+                suggestionMessage =
+                    'Outcome marked as Not Interested. Provide customer reason below.';
+              });
+            } else if (newOutcome == 'CALL_BACK_LATER') {
+              setDialogState(() {
+                scheduleNext = true;
+                nextActivityType = 'CALL';
+                nextSubjectController.text = 'Follow-up Call Back';
+                nextActionController.text = 'Call back as requested by customer';
+              });
+            } else if (newOutcome == 'MEETING_REQUESTED') {
+              setDialogState(() {
+                scheduleNext = true;
+                nextActivityType = 'MEETING';
+                nextSubjectController.text = 'Technical / Commercial Meeting';
+                nextActionController.text = 'Conduct client meeting';
+              });
+            } else if (newOutcome == 'QUOTATION_REQUESTED') {
+              setDialogState(() {
+                scheduleNext = true;
+                nextActivityType = 'FOLLOW_UP';
+                nextSubjectController.text = 'Follow-up on Quotation & Specs';
+                nextActionController.text =
+                    'Share quotation and follow up for approval';
+              });
+            } else if (newOutcome == 'PO_RECEIVED') {
+              setDialogState(() {
+                scheduleNext = false;
+                suggestionMessage = '🎉 Purchase order received!';
+              });
+            }
+          }
+
+          void pickAndUploadAttachment(String fieldType) {
+            pickAndUploadWebFile(
+              fieldType: fieldType,
+              onFilePicked: (fileName, bytes) async {
+                setDialogState(() {
+                  isUploadingAttachment = true;
+                  uploadStatusMessage = 'Uploading "$fileName"...';
+                });
+
+                try {
+                  final results = await ref
+                      .read(crmRepositoryProvider)
+                      .uploadCrmAttachments(
+                        files: [(fileName: fileName, bytes: bytes)],
+                        customerId: selectedCustomerId,
+                        sourceCategory: 'UNIFIED_INTERACTION',
+                        description:
+                            'Uploaded during $activityType interaction',
                       );
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: customerNameCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Customer / Company Name',
-                      hintText: 'e.g. Acme Solar Industries',
-                      prefixIcon: Icon(Icons.edit_note, size: 18),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
 
-                  // Select Admin or Employee to Assign/Host
-                  const Text(
-                      'Select Admin / Employee (Meeting Host / Assigned To) *',
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white70)),
-                  const SizedBox(height: 4),
-                  FutureBuilder<List<StaffMember>>(
-                    future: ref.read(staffRepositoryProvider).getStaffList(),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: AppTheme.darkCard,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppTheme.darkBorder),
-                          ),
-                          child: const Row(
+                  setDialogState(() {
+                    isUploadingAttachment = false;
+                    uploadStatusMessage = null;
+                    if (results.isNotEmpty) {
+                      uploadedAttachments.addAll(results);
+                    } else {
+                      uploadedAttachments.add({
+                        'id': 'att-${DateTime.now().millisecondsSinceEpoch}',
+                        'fileName': fileName,
+                        'fileSizeBytes': bytes.length,
+                        'mediaClass': fieldType == 'PHOTO'
+                            ? 'IMAGE'
+                            : (fieldType == 'AUDIO'
+                                ? 'AUDIO'
+                                : (fieldType == 'VIDEO'
+                                    ? 'VIDEO'
+                                    : 'DOCUMENT')),
+                      });
+                    }
+                  });
+                } catch (e) {
+                  setDialogState(() {
+                    isUploadingAttachment = false;
+                    uploadStatusMessage = 'Upload failed: $e';
+                  });
+                }
+              },
+            );
+          }
+
+          Future<void> submitInteraction() async {
+            if (selectedCustomerId == null || selectedCustomerId!.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Please select a company/customer.'),
+                  backgroundColor: AppTheme.error,
+                ),
+              );
+              return;
+            }
+
+            if (activityType == 'SITE_VISIT') {
+              if (selectedTeamMemberIds.length != teamSize) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Please select exactly $teamSize team members (currently selected ${selectedTeamMemberIds.length}).',
+                    ),
+                    backgroundColor: AppTheme.error,
+                  ),
+                );
+                return;
+              }
+            }
+
+            setDialogState(() => isSubmitting = true);
+
+            final repo = ref.read(crmRepositoryProvider);
+            final attIds = uploadedAttachments
+                .map((a) => a['id']?.toString() ?? '')
+                .where((id) => id.isNotEmpty)
+                .toList();
+
+            try {
+              if (activityType == 'CALL') {
+                final callPayload = <String, dynamic>{
+                  'customerId': selectedCustomerId,
+                  'customerName': customerNameController.text.trim(),
+                  'callType': callDirection,
+                  'callOutcome': callOutcome,
+                  'durationSec': callDurationSec ?? 0,
+                  'subject': subjectController.text.trim().isNotEmpty
+                      ? subjectController.text.trim()
+                      : '$callDirection Call - $callOutcome',
+                  'notes': discussionController.text.trim().isNotEmpty
+                      ? discussionController.text.trim()
+                      : notesController.text.trim(),
+                  'description': discussionController.text.trim(),
+                  'scheduleNext': scheduleNext && !optOutOfCallback,
+                  if (scheduleNext && !optOutOfCallback) ...{
+                    'nextScheduledDate': nextDate.toIso8601String(),
+                    'nextActivityType': nextActivityType,
+                    'nextSubject': nextSubjectController.text.trim(),
+                    'nextAction': nextActionController.text.trim(),
+                    'nextPriority': nextPriority,
+                    if (nextStaff != null)
+                      'nextAssignedStaffId': nextStaff!.id,
+                  },
+                  if (attIds.isNotEmpty) 'attachmentIds': attIds,
+                  'idempotencyKey': idempotencyKey,
+                  if (callOutcome == 'WRONG_NUMBER' &&
+                      phoneCorrectionController.text.trim().isNotEmpty)
+                    'correctedPhone': phoneCorrectionController.text.trim(),
+                  if (callOutcome == 'NOT_INTERESTED' &&
+                      notInterestedReasonController.text.trim().isNotEmpty)
+                    'lostReason': notInterestedReasonController.text.trim(),
+                };
+                await repo.createCall(callPayload);
+              } else if (activityType == 'MEETING') {
+                final meetingPayload = <String, dynamic>{
+                  'customerId': selectedCustomerId,
+                  'customerName': customerNameController.text.trim(),
+                  'hostStaffId': hostStaff?.id ?? selectedStaff?.id,
+                  'meetingType': meetingMode.contains('ONLINE')
+                      ? 'ONLINE'
+                      : 'OFFLINE',
+                  'location': locationController.text.trim(),
+                  'startTime': meetingStartTime.toIso8601String(),
+                  'endTime': meetingEndTime.toIso8601String(),
+                  'agenda': subjectController.text.trim().isNotEmpty
+                      ? subjectController.text.trim()
+                      : 'Client Meeting',
+                  'notes': discussionController.text.trim().isNotEmpty
+                      ? discussionController.text.trim()
+                      : notesController.text.trim(),
+                  'priority': meetingPriority,
+                  if (attIds.isNotEmpty) 'attachmentIds': attIds,
+                  'idempotencyKey': idempotencyKey,
+                };
+                await repo.createMeeting(meetingPayload);
+              } else if (activityType == 'SITE_VISIT') {
+                final siteVisitPayload = <String, dynamic>{
+                  'customerId': selectedCustomerId,
+                  'customerName': customerNameController.text.trim(),
+                  'location': locationController.text.trim(),
+                  'scheduledDate': interactionDate.toIso8601String(),
+                  'visitDate': interactionDate.toIso8601String(),
+                  'teamSize': teamSize,
+                  'teamMemberIds': selectedTeamMemberIds,
+                  'voltageReading': voltageReading,
+                  'pumpRatingHp': double.tryParse(pumpRatingHp) ?? 50.0,
+                  'panelDimensions': panelDimensions,
+                  'siteCondition': siteEnvironment,
+                  'inspectionNotes': [
+                    if (subjectController.text.trim().isNotEmpty)
+                      'Purpose: ${subjectController.text.trim()}',
+                    if (discussionController.text.trim().isNotEmpty)
+                      'Discussion: ${discussionController.text.trim()}',
+                    if (checklistNotesController.text.trim().isNotEmpty)
+                      'Checklist: ${checklistNotesController.text.trim()}',
+                  ].join('\n'),
+                  if (attIds.isNotEmpty) 'attachmentIds': attIds,
+                  'idempotencyKey': idempotencyKey,
+                };
+                await repo.createSiteVisit(siteVisitPayload);
+              } else {
+                // FOLLOW_UP, DEMO, EMAIL, WHATSAPP, OTHER
+                final followUpPayload = <String, dynamic>{
+                  'customerId': selectedCustomerId,
+                  'activityType': activityType,
+                  'mode': scheduleFollowUp ? 'SCHEDULE' : 'COMPLETE_NOW',
+                  'subject': subjectController.text.trim().isNotEmpty
+                      ? subjectController.text.trim()
+                      : activityType.replaceAll('_', ' '),
+                  'discussion': discussionController.text.trim().isNotEmpty
+                      ? discussionController.text.trim()
+                      : 'Recorded via Unified CRM Workspace',
+                  'notes': notesController.text.trim(),
+                  'priority': followUpPriority,
+                  'reminderMinutes':
+                      scheduleFollowUp ? reminderMinutes : null,
+                  'scheduledDate': scheduleFollowUp
+                      ? interactionDate.toIso8601String()
+                      : null,
+                  'assignedStaffId': selectedStaff?.id,
+                  if (attIds.isNotEmpty) 'attachmentIds': attIds,
+                  'idempotencyKey': idempotencyKey,
+                };
+                await repo.createFollowUp(followUpPayload);
+              }
+
+              if (dialogContext.mounted) {
+                Navigator.pop(dialogContext);
+              }
+
+              await _loadCompanies();
+              await ref.read(followUpListProvider.notifier).loadFollowUps();
+
+              if (mounted) {
+                ScaffoldMessenger.of(this.context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      '✅ ${activityType.replaceAll('_', ' ')} recorded successfully! '
+                      '${activityType == 'SITE_VISIT' ? 'Linked tasks created for all $teamSize team members.' : (activityType == 'MEETING' ? 'Linked task created for meeting host.' : '')}',
+                    ),
+                    backgroundColor: AppTheme.success,
+                  ),
+                );
+              }
+            } catch (e) {
+              setDialogState(() => isSubmitting = false);
+              if (mounted) {
+                ScaffoldMessenger.of(this.context).showSnackBar(
+                  SnackBar(
+                    content: Text('Failed to save interaction: $e'),
+                    backgroundColor: AppTheme.error,
+                  ),
+                );
+              }
+            }
+          }
+
+          return Dialog(
+            backgroundColor: AppTheme.darkSurface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: AppTheme.darkBorder),
+            ),
+            child: ConstrainedBox(
+              constraints:
+                  const BoxConstraints(maxWidth: 720, maxHeight: 860),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header
+                    Row(
+                      children: [
+                        const Icon(Icons.sync_alt,
+                            color: AppTheme.primary, size: 24),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              SizedBox(
-                                  width: 14,
-                                  height: 14,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2)),
-                              SizedBox(width: 8),
-                              Text('Loading staff list...',
-                                  style: TextStyle(
-                                      color: Colors.grey, fontSize: 12)),
+                              Text(
+                                'Unified CRM Interaction',
+                                style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white),
+                              ),
+                              Text(
+                                'Calls • Follow-ups • Meetings • Site Visits',
+                                style: TextStyle(
+                                    fontSize: 11, color: Colors.white60),
+                              ),
                             ],
                           ),
-                        );
-                      }
-                      final staffList = snapshot.data ?? [];
-                      return DropdownButtonFormField<StaffMember>(
-                        initialValue: selectedStaff,
-                        decoration: InputDecoration(
-                          hintText: 'Select Admin or Employee to assign',
-                          prefixIcon: const Icon(Icons.person_pin, size: 18),
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 12),
-                          border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide:
-                                  const BorderSide(color: AppTheme.darkBorder)),
-                          fillColor: AppTheme.darkCard,
-                          filled: true,
                         ),
-                        dropdownColor: AppTheme.darkCard,
-                        items: staffList.map((staff) {
-                          final roleLabel = staff.designationName ??
-                              staff.departmentName ??
-                              'Staff';
-                          final isAdmin = roleLabel
-                                  .toLowerCase()
-                                  .contains('admin') ||
-                              roleLabel.toLowerCase().contains('director') ||
-                              roleLabel.toLowerCase().contains('manager');
-                          return DropdownMenuItem<StaffMember>(
-                            value: staff,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        IconButton(
+                          onPressed: isSubmitting
+                              ? null
+                              : () => Navigator.pop(dialogContext),
+                          icon: const Icon(Icons.close),
+                        ),
+                      ],
+                    ),
+                    const Divider(color: AppTheme.darkBorder, height: 16),
+
+                    // Scrollable content
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Company / Customer Selector
+                            if (selectedCustomerId != null &&
+                                currentCustomer != null)
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.darkCard,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                      color: AppTheme.primary
+                                          .withValues(alpha: 0.3)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.business,
+                                        color: AppTheme.primary, size: 24),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            currentCustomer!['companyName']
+                                                    ?.toString() ??
+                                                'Customer',
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 15),
+                                          ),
+                                          Text(
+                                            '${currentCustomer!['contactPerson'] ?? ''}  ·  ${currentCustomer!['phone'] ?? ''}  ·  ${currentCustomer!['city'] ?? ''}',
+                                            style: const TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    TextButton.icon(
+                                      onPressed: () => setDialogState(() {
+                                        selectedCustomerId = null;
+                                        currentCustomer = null;
+                                      }),
+                                      icon: const Icon(Icons.swap_horiz,
+                                          size: 16),
+                                      label: const Text('Change'),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            else
+                              Consumer(
+                                builder: (context, ref, _) {
+                                  final customersState =
+                                      ref.watch(customerListProvider);
+                                  final customers = customersState.customers;
+                                  return DropdownButtonFormField<String>(
+                                    decoration: const InputDecoration(
+                                      labelText: 'Select Company / Customer *',
+                                      prefixIcon: Icon(Icons.business),
+                                    ),
+                                    isExpanded: true,
+                                    initialValue: selectedCustomerId,
+                                    items: customers.map((c) {
+                                      return DropdownMenuItem<String>(
+                                        value: c.id,
+                                        child: Text(
+                                            '${c.companyName} (${c.customerCode})',
+                                            overflow: TextOverflow.ellipsis),
+                                      );
+                                    }).toList(),
+                                    onChanged: (val) {
+                                      if (val != null) {
+                                        final match = customers
+                                            .firstWhere((c) => c.id == val);
+                                        setDialogState(() {
+                                          selectedCustomerId = val;
+                                          currentCustomer = {
+                                            'id': match.id,
+                                            'companyName': match.companyName,
+                                            'phone': match.phone,
+                                            'email': match.email,
+                                            'contactPerson':
+                                                match.contactPerson,
+                                            'city': match.city,
+                                          };
+                                          customerNameController.text =
+                                              match.companyName;
+                                          if (match.city != null &&
+                                              match.city!.isNotEmpty) {
+                                            locationController.text =
+                                                'Site: ${match.city}';
+                                          }
+                                        });
+                                      }
+                                    },
+                                  );
+                                },
+                              ),
+                            const SizedBox(height: 12),
+
+                            // Activity Type Switcher
+                            const Text(
+                              'Interaction Type *',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white70),
+                            ),
+                            const SizedBox(height: 6),
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
+                                  ('CALL', '📞 Call', Icons.phone_in_talk),
+                                  ('MEETING', '🤝 Meeting', Icons.calendar_month),
+                                  ('SITE_VISIT', '🏗️ Site Visit', Icons.engineering),
+                                  ('FOLLOW_UP', '⏱️ Follow-up', Icons.assignment_turned_in),
+                                  ('DEMO', '💻 Demo', Icons.laptop_chromebook),
+                                  ('EMAIL', '✉️ Email', Icons.email_outlined),
+                                  ('WHATSAPP', '💬 WhatsApp', Icons.chat),
+                                  ('OTHER', '📝 Other', Icons.more_horiz),
+                                ].map((item) {
+                                  final isSel = activityType == item.$1;
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 6),
+                                    child: ChoiceChip(
+                                      label: Text(item.$2),
+                                      selected: isSel,
+                                      selectedColor: AppTheme.primary,
+                                      onSelected: (selected) {
+                                        if (selected) {
+                                          setDialogState(
+                                              () => activityType = item.$1);
+                                        }
+                                      },
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+
+                            // Date, Time & Employee Row
+                            Row(
                               children: [
-                                Text('${staff.fullName} (${staff.employeeId})',
-                                    style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600)),
-                                Container(
-                                  margin: const EdgeInsets.only(left: 8),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: isAdmin
-                                        ? AppTheme.primary
-                                            .withValues(alpha: 0.2)
-                                        : Colors.blue.withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(4),
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: () async {
+                                      final date = await showDatePicker(
+                                        context: dialogContext,
+                                        initialDate: interactionDate,
+                                        firstDate: DateTime(2020),
+                                        lastDate: DateTime.now()
+                                            .add(const Duration(days: 365)),
+                                      );
+                                      if (date == null ||
+                                          !dialogContext.mounted) return;
+                                      final time = await showTimePicker(
+                                        context: dialogContext,
+                                        initialTime: TimeOfDay.fromDateTime(
+                                            interactionDate),
+                                      );
+                                      if (time == null) return;
+                                      setDialogState(() {
+                                        interactionDate = DateTime(
+                                          date.year,
+                                          date.month,
+                                          date.day,
+                                          time.hour,
+                                          time.minute,
+                                        );
+                                      });
+                                    },
+                                    icon: const Icon(Icons.event, size: 16),
+                                    label: Text(
+                                      DateFormat('dd MMM yyyy, hh:mm a')
+                                          .format(interactionDate),
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
                                   ),
-                                  child: Text(
-                                    roleLabel,
-                                    style: TextStyle(
-                                        fontSize: 10,
-                                        color: isAdmin
-                                            ? AppTheme.primary
-                                            : Colors.blue,
-                                        fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: FutureBuilder<List<StaffMember>>(
+                                    future: staffFuture,
+                                    builder: (context, snapshot) {
+                                      final staffList =
+                                          snapshot.data ?? const [];
+                                      return DropdownButtonFormField<
+                                          StaffMember?>(
+                                        initialValue: selectedStaff,
+                                        decoration: const InputDecoration(
+                                          labelText: 'Assigned Staff',
+                                          prefixIcon:
+                                              Icon(Icons.person_outline, size: 18),
+                                        ),
+                                        isExpanded: true,
+                                        items: [
+                                          const DropdownMenuItem(
+                                            value: null,
+                                            child: Text('Current Staff / Me'),
+                                          ),
+                                          ...staffList.map((m) =>
+                                              DropdownMenuItem(
+                                                value: m,
+                                                child: Text(m.fullName,
+                                                    overflow:
+                                                        TextOverflow.ellipsis),
+                                              )),
+                                        ],
+                                        onChanged: (v) => setDialogState(
+                                            () => selectedStaff = v),
+                                      );
+                                    },
                                   ),
                                 ),
                               ],
                             ),
-                          );
-                        }).toList(),
-                        onChanged: (val) =>
-                            setModalState(() => selectedStaff = val),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 12),
+                            const SizedBox(height: 12),
 
-                  // Activity / Meeting Type
-                  const Text('Meeting / Activity Type *',
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white70)),
-                  const SizedBox(height: 4),
-                  DropdownButtonFormField<String>(
-                    initialValue: actionCtrl.text,
-                    decoration: const InputDecoration(
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 12, vertical: 12)),
-                    dropdownColor: AppTheme.darkCard,
-                    items: [
-                      'MEETING',
-                      'DEMO',
-                      'SITE_VISIT',
-                      'CALL',
-                      'PROPOSAL_REVIEW',
-                      'TECHNICAL_DISCUSSION'
-                    ]
-                        .map((t) => DropdownMenuItem(
-                            value: t, child: Text(t.replaceAll('_', ' '))))
-                        .toList(),
-                    onChanged: (v) => setModalState(() => actionCtrl.text = v!),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Meeting Subject
-                  const Text('Subject / Agenda *',
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white70)),
-                  const SizedBox(height: 4),
-                  TextField(
-                    controller: subjectCtrl,
-                    decoration: const InputDecoration(
-                      hintText:
-                          'e.g. Panel Specification & Commercial Offer Discussion',
-                      prefixIcon: Icon(Icons.subject, size: 18),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Scheduled Date & Time
-                  const Text('Scheduled Date & Time *',
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white70)),
-                  const SizedBox(height: 4),
-                  InkWell(
-                    onTap: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: selectedDate,
-                        firstDate: DateTime.now(),
-                        lastDate: DateTime.now().add(const Duration(days: 365)),
-                      );
-                      if (picked != null) {
-                        setModalState(() => selectedDate = picked);
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: AppTheme.darkCard,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppTheme.darkBorder),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.event,
-                              size: 18, color: AppTheme.primary),
-                          const SizedBox(width: 10),
-                          Text(
-                            DateFormat('EEEE, dd MMMM yyyy')
-                                .format(selectedDate),
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Meeting Location / Video Link
-                  const Text('Location / Meeting Link',
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white70)),
-                  const SizedBox(height: 4),
-                  TextField(
-                    controller: locationCtrl,
-                    decoration: const InputDecoration(
-                      hintText:
-                          'e.g. Conference Room B / Client Factory / Zoom',
-                      prefixIcon: Icon(Icons.place, size: 18),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Priority Selector
-                  const Text('Priority Level',
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white70)),
-                  const SizedBox(height: 4),
-                  DropdownButtonFormField<String>(
-                    initialValue: selectedPriority,
-                    decoration: const InputDecoration(
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 12, vertical: 12)),
-                    dropdownColor: AppTheme.darkCard,
-                    items: ['LOW', 'MEDIUM', 'HIGH', 'URGENT']
-                        .map((p) => DropdownMenuItem(value: p, child: Text(p)))
-                        .toList(),
-                    onChanged: (v) =>
-                        setModalState(() => selectedPriority = v!),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Notes & Preparation
-                  const Text('Meeting Notes & Preparation Details',
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white70)),
-                  const SizedBox(height: 4),
-                  TextField(
-                    controller: notesCtrl,
-                    decoration: const InputDecoration(
-                      hintText:
-                          'Key discussion points, required documents to carry...',
-                    ),
-                    maxLines: 2,
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Submit Button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton.icon(
-                      onPressed: () async {
-                        if (customerNameCtrl.text.trim().isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text('Customer name is required')));
-                          return;
-                        }
-                        Navigator.pop(ctx);
-                        try {
-                          final repo = ref.read(crmRepositoryProvider);
-                          await repo.scheduleMeeting({
-                            'customerName': customerNameCtrl.text.trim(),
-                            if (selectedCustomerId != null)
-                              'customerId': selectedCustomerId,
-                            if (selectedStaff != null)
-                              'assignedStaffId': selectedStaff!.id,
-                            'assignedStaffName': selectedStaff?.fullName ?? '',
-                            'purpose': subjectCtrl.text.trim().isEmpty
-                                ? actionCtrl.text
-                                : subjectCtrl.text.trim(),
-                            'meetingDate': selectedDate.toIso8601String(),
-                            'location': locationCtrl.text.trim(),
-                            'priority': selectedPriority,
-                            'notes': notesCtrl.text.trim(),
-                          });
-                          _loadCurrentTab();
-                          if (mounted) {
-                            ScaffoldMessenger.of(this.context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                    '✅ Meeting scheduled with ${selectedStaff?.fullName ?? "team"} — added to follow-up queue'),
-                                backgroundColor: AppTheme.success,
+                            // Purpose / Subject
+                            TextField(
+                              controller: subjectController,
+                              decoration: InputDecoration(
+                                labelText: activityType == 'MEETING'
+                                    ? 'Meeting Agenda / Subject *'
+                                    : (activityType == 'SITE_VISIT'
+                                        ? 'Site Visit Purpose *'
+                                        : 'Purpose / Subject *'),
+                                hintText:
+                                    'e.g. 75HP VFD Solar Pump Specifications Discussion',
+                                prefixIcon:
+                                    const Icon(Icons.subject, size: 18),
                               ),
-                            );
-                          }
-                        } catch (e) {
-                          _loadCurrentTab();
-                          if (mounted) {
-                            ScaffoldMessenger.of(this.context).showSnackBar(
-                              const SnackBar(
-                                  content: Text(
-                                      'Meeting scheduled & follow-up queue updated ✓'),
-                                  backgroundColor: AppTheme.success),
-                            );
-                          }
-                        }
-                      },
-                      icon: const Icon(Icons.check_circle, size: 20),
-                      label: const Text('CONFIRM SCHEDULE MEETING',
-                          style: TextStyle(fontWeight: FontWeight.bold)),
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Discussion Notes
+                            TextField(
+                              controller: discussionController,
+                              maxLines: 3,
+                              decoration: const InputDecoration(
+                                labelText: 'Discussion Notes & Key Points *',
+                                hintText:
+                                    'Record what was discussed, customer reaction, commitments made...',
+                                prefixIcon: const Icon(Icons.notes, size: 18),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+
+                            // ─── PROGRESSIVE DISCLOSURE: CALL ──────────────
+                            if (activityType == 'CALL') ...[
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.darkCard,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.white12),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('Call Conversation & Outcome',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                            color: AppTheme.primary)),
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      children: [
+                                        const Text('Direction: ',
+                                            style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.white70)),
+                                        ChoiceChip(
+                                          label: const Text('Outgoing'),
+                                          selected: callDirection == 'OUTBOUND',
+                                          onSelected: (v) => setDialogState(
+                                              () => callDirection = 'OUTBOUND'),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        ChoiceChip(
+                                          label: const Text('Incoming'),
+                                          selected: callDirection == 'INBOUND',
+                                          onSelected: (v) => setDialogState(
+                                              () => callDirection = 'INBOUND'),
+                                        ),
+                                        const Spacer(),
+                                        const Text('Duration: ',
+                                            style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.white70)),
+                                        ...[30, 60, 180, 300, 600].map((sec) {
+                                          return Padding(
+                                            padding: const EdgeInsets.only(
+                                                left: 4),
+                                            child: ChoiceChip(
+                                              label: Text(sec < 60
+                                                  ? '${sec}s'
+                                                  : '${sec ~/ 60}m'),
+                                              selected:
+                                                  callDurationSec == sec,
+                                              onSelected: (sel) =>
+                                                  setDialogState(() =>
+                                                      callDurationSec =
+                                                          sel ? sec : null),
+                                            ),
+                                          );
+                                        }),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+
+                                    // Call Outcome Dropdown
+                                    DropdownButtonFormField<String>(
+                                      initialValue: callOutcome,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Call Outcome *',
+                                        prefixIcon:
+                                            Icon(Icons.flag_outlined, size: 18),
+                                      ),
+                                      items: const [
+                                        DropdownMenuItem(
+                                            value: 'CONNECTED',
+                                            child: Text(
+                                                'Connected — customer answered')),
+                                        DropdownMenuItem(
+                                            value: 'NO_ANSWER',
+                                            child: Text(
+                                                'No Answer (Automated Callback Suggestion)')),
+                                        DropdownMenuItem(
+                                            value: 'BUSY',
+                                            child: Text(
+                                                'Busy (Automated Callback Suggestion)')),
+                                        DropdownMenuItem(
+                                            value: 'WRONG_NUMBER',
+                                            child: Text(
+                                                'Wrong Number / Invalid Contact')),
+                                        DropdownMenuItem(
+                                            value: 'INTERESTED',
+                                            child: Text('Interested')),
+                                        DropdownMenuItem(
+                                            value: 'NOT_INTERESTED',
+                                            child: Text('Not Interested')),
+                                        DropdownMenuItem(
+                                            value: 'CALL_BACK_LATER',
+                                            child: Text('Call Back Later')),
+                                        DropdownMenuItem(
+                                            value: 'MEETING_REQUESTED',
+                                            child:
+                                                Text('Meeting Requested')),
+                                        DropdownMenuItem(
+                                            value: 'QUOTATION_REQUESTED',
+                                            child:
+                                                Text('Quotation Requested')),
+                                        DropdownMenuItem(
+                                            value: 'PO_RECEIVED',
+                                            child: Text(
+                                                'Purchase Order Received')),
+                                        DropdownMenuItem(
+                                            value: 'OTHER',
+                                            child: Text('Other')),
+                                      ],
+                                      onChanged: (v) =>
+                                          onCallOutcomeChanged(v),
+                                    ),
+
+                                    if (suggestionMessage != null) ...[
+                                      const SizedBox(height: 8),
+                                      Container(
+                                        width: double.infinity,
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.amber
+                                              .withValues(alpha: 0.15),
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                          border: Border.all(
+                                              color: Colors.amber
+                                                  .withValues(alpha: 0.4)),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            if (isFetchingSuggestion)
+                                              const SizedBox(
+                                                  width: 14,
+                                                  height: 14,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                          strokeWidth: 2))
+                                            else
+                                              const Icon(Icons.auto_awesome,
+                                                  size: 16,
+                                                  color: Colors.amber),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                suggestionMessage!,
+                                                style: const TextStyle(
+                                                    fontSize: 12,
+                                                    color: Colors.amberAccent,
+                                                    fontWeight:
+                                                        FontWeight.w500),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+
+                                    // Conditional: Wrong number phone correction
+                                    if (callOutcome == 'WRONG_NUMBER') ...[
+                                      const SizedBox(height: 10),
+                                      TextField(
+                                        controller:
+                                            phoneCorrectionController,
+                                        decoration: const InputDecoration(
+                                          labelText:
+                                              'Correct Contact Phone Number',
+                                          hintText:
+                                              'Enter verified 10-digit mobile number',
+                                          prefixIcon: Icon(Icons.phone_iphone,
+                                              size: 18),
+                                        ),
+                                        keyboardType: TextInputType.phone,
+                                      ),
+                                    ],
+
+                                    // Conditional: Not Interested Reason
+                                    if (callOutcome == 'NOT_INTERESTED') ...[
+                                      const SizedBox(height: 10),
+                                      TextField(
+                                        controller:
+                                            notInterestedReasonController,
+                                        decoration: const InputDecoration(
+                                          labelText:
+                                              'Reason for Not Interested',
+                                          hintText:
+                                              'e.g. Price too high, chose competitor, no budget',
+                                          prefixIcon: Icon(Icons.info_outline,
+                                              size: 18),
+                                        ),
+                                      ),
+                                    ],
+
+                                    // Conditional: No Answer / Busy Opt-out
+                                    if (callOutcome == 'NO_ANSWER' ||
+                                        callOutcome == 'BUSY') ...[
+                                      const SizedBox(height: 6),
+                                      CheckboxListTile(
+                                        contentPadding: EdgeInsets.zero,
+                                        dense: true,
+                                        title: const Text(
+                                          'Opt-out: Do not schedule another callback',
+                                          style: TextStyle(fontSize: 12),
+                                        ),
+                                        value: optOutOfCallback,
+                                        onChanged: (val) {
+                                          setDialogState(() {
+                                            optOutOfCallback = val ?? false;
+                                            if (optOutOfCallback) {
+                                              scheduleNext = false;
+                                            }
+                                          });
+                                        },
+                                      ),
+                                    ],
+
+                                    // Connected next-action selection
+                                    if (callOutcome == 'CONNECTED') ...[
+                                      const SizedBox(height: 10),
+                                      const Text(
+                                          'Agreed Next Action with Customer:',
+                                          style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.white70)),
+                                      const SizedBox(height: 6),
+                                      Wrap(
+                                        spacing: 6,
+                                        runSpacing: 6,
+                                        children: [
+                                          ActionChip(
+                                            avatar: const Icon(
+                                                Icons.phone_callback,
+                                                size: 14),
+                                            label: const Text('Call Back'),
+                                            onPressed: () =>
+                                                setDialogState(() {
+                                              scheduleNext = true;
+                                              nextActivityType = 'CALL';
+                                              nextSubjectController.text =
+                                                  'Follow-up Call Back';
+                                              nextActionController.text =
+                                                  'Follow-up as agreed during conversation';
+                                            }),
+                                          ),
+                                          ActionChip(
+                                            avatar: const Icon(
+                                                Icons.calendar_month,
+                                                size: 14),
+                                            label:
+                                                const Text('Schedule Meeting'),
+                                            onPressed: () =>
+                                                setDialogState(() {
+                                              scheduleNext = true;
+                                              nextActivityType = 'MEETING';
+                                              nextSubjectController.text =
+                                                  'Meeting with Client';
+                                              nextActionController.text =
+                                                  'Conduct technical/commercial meeting';
+                                            }),
+                                          ),
+                                          ActionChip(
+                                            avatar: const Icon(
+                                                Icons.engineering,
+                                                size: 14),
+                                            label:
+                                                const Text('Arrange Site Visit'),
+                                            onPressed: () =>
+                                                setDialogState(() {
+                                              scheduleNext = true;
+                                              nextActivityType = 'SITE_VISIT';
+                                              nextSubjectController.text =
+                                                  'Engineering Site Visit';
+                                              nextActionController.text =
+                                                  'Visit site for measurement and inspection';
+                                            }),
+                                          ),
+                                          ActionChip(
+                                            avatar: const Icon(
+                                                Icons.request_quote,
+                                                size: 14),
+                                            label:
+                                                const Text('Send Quotation'),
+                                            onPressed: () =>
+                                                setDialogState(() {
+                                              scheduleNext = true;
+                                              nextActivityType = 'FOLLOW_UP';
+                                              nextSubjectController.text =
+                                                  'Send Quotation & Specs';
+                                              nextActionController.text =
+                                                  'Share detailed panel quotation';
+                                            }),
+                                          ),
+                                          ActionChip(
+                                            avatar: const Icon(Icons.done_all,
+                                                size: 14),
+                                            label: const Text(
+                                                'No Further Action'),
+                                            onPressed: () =>
+                                                setDialogState(() {
+                                              scheduleNext = false;
+                                            }),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+
+                                    // Next Scheduled Action Details
+                                    if (scheduleNext &&
+                                        !optOutOfCallback) ...[
+                                      const Divider(height: 20),
+                                      const Text(
+                                        'Next Scheduled Action Details',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                            color: Colors.amberAccent),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: OutlinedButton.icon(
+                                              onPressed: () async {
+                                                final date =
+                                                    await showDatePicker(
+                                                  context: dialogContext,
+                                                  initialDate: nextDate,
+                                                  firstDate: DateTime.now(),
+                                                  lastDate: DateTime.now()
+                                                      .add(const Duration(
+                                                          days: 3650)),
+                                                );
+                                                if (date == null ||
+                                                    !dialogContext.mounted) {
+                                                  return;
+                                                }
+                                                final time =
+                                                    await showTimePicker(
+                                                  context: dialogContext,
+                                                  initialTime:
+                                                      TimeOfDay.fromDateTime(
+                                                          nextDate),
+                                                );
+                                                if (time == null) return;
+                                                setDialogState(() {
+                                                  nextDate = DateTime(
+                                                    date.year,
+                                                    date.month,
+                                                    date.day,
+                                                    time.hour,
+                                                    time.minute,
+                                                  );
+                                                });
+                                              },
+                                              icon: const Icon(Icons.event,
+                                                  size: 16),
+                                              label: Text(
+                                                DateFormat(
+                                                        'dd MMM yyyy, hh:mm a')
+                                                    .format(nextDate),
+                                                style: const TextStyle(
+                                                    fontSize: 12),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child:
+                                                DropdownButtonFormField<String>(
+                                              initialValue: nextActivityType,
+                                              decoration: const InputDecoration(
+                                                labelText: 'Next Action Type',
+                                              ),
+                                              items: const [
+                                                'CALL',
+                                                'MEETING',
+                                                'SITE_VISIT',
+                                                'DEMO',
+                                                'FOLLOW_UP',
+                                                'OTHER',
+                                              ]
+                                                  .map((t) => DropdownMenuItem(
+                                                      value: t,
+                                                      child: Text(t.replaceAll(
+                                                          '_', ' '))))
+                                                  .toList(),
+                                              onChanged: (v) => setDialogState(
+                                                  () => nextActivityType =
+                                                      v ?? 'CALL'),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      TextField(
+                                        controller: nextSubjectController,
+                                        decoration: const InputDecoration(
+                                          labelText: 'Next Action Subject',
+                                          hintText:
+                                              'e.g. Quotation follow-up with Purchase Head',
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      TextField(
+                                        controller: nextActionController,
+                                        decoration: const InputDecoration(
+                                          labelText: 'Specific Next Action',
+                                          hintText:
+                                              'e.g. Call back GM to confirm order approval',
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
+
+                            // ─── PROGRESSIVE DISCLOSURE: MEETING ───────────
+                            if (activityType == 'MEETING') ...[
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.darkCard,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.white12),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('Meeting Scheduling & Details',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                            color: AppTheme.primary)),
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      children: [
+                                        const Text('Mode: ',
+                                            style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.white70)),
+                                        ChoiceChip(
+                                          label: const Text('Client Site'),
+                                          selected:
+                                              meetingMode == 'CLIENT_SITE',
+                                          onSelected: (v) => setDialogState(
+                                              () => meetingMode = 'CLIENT_SITE'),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        ChoiceChip(
+                                          label: const Text('Office'),
+                                          selected: meetingMode == 'OFFICE',
+                                          onSelected: (v) => setDialogState(
+                                              () => meetingMode = 'OFFICE'),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        ChoiceChip(
+                                          label: const Text('Google Meet'),
+                                          selected: meetingMode ==
+                                              'ONLINE_GOOGLE_MEET',
+                                          onSelected: (v) => setDialogState(() =>
+                                              meetingMode =
+                                                  'ONLINE_GOOGLE_MEET'),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        ChoiceChip(
+                                          label: const Text('Zoom'),
+                                          selected:
+                                              meetingMode == 'ONLINE_ZOOM',
+                                          onSelected: (v) => setDialogState(
+                                              () => meetingMode =
+                                                  'ONLINE_ZOOM'),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    TextField(
+                                      controller: locationController,
+                                      decoration: InputDecoration(
+                                        labelText: meetingMode.contains('ONLINE')
+                                            ? 'Meeting Link / Room ID'
+                                            : 'Location / Venue Address',
+                                        prefixIcon: Icon(
+                                            meetingMode.contains('ONLINE')
+                                                ? Icons.link
+                                                : Icons.place,
+                                            size: 18),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: OutlinedButton.icon(
+                                            onPressed: () async {
+                                              final date = await showDatePicker(
+                                                context: dialogContext,
+                                                initialDate: meetingStartTime,
+                                                firstDate: DateTime.now(),
+                                                lastDate: DateTime.now().add(
+                                                    const Duration(days: 365)),
+                                              );
+                                              if (date == null ||
+                                                  !dialogContext.mounted) {
+                                                return;
+                                              }
+                                              final time = await showTimePicker(
+                                                context: dialogContext,
+                                                initialTime:
+                                                    TimeOfDay.fromDateTime(
+                                                        meetingStartTime),
+                                              );
+                                              if (time == null) return;
+                                              setDialogState(() {
+                                                meetingStartTime = DateTime(
+                                                  date.year,
+                                                  date.month,
+                                                  date.day,
+                                                  time.hour,
+                                                  time.minute,
+                                                );
+                                                meetingEndTime =
+                                                    meetingStartTime.add(
+                                                        const Duration(
+                                                            hours: 1));
+                                              });
+                                            },
+                                            icon: const Icon(Icons.access_time,
+                                                size: 16),
+                                            label: Text(
+                                              'Start: ${DateFormat('dd MMM, hh:mm a').format(meetingStartTime)}',
+                                              style:
+                                                  const TextStyle(fontSize: 12),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: FutureBuilder<
+                                              List<StaffMember>>(
+                                            future: staffFuture,
+                                            builder: (context, snapshot) {
+                                              final staffList =
+                                                  snapshot.data ?? const [];
+                                              return DropdownButtonFormField<
+                                                  StaffMember?>(
+                                                initialValue: hostStaff,
+                                                decoration:
+                                                    const InputDecoration(
+                                                  labelText: 'Meeting Host',
+                                                  prefixIcon: Icon(
+                                                      Icons.person_pin,
+                                                      size: 18),
+                                                ),
+                                                isExpanded: true,
+                                                items: staffList
+                                                    .map((m) =>
+                                                        DropdownMenuItem(
+                                                          value: m,
+                                                          child: Text(
+                                                              m.fullName,
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis),
+                                                        ))
+                                                    .toList(),
+                                                onChanged: (v) => setDialogState(
+                                                    () => hostStaff = v),
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue
+                                            .withValues(alpha: 0.12),
+                                        borderRadius:
+                                            BorderRadius.circular(6),
+                                        border: Border.all(
+                                            color: Colors.blue
+                                                .withValues(alpha: 0.3)),
+                                      ),
+                                      child: const Row(
+                                        children: [
+                                          Icon(Icons.info_outline,
+                                              size: 16,
+                                              color: Colors.blueAccent),
+                                          SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              'ℹ️ Task Integration: A task will automatically be created and assigned to the host in their Tasks / My Work modules.',
+                                              style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: Colors.white70),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
+
+                            // ─── PROGRESSIVE DISCLOSURE: SITE VISIT ────────
+                            if (activityType == 'SITE_VISIT') ...[
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.darkCard,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.white12),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                        'Engineering Site Visit & Team Assignment',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                            color: AppTheme.primary)),
+                                    const SizedBox(height: 10),
+                                    TextField(
+                                      controller: locationController,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Site Location / Address *',
+                                        prefixIcon:
+                                            Icon(Icons.place, size: 18),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+
+                                    // Team Size Selector
+                                    Row(
+                                      children: [
+                                        const Text('Team Size: ',
+                                            style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight:
+                                                    FontWeight.bold)),
+                                        const SizedBox(width: 8),
+                                        ...[1, 2, 3, 4, 5].map((size) {
+                                          final isSel = teamSize == size;
+                                          return Padding(
+                                            padding: const EdgeInsets.only(
+                                                right: 6),
+                                            child: ChoiceChip(
+                                              label: Text('$size member${size > 1 ? 's' : ''}'),
+                                              selected: isSel,
+                                              onSelected: (sel) {
+                                                if (sel) {
+                                                  setDialogState(() {
+                                                    teamSize = size;
+                                                  });
+                                                }
+                                              },
+                                            ),
+                                          );
+                                        }),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+
+                                    // Team Member Multi-Selector
+                                    Row(
+                                      children: [
+                                        Text(
+                                          'Select Team Members (${selectedTeamMemberIds.length} of $teamSize selected):',
+                                          style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                        const Spacer(),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: selectedTeamMemberIds
+                                                        .length ==
+                                                    teamSize
+                                                ? AppTheme.success
+                                                    .withValues(alpha: 0.2)
+                                                : AppTheme.error
+                                                    .withValues(alpha: 0.2),
+                                            borderRadius:
+                                                BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            selectedTeamMemberIds.length ==
+                                                    teamSize
+                                                ? '✓ Count Matches'
+                                                : '⚠️ Select $teamSize member${teamSize > 1 ? 's' : ''}',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: selectedTeamMemberIds
+                                                          .length ==
+                                                      teamSize
+                                                  ? AppTheme.success
+                                                  : AppTheme.error,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+
+                                    FutureBuilder<List<StaffMember>>(
+                                      future: staffFuture,
+                                      builder: (context, snapshot) {
+                                        final staffList =
+                                            snapshot.data ?? const [];
+                                        return Wrap(
+                                          spacing: 6,
+                                          runSpacing: 6,
+                                          children: staffList.map((m) {
+                                            final isAssigned =
+                                                selectedTeamMemberIds
+                                                    .contains(m.id);
+                                            return FilterChip(
+                                              avatar: Icon(
+                                                isAssigned
+                                                    ? Icons.check
+                                                    : Icons.person_outline,
+                                                size: 14,
+                                                color: isAssigned
+                                                    ? Colors.white
+                                                    : Colors.white70,
+                                              ),
+                                              label: Text(m.fullName),
+                                              selected: isAssigned,
+                                              selectedColor: AppTheme.primary,
+                                              onSelected: (selected) {
+                                                setDialogState(() {
+                                                  if (selected) {
+                                                    if (!selectedTeamMemberIds
+                                                        .contains(m.id)) {
+                                                      selectedTeamMemberIds
+                                                          .add(m.id);
+                                                    }
+                                                  } else {
+                                                    selectedTeamMemberIds
+                                                        .remove(m.id);
+                                                  }
+                                                });
+                                              },
+                                            );
+                                          }).toList(),
+                                        );
+                                      },
+                                    ),
+                                    const SizedBox(height: 12),
+
+                                    // Engineering Checklist
+                                    const Text(
+                                        'Engineering Checklist & Measurements',
+                                        style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white70)),
+                                    const SizedBox(height: 6),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child:
+                                              DropdownButtonFormField<String>(
+                                            initialValue: voltageReading,
+                                            decoration: const InputDecoration(
+                                              labelText: 'Supply Voltage',
+                                            ),
+                                            items: const [
+                                              '415V 3-Phase',
+                                              '230V 1-Phase',
+                                              '480V 3-Phase',
+                                              '11kV HT Supply',
+                                              'Solar DC Supply',
+                                            ]
+                                                .map((v) => DropdownMenuItem(
+                                                    value: v, child: Text(v)))
+                                                .toList(),
+                                            onChanged: (v) => setDialogState(
+                                                () => voltageReading =
+                                                    v ?? '415V 3-Phase'),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: TextField(
+                                            decoration: const InputDecoration(
+                                              labelText: 'Pump / Motor HP',
+                                              hintText: 'e.g. 50 HP',
+                                            ),
+                                            onChanged: (v) =>
+                                                pumpRatingHp = v,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: TextField(
+                                            decoration: const InputDecoration(
+                                              labelText:
+                                                  'Panel Dimensions (W x H x D)',
+                                              hintText:
+                                                  'e.g. 1800 x 800 x 600 mm',
+                                            ),
+                                            onChanged: (v) =>
+                                                panelDimensions = v,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child:
+                                              DropdownButtonFormField<String>(
+                                            initialValue: siteEnvironment,
+                                            decoration: const InputDecoration(
+                                              labelText: 'Site Environment',
+                                            ),
+                                            items: const [
+                                              'Standard Outdoor / Pump House',
+                                              'Indoor Control Room',
+                                              'High Dust / Desert Conditions',
+                                              'Coastal / Corrosive Atmosphere',
+                                              'Underground / Submersible Pit',
+                                            ]
+                                                .map((e) => DropdownMenuItem(
+                                                    value: e, child: Text(e)))
+                                                .toList(),
+                                            onChanged: (v) => setDialogState(
+                                                () => siteEnvironment = v ??
+                                                    'Standard Outdoor'),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    TextField(
+                                      controller: checklistNotesController,
+                                      decoration: const InputDecoration(
+                                        labelText:
+                                            'Required Equipment & Checklist Notes',
+                                        hintText:
+                                            'e.g. Multimeter, clamp meter, safety harness, earthing check',
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.green
+                                            .withValues(alpha: 0.12),
+                                        borderRadius:
+                                            BorderRadius.circular(6),
+                                        border: Border.all(
+                                            color: Colors.green
+                                                .withValues(alpha: 0.3)),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.task_alt,
+                                              size: 16,
+                                              color: Colors.greenAccent),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              'ℹ️ Task Integration: Upon saving, individual Tasks will be created automatically for all $teamSize team members in Tasks / My Work.',
+                                              style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: Colors.white70),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
+
+                            // ─── PROGRESSIVE DISCLOSURE: FOLLOW-UP ────────
+                            if (activityType == 'FOLLOW_UP' ||
+                                activityType == 'DEMO' ||
+                                activityType == 'EMAIL' ||
+                                activityType == 'WHATSAPP' ||
+                                activityType == 'OTHER') ...[
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.darkCard,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.white12),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        ChoiceChip(
+                                          label: const Text('Complete Now'),
+                                          selected: !scheduleFollowUp,
+                                          onSelected: (v) => setDialogState(
+                                              () => scheduleFollowUp = false),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        ChoiceChip(
+                                          label: const Text(
+                                              'Schedule for Later'),
+                                          selected: scheduleFollowUp,
+                                          onSelected: (v) => setDialogState(
+                                              () => scheduleFollowUp = true),
+                                        ),
+                                        const Spacer(),
+                                        DropdownButton<String>(
+                                          value: followUpPriority,
+                                          items: const [
+                                            DropdownMenuItem(
+                                                value: 'LOW',
+                                                child: Text('Priority: Low')),
+                                            DropdownMenuItem(
+                                                value: 'MEDIUM',
+                                                child:
+                                                    Text('Priority: Medium')),
+                                            DropdownMenuItem(
+                                                value: 'HIGH',
+                                                child: Text('Priority: High')),
+                                            DropdownMenuItem(
+                                                value: 'URGENT',
+                                                child:
+                                                    Text('Priority: Urgent')),
+                                          ],
+                                          onChanged: (v) => setDialogState(
+                                              () => followUpPriority =
+                                                  v ?? 'MEDIUM'),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
+
+                            // ─── CUSTOMER MEDIA & ATTACHMENTS ──────────────
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppTheme.darkCard,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.white12),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.attach_file,
+                                          size: 18, color: AppTheme.primary),
+                                      const SizedBox(width: 6),
+                                      const Text('Customer Media & Attachments',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13)),
+                                      const Spacer(),
+                                      PopupMenuButton<String>(
+                                        tooltip: 'Attach Media or Document',
+                                        enabled: !isSubmitting &&
+                                            !isUploadingAttachment,
+                                        icon: const Icon(
+                                            Icons.add_circle_outline,
+                                            size: 20,
+                                            color: AppTheme.primary),
+                                        onSelected: pickAndUploadAttachment,
+                                        itemBuilder: (context) => const [
+                                          PopupMenuItem(
+                                            value: 'PHOTO',
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.photo, size: 18),
+                                                SizedBox(width: 8),
+                                                Text('Photo / Image'),
+                                              ],
+                                            ),
+                                          ),
+                                          PopupMenuItem(
+                                            value: 'AUDIO',
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.mic, size: 18),
+                                                SizedBox(width: 8),
+                                                Text(
+                                                    'Voice Note / Audio File'),
+                                              ],
+                                            ),
+                                          ),
+                                          PopupMenuItem(
+                                            value: 'VIDEO',
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.videocam, size: 18),
+                                                SizedBox(width: 8),
+                                                Text('Video File (up to 50MB)'),
+                                              ],
+                                            ),
+                                          ),
+                                          PopupMenuItem(
+                                            value: 'ANY',
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.insert_drive_file,
+                                                    size: 18),
+                                                SizedBox(width: 8),
+                                                Text('Document / PDF / Quote'),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  const Text(
+                                    '💡 Live microphone recording: Select or attach audio file/voice note. Video upload supported up to 50MB.',
+                                    style: TextStyle(
+                                        fontSize: 11, color: Colors.white54),
+                                  ),
+                                  if (isUploadingAttachment) ...[
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        const SizedBox(
+                                          width: 14,
+                                          height: 14,
+                                          child: CircularProgressIndicator(
+                                              strokeWidth: 2),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          uploadStatusMessage ?? 'Uploading...',
+                                          style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.amberAccent),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                  if (uploadedAttachments.isNotEmpty) ...[
+                                    const SizedBox(height: 8),
+                                    Wrap(
+                                      spacing: 6,
+                                      runSpacing: 6,
+                                      children: uploadedAttachments.map((att) {
+                                        final mediaClass = att['mediaClass']
+                                                ?.toString() ??
+                                            'DOCUMENT';
+                                        final fileName = att['fileName']
+                                                ?.toString() ??
+                                            'File';
+                                        final attId =
+                                            att['id']?.toString() ?? '';
+                                        IconData icon = Icons.insert_drive_file;
+                                        if (mediaClass == 'AUDIO') {
+                                          icon = Icons.mic;
+                                        } else if (mediaClass == 'IMAGE') {
+                                          icon = Icons.photo;
+                                        } else if (mediaClass == 'VIDEO') {
+                                          icon = Icons.videocam;
+                                        }
+
+                                        return ActionChip(
+                                          avatar: Icon(icon,
+                                              size: 14,
+                                              color: AppTheme.primary),
+                                          label: Text(fileName,
+                                              style: const TextStyle(
+                                                  fontSize: 11)),
+                                          onPressed: () {
+                                            if (attId.isNotEmpty) {
+                                              openWebUrl(
+                                                  '${AppConstants.baseUrl}/crm/attachments/$attId/stream');
+                                            }
+                                          },
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 16),
+
+                    // Dialog Actions Footer
+                    Row(
+                      children: [
+                        TextButton(
+                          onPressed: isSubmitting
+                              ? null
+                              : () => Navigator.pop(dialogContext),
+                          child: const Text('Cancel'),
+                        ),
+                        const Spacer(),
+                        ElevatedButton.icon(
+                          onPressed: isSubmitting ? null : submitInteraction,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primary,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 18, vertical: 12),
+                          ),
+                          icon: isSubmitting
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Icon(Icons.check_circle_outline),
+                          label: Text(
+                            isSubmitting
+                                ? 'Saving...'
+                                : 'Save ${activityType.replaceAll('_', ' ')} Interaction',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }

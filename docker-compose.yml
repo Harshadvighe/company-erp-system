@@ -19,7 +19,6 @@ services:
       - JWT_SECRET=saark_erp_production_jwt_secret_key_2026_x98123
     volumes:
       - ./storage:/app/storage
-
   # Future PostgreSQL container option
   # postgres:
   #   image: postgres:16-alpine
@@ -34,5 +33,5 @@ services:
   #   volumes:
   #     - postgres_data:/var/lib/postgresql/data
 
-# volumes:
-#   postgres_data:
+  # volumes:
+  #   postgres_data:

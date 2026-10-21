@@ -8,7 +8,6 @@ import 'package:saark_erp_mobile/core/utils/web_utils.dart';
 import 'package:saark_erp_mobile/core/network/dio_client.dart';
 import 'package:saark_erp_mobile/features/customers/data/customers_repository.dart';
 import 'package:saark_erp_mobile/features/crm/data/crm_repository.dart';
-import 'package:saark_erp_mobile/features/staff/data/staff_repository.dart';
 import 'package:saark_erp_mobile/core/widgets/bulk_import_modal.dart';
 import 'package:saark_erp_mobile/core/auth/auth_provider.dart';
 
@@ -1152,12 +1151,6 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
                               fontWeight: FontWeight.bold,
                               color: Colors.blueAccent))),
                   DataColumn(
-                      label: Text('Sales Owner',
-                          style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.primary))),
-                  DataColumn(
                       label: Text('Valuation / Rating',
                           style: TextStyle(
                               fontSize: 12, fontWeight: FontWeight.bold))),
@@ -1178,8 +1171,6 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
                   final index = entry.key;
                   final c = entry.value;
                   final rowNum = (state.page - 1) * state.pageSize + index + 1;
-                  final salesOwner =
-                      c.salesOwnerName ?? c.ownerName ?? 'Unassigned';
                   final addedBy = c.addedByName ?? 'System / Admin';
                   final gstDisplay = (c.gstin != null && c.gstin!.isNotEmpty)
                       ? c.gstin!
@@ -1361,40 +1352,6 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
                           ],
                         ),
                       )),
-                      DataCell(
-                        InkWell(
-                          onTap: () => _showAssignHostModal(c),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primary.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                  color:
-                                      AppTheme.primary.withValues(alpha: 0.3)),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.person_pin,
-                                    size: 13, color: AppTheme.primary),
-                                const SizedBox(width: 4),
-                                Text(
-                                  salesOwner,
-                                  style: const TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.primary),
-                                ),
-                                const SizedBox(width: 2),
-                                const Icon(Icons.arrow_drop_down,
-                                    size: 14, color: AppTheme.primary),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
                       DataCell(Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1449,13 +1406,6 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
                             tooltip: 'Add Follow-up',
                             visualDensity: VisualDensity.compact,
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.person_add_alt_1_outlined,
-                                size: 16, color: AppTheme.primary),
-                            onPressed: () => _showAssignHostModal(c),
-                            tooltip: 'Assign Sales Owner',
-                            visualDensity: VisualDensity.compact,
-                          ),
                           if (_canEdit)
                             IconButton(
                               icon: const Icon(Icons.edit_outlined, size: 16),
@@ -1501,7 +1451,6 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (_, i) {
         final c = state.customers[i];
-        final salesOwner = c.salesOwnerName ?? c.ownerName ?? 'Unassigned';
         final addedBy = c.addedByName ?? 'System / Admin';
         return Card(
           child: Padding(
@@ -1549,19 +1498,6 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
                           Text('Contact: ${c.contactPerson} · ${c.phone}',
                               style: const TextStyle(fontSize: 12)),
                           const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              const Icon(Icons.person_pin,
-                                  size: 12, color: AppTheme.primary),
-                              const SizedBox(width: 4),
-                              Text('Sales Owner: $salesOwner',
-                                  style: const TextStyle(
-                                      fontSize: 11,
-                                      color: AppTheme.primary,
-                                      fontWeight: FontWeight.w600)),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
                           Row(
                             children: [
                               const Icon(Icons.person_outline,
@@ -1902,188 +1838,6 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
     );
   }
 
-  void _showAssignHostModal(Customer customer) {
-    StaffMember? selectedStaff;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setModalState) => AlertDialog(
-          backgroundColor: AppTheme.darkSurface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: const BorderSide(color: AppTheme.darkBorder),
-          ),
-          title: Row(
-            children: [
-              const Icon(Icons.person_add_alt_1_outlined,
-                  color: AppTheme.primary, size: 22),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Assign Admin / Employee Host',
-                        style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white)),
-                    Text(customer.companyName,
-                        style:
-                            const TextStyle(fontSize: 12, color: Colors.grey)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                  'Select the Admin or Employee to assign as Host / Account Owner for this company:',
-                  style: TextStyle(fontSize: 12, color: Colors.white70)),
-              const SizedBox(height: 12),
-              FutureBuilder<List<StaffMember>>(
-                future: ref.read(staffRepositoryProvider).getStaffList(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppTheme.darkCard,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppTheme.darkBorder),
-                      ),
-                      child: const Row(
-                        children: [
-                          SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2)),
-                          SizedBox(width: 8),
-                          Text('Loading staff list...',
-                              style:
-                                  TextStyle(color: Colors.grey, fontSize: 12)),
-                        ],
-                      ),
-                    );
-                  }
-                  final staffList = snapshot.data ?? [];
-                  return DropdownButtonFormField<StaffMember>(
-                    initialValue: selectedStaff,
-                    decoration: InputDecoration(
-                      hintText: 'Select Admin or Employee',
-                      prefixIcon: const Icon(Icons.person_pin,
-                          size: 18, color: AppTheme.primary),
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide:
-                              const BorderSide(color: AppTheme.darkBorder)),
-                      fillColor: AppTheme.darkCard,
-                      filled: true,
-                    ),
-                    dropdownColor: AppTheme.darkCard,
-                    items: staffList.map((staff) {
-                      final roleLabel = staff.designationName ??
-                          staff.departmentName ??
-                          'Employee';
-                      final isAdmin =
-                          roleLabel.toLowerCase().contains('admin') ||
-                              roleLabel.toLowerCase().contains('director') ||
-                              roleLabel.toLowerCase().contains('manager');
-                      return DropdownMenuItem<StaffMember>(
-                        value: staff,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text('${staff.fullName} (${staff.employeeId})',
-                                style: const TextStyle(
-                                    fontSize: 13, fontWeight: FontWeight.w600)),
-                            Container(
-                              margin: const EdgeInsets.only(left: 8),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: isAdmin
-                                    ? AppTheme.primary.withValues(alpha: 0.2)
-                                    : Colors.blue.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                roleLabel,
-                                style: TextStyle(
-                                    fontSize: 10,
-                                    color: isAdmin
-                                        ? AppTheme.primary
-                                        : Colors.blue,
-                                    fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (val) =>
-                        setModalState(() => selectedStaff = val),
-                  );
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton.icon(
-              onPressed: () async {
-                if (selectedStaff == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content:
-                          Text('Please select an Admin or Employee host')));
-                  return;
-                }
-                final messenger = ScaffoldMessenger.of(context);
-                Navigator.pop(ctx);
-                try {
-                  final repo = ref.read(customersRepositoryProvider);
-                  await repo.updateCustomer(customer.id, {
-                    'ownerName': selectedStaff!.fullName,
-                    'assignedStaffId': selectedStaff!.id,
-                    'assignedStaffName': selectedStaff!.fullName,
-                  });
-                  _loadCompanies(page: ref.read(customerListProvider).page);
-                  if (mounted) {
-                    messenger.showSnackBar(
-                      SnackBar(
-                        content: Text(
-                            'Assigned host for ${customer.companyName} updated to "${selectedStaff!.fullName}" ✓'),
-                        backgroundColor: AppTheme.success,
-                      ),
-                    );
-                  }
-                } catch (e) {
-                  _loadCompanies(page: ref.read(customerListProvider).page);
-                  if (mounted) {
-                    messenger.showSnackBar(
-                      SnackBar(
-                        content: Text(
-                            'Assigned host updated to "${selectedStaff!.fullName}" ✓'),
-                        backgroundColor: AppTheme.success,
-                      ),
-                    );
-                  }
-                }
-              },
-              icon: const Icon(Icons.check, size: 16),
-              label: const Text('ASSIGN HOST'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _TypeBadge extends StatelessWidget {

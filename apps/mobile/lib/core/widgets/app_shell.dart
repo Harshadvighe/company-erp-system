@@ -817,7 +817,13 @@ class _TopHeader extends StatelessWidget {
     if (route.startsWith('/crm/leads')) return 'CRM & Sales — Leads';
     if (route.startsWith('/crm/enquiries')) return 'CRM & Sales — Enquiries';
     if (route.startsWith('/crm/pipeline')) return 'CRM & Sales — Pipeline';
-    if (route.startsWith('/crm/follow-ups')) return 'CRM & Sales — Follow-ups & Meetings';
+    if (route.startsWith('/crm/interactions') ||
+        route.startsWith('/crm/follow-ups') ||
+        route.startsWith('/crm/meetings') ||
+        route.startsWith('/crm/calls') ||
+        route.startsWith('/crm/site-visits')) {
+      return 'CRM & Sales — Unified Interactions';
+    }
     if (route.startsWith('/crm/analytics')) return 'CRM & Sales — Analytics';
     if (route.startsWith('/crm/sales-orders') || route.startsWith('/sales/orders')) return 'Sales Orders';
     if (route.startsWith('/crm/invoices') || route.startsWith('/sales/invoices')) return 'Tax Invoices';

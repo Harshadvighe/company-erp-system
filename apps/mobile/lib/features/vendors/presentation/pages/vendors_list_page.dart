@@ -777,11 +777,13 @@ class _VendorFormSheetState extends ConsumerState<_VendorFormSheet> {
       final prefix = cleanPin.substring(0, 3);
       final mapped = pinPrefixes[prefix];
       if (mapped != null) {
-        if (_districtCtrl.text.trim().isEmpty)
+        if (_districtCtrl.text.trim().isEmpty) {
           _districtCtrl.text = mapped['district']!;
+        }
         if (_stateCtrl.text.trim().isEmpty) _stateCtrl.text = mapped['state']!;
-        if (_cityCtrl.text.trim().isEmpty && mapped['city'] != null)
+        if (_cityCtrl.text.trim().isEmpty && mapped['city'] != null) {
           _cityCtrl.text = mapped['city']!;
+        }
       }
     }
   }
@@ -1158,8 +1160,9 @@ class _VendorFormSheetState extends ConsumerState<_VendorFormSheet> {
                       if (val != null) {
                         final found =
                             _staffMembers.where((s) => s.id == val).firstOrNull;
-                        if (found != null)
+                        if (found != null) {
                           setState(() => _selectedStaffOwner = found);
+                        }
                       }
                     },
                   ),

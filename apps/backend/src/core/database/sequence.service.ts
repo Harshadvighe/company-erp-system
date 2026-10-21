@@ -178,9 +178,9 @@ export class SequenceService {
     );
   }
 
-  async nextTaskNumber(): Promise<string> {
-    return this.nextSafe('task', () =>
-      this.prisma.task.count().then((n) => `TSK-${new Date().getFullYear()}-${String(n + 1).padStart(3, '0')}`),
+  async nextTaskNumber(offset = 0): Promise<string> {
+    return this.nextSafe('task', (innerOffset) =>
+      this.prisma.task.count().then((n) => `TSK-${new Date().getFullYear()}-${String(n + 1 + offset + innerOffset).padStart(3, '0')}`),
       (num) => this.prisma.task.findUnique({ where: { taskNumber: num } }),
     );
   }

@@ -250,10 +250,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const CrmPipelinePage(),
           ),
           GoRoute(
+            path: '/crm/interactions',
+            name: 'crm-interactions',
+            builder: (context, state) => CrmFollowUpsPage(
+              initialCustomerId: state.uri.queryParameters['customerId'],
+              initialActivityFilter: state.uri.queryParameters['type'],
+              initialAction: state.uri.queryParameters['action'],
+            ),
+          ),
+          GoRoute(
             path: '/crm/follow-ups',
             name: 'crm-follow-ups',
             builder: (context, state) => CrmFollowUpsPage(
               initialCustomerId: state.uri.queryParameters['customerId'],
+              initialActivityFilter: state.uri.queryParameters['type'] ?? 'FOLLOW_UP',
+              initialAction: state.uri.queryParameters['action'],
             ),
           ),
           GoRoute(
@@ -264,17 +275,29 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/crm/meetings',
             name: 'crm-meetings',
-            builder: (context, state) => const MeetingsListPage(),
+            builder: (context, state) => CrmFollowUpsPage(
+              initialCustomerId: state.uri.queryParameters['customerId'],
+              initialActivityFilter: 'MEETING',
+              initialAction: state.uri.queryParameters['action'],
+            ),
           ),
           GoRoute(
             path: '/crm/calls',
             name: 'crm-calls',
-            builder: (context, state) => const CallsListPage(),
+            builder: (context, state) => CrmFollowUpsPage(
+              initialCustomerId: state.uri.queryParameters['customerId'],
+              initialActivityFilter: 'CALL',
+              initialAction: state.uri.queryParameters['action'],
+            ),
           ),
           GoRoute(
             path: '/crm/site-visits',
             name: 'crm-site-visits',
-            builder: (context, state) => const SiteVisitsListPage(),
+            builder: (context, state) => CrmFollowUpsPage(
+              initialCustomerId: state.uri.queryParameters['customerId'],
+              initialActivityFilter: 'SITE_VISIT',
+              initialAction: state.uri.queryParameters['action'],
+            ),
           ),
 
           // ─── Commercial Quotations & Sales Orders ────────────────

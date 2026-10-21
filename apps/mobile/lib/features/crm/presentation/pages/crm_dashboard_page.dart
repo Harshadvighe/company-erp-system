@@ -854,8 +854,8 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
                 topLeft: Radius.circular(12),
                 topRight: Radius.circular(12),
               ),
-              border: const Border(
-                  bottom: const BorderSide(color: AppTheme.darkBorder)),
+              border:
+                  const Border(bottom: BorderSide(color: AppTheme.darkBorder)),
             ),
             child: Row(
               children: [

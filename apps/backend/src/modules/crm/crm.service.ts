@@ -3259,10 +3259,53 @@ export class CrmService {
       if (anyStaff) staffId = anyStaff.id;
     }
 
-    const startTime = new Date(dto.startTime || Date.now());
-    const endTime = dto.endTime ? new Date(dto.endTime) : new Date(startTime.getTime() + 60 * 60 * 1000);
+    const rawDate = dto.meetingDate || dto.scheduledDate || dto.date;
+    let startTime: Date;
+    if (dto.startTime && !isNaN(new Date(dto.startTime).getTime()) && String(dto.startTime).includes('T')) {
+      startTime = new Date(dto.startTime);
+    } else if (rawDate && !isNaN(new Date(rawDate).getTime())) {
+      startTime = new Date(rawDate);
+      if (dto.startTime && typeof dto.startTime === 'string' && dto.startTime.includes(':')) {
+        const parts = dto.startTime.trim().split(/[:\s]+/);
+        let hours = parseInt(parts[0], 10);
+        const minutes = parseInt(parts[1], 10) || 0;
+        const isPM = /pm/i.test(dto.startTime);
+        const isAM = /am/i.test(dto.startTime);
+        if (isPM && hours < 12) hours += 12;
+        if (isAM && hours === 12) hours = 0;
+        startTime.setHours(hours, minutes, 0, 0);
+      }
+    } else {
+      startTime = new Date();
+    }
+
+    let endTime: Date;
+    if (dto.endTime && !isNaN(new Date(dto.endTime).getTime()) && String(dto.endTime).includes('T')) {
+      endTime = new Date(dto.endTime);
+    } else if (dto.endTime && typeof dto.endTime === 'string' && dto.endTime.includes(':')) {
+      endTime = new Date(startTime);
+      const parts = dto.endTime.trim().split(/[:\s]+/);
+      let hours = parseInt(parts[0], 10);
+      const minutes = parseInt(parts[1], 10) || 0;
+      const isPM = /pm/i.test(dto.endTime);
+      const isAM = /am/i.test(dto.endTime);
+      if (isPM && hours < 12) hours += 12;
+      if (isAM && hours === 12) hours = 0;
+      endTime.setHours(hours, minutes, 0, 0);
+    } else {
+      endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
+    }
 
     return this.prisma.$transaction(async (tx) => {
+      const customer = dto.customerId
+        ? await tx.customer.findUnique({
+            where: { id: dto.customerId },
+            select: { id: true, companyName: true },
+          })
+        : null;
+      const customerName = customer?.companyName || dto.customerName || 'Client';
+      const meetingSubject = dto.agenda || dto.subject || dto.purpose || `Meeting with ${customerName}`;
+
       const activity = await tx.crmActivity.create({
         data: {
           activityType: 'MEETING',
@@ -3270,11 +3313,13 @@ export class CrmService {
           contactId: dto.contactId || null,
           opportunityId: dto.opportunityId || null,
           staffId: staffId!,
-          subject: dto.agenda || `Meeting with ${dto.customerName || 'Client'}`,
-          description: dto.notes || dto.agenda,
+          subject: meetingSubject,
+          description: dto.notes || dto.agenda || dto.purpose || dto.description,
           outcome: 'SCHEDULED',
         },
       });
+
+      const hostStaffId = dto.hostStaffId || staffId;
 
       const meeting = await tx.crmMeeting.create({
         data: {
@@ -3284,9 +3329,9 @@ export class CrmService {
           startTime,
           endTime,
           agenda: dto.agenda,
-          hostStaffId: dto.hostStaffId || staffId,
+          hostStaffId,
           requestedByStaffId: staffId,
-          meetingStatus: dto.hostStaffId && dto.hostStaffId !== staffId ? 'REQUESTED' : 'SCHEDULED',
+          meetingStatus: hostStaffId && hostStaffId !== staffId ? 'REQUESTED' : 'SCHEDULED',
         },
         include: {
           activity: { include: { customer: true, contact: true } },
@@ -3294,8 +3339,67 @@ export class CrmService {
         },
       });
 
+      // Link attachments if provided
+      if (Array.isArray(dto.attachmentIds) && dto.attachmentIds.length > 0) {
+        await tx.crmAttachment.updateMany({
+          where: { id: { in: dto.attachmentIds } },
+          data: { activityId: activity.id, customerId: dto.customerId || null },
+        });
+      }
+
+      // Automatically create a task for the host employee so it appears in Tasks / My Work
+      if (hostStaffId && dto.createTask !== false) {
+        const existingTask = await tx.task.findFirst({
+          where: {
+            assigneeStaffId: hostStaffId,
+            description: { contains: `[Meeting:${meeting.id}]` },
+          },
+        });
+
+        if (!existingTask) {
+          const taskNumber = await this.sequenceService.nextTaskNumber();
+          const taskDescription = [
+            `Activity: Meeting`,
+            `Customer: ${customerName}`,
+            `Location: ${dto.location || 'Client Office'}`,
+            `Date & Time: ${startTime.toISOString()} - ${endTime.toISOString()}`,
+            `Agenda: ${dto.agenda || dto.subject || 'Client discussion and proposal review'}`,
+            `Meeting Status: ${meeting.meetingStatus}`,
+            `Navigation: /crm/interactions?customerId=${dto.customerId || ''}`,
+            `[Meeting:${meeting.id}]`,
+          ]
+            .filter(Boolean)
+            .join('\n');
+
+          const task = await tx.task.create({
+            data: {
+              taskNumber,
+              title: `[Meeting] ${dto.agenda || 'Meeting'} - ${customerName}`,
+              description: taskDescription,
+              assigneeStaffId: hostStaffId,
+              createdByStaffId: staffId!,
+              assignedByStaffId: staffId!,
+              priority: dto.priority || 'HIGH',
+              status: 'ASSIGNED',
+              dueDate: startTime,
+              estimatedHours: 1,
+              progress: 0,
+            },
+          });
+
+          await tx.taskActivity.create({
+            data: {
+              taskId: task.id,
+              staffId: staffId!,
+              action: 'TASK_CREATED',
+              newValue: 'ASSIGNED',
+            },
+          });
+        }
+      }
+
       return meeting;
-    });
+    }, { timeout: 20000, maxWait: 10000 });
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -3386,7 +3490,7 @@ export class CrmService {
           callOutcome: dto.callOutcome || 'CONNECTED',
           recordingUrl: dto.recordingUrl || null,
           dataSent: Boolean(dto.dataSent),
-          dataTypes: dto.dataTypes ? JSON.stringify(dto.dataTypes) : null,
+          dataTypes: dto.dataTypes ? (typeof dto.dataTypes === 'string' ? dto.dataTypes : JSON.stringify(dto.dataTypes)) : null,
         },
         include: {
           activity: { include: { customer: true, contact: true } },
@@ -3402,6 +3506,34 @@ export class CrmService {
             fileUrl: dto.recordingUrl,
             durationSec: Number(dto.durationSec || 0),
             uploadedBy: user?.fullName || 'User',
+          },
+        });
+      }
+
+      // Link attachments if provided
+      if (Array.isArray(dto.attachmentIds) && dto.attachmentIds.length > 0) {
+        await tx.crmAttachment.updateMany({
+          where: { id: { in: dto.attachmentIds } },
+          data: { activityId: activity.id, customerId: dto.customerId || null },
+        });
+      }
+
+      // Atomically schedule next follow-up if requested
+      if (dto.scheduleNext && dto.customerId) {
+        const nextDate = dto.nextScheduledDate ? new Date(dto.nextScheduledDate) : new Date(Date.now() + 24 * 60 * 60 * 1000);
+        const followUpNumber = await this.nextCustomerFollowUpNumber(tx, dto.customerId);
+        await tx.crmFollowUp.create({
+          data: {
+            customerId: dto.customerId,
+            followUpNumber,
+            title: dto.nextSubject || `Follow-up: ${dto.callOutcome || 'CALL'} callback`,
+            notes: dto.nextNotes || dto.nextAction || 'Callback scheduled from call record',
+            priority: dto.nextPriority || 'MEDIUM',
+            status: 'PENDING',
+            activityType: dto.nextActivityType || 'CALL',
+            scheduledDate: nextDate,
+            interactionDate: nextDate,
+            assignedStaffId: dto.nextAssignedStaffId || staffId,
           },
         });
       }
@@ -3471,7 +3603,49 @@ export class CrmService {
       if (anyStaff) staffId = anyStaff.id;
     }
 
+    // Team validation
+    const teamMemberIds: string[] = Array.isArray(dto.teamMemberIds)
+      ? dto.teamMemberIds
+      : Array.isArray(dto.assignedStaffIds)
+      ? dto.assignedStaffIds
+      : [];
+    const teamSize = dto.teamSize != null ? Number(dto.teamSize) : (teamMemberIds.length > 0 ? teamMemberIds.length : 1);
+
+    if (teamMemberIds.length > 0 && teamMemberIds.length !== teamSize) {
+      throw new BadRequestException(
+        `Selected team member count (${teamMemberIds.length}) does not match requested team size (${teamSize}).`,
+      );
+    }
+
+    // Check for duplicate team members
+    const uniqueIds = new Set(teamMemberIds);
+    if (uniqueIds.size !== teamMemberIds.length) {
+      throw new BadRequestException('Duplicate team member selection is not allowed.');
+    }
+
+    // Validate active staff members if provided
+    if (teamMemberIds.length > 0) {
+      const activeStaff = await this.prisma.staff.findMany({
+        where: { id: { in: teamMemberIds }, status: 'ACTIVE' },
+        select: { id: true, fullName: true, employeeId: true },
+      });
+      if (activeStaff.length !== teamMemberIds.length) {
+        throw new BadRequestException('All selected team members must be active employees.');
+      }
+    }
+
     return this.prisma.$transaction(async (tx) => {
+      const customer = dto.customerId
+        ? await tx.customer.findUnique({
+            where: { id: dto.customerId },
+            select: { id: true, companyName: true, phone: true, city: true },
+          })
+        : null;
+
+      const customerName = customer?.companyName || dto.customerName || 'Customer';
+      const visitDateStr = dto.scheduledDate || dto.visitDate || dto.startTime || new Date().toISOString();
+      const visitDate = new Date(visitDateStr);
+
       const activity = await tx.crmActivity.create({
         data: {
           activityType: 'SITE_VISIT',
@@ -3479,9 +3653,9 @@ export class CrmService {
           contactId: dto.contactId || null,
           opportunityId: dto.opportunityId || null,
           staffId: staffId!,
-          subject: dto.subject || `Site Inspection at ${dto.location || 'Customer Facility'}`,
-          description: dto.inspectionNotes || dto.siteCondition,
-          outcome: 'COMPLETED',
+          subject: dto.subject || `Site Inspection at ${dto.location || customerName}`,
+          description: dto.inspectionNotes || dto.notes || dto.agenda || dto.purpose || dto.siteCondition,
+          outcome: dto.outcome || 'SCHEDULED',
         },
       });
 
@@ -3493,15 +3667,95 @@ export class CrmService {
           voltageReading: dto.voltageReading || null,
           pumpRatingHp: dto.pumpRatingHp ? Number(dto.pumpRatingHp) : null,
           panelDimensions: dto.panelDimensions || null,
-          inspectionNotes: dto.inspectionNotes || null,
-          photoUrls: dto.photoUrls ? JSON.stringify(dto.photoUrls) : null,
+          inspectionNotes: dto.inspectionNotes || dto.notes || null,
+          photoUrls: dto.photoUrls ? (typeof dto.photoUrls === 'string' ? dto.photoUrls : JSON.stringify(dto.photoUrls)) : null,
         },
         include: {
           activity: { include: { customer: true, contact: true } },
         },
       });
 
-      return siteVisit;
-    });
+      // Link attachments if provided
+      if (Array.isArray(dto.attachmentIds) && dto.attachmentIds.length > 0) {
+        await tx.crmAttachment.updateMany({
+          where: { id: { in: dto.attachmentIds } },
+          data: { activityId: activity.id, customerId: dto.customerId || null },
+        });
+      }
+
+      // Assign tasks to team members (or staffId if no team members specified)
+      const allMembersToAssign = teamMemberIds.length > 0 ? teamMemberIds : (staffId ? [staffId] : []);
+      const memberStaffList = await tx.staff.findMany({
+        where: { id: { in: allMembersToAssign } },
+        select: { id: true, fullName: true, employeeId: true },
+      });
+      const teamSummary = memberStaffList.map((s) => `${s.fullName} (${s.employeeId})`).join(', ');
+
+      const tasksCreated: any[] = [];
+      for (const memberId of allMembersToAssign) {
+        // Idempotency check: see if task for this site visit and member already exists
+        const existingTask = await tx.task.findFirst({
+          where: {
+            assigneeStaffId: memberId,
+            description: { contains: `[SiteVisit:${siteVisit.id}]` },
+          },
+        });
+
+        if (!existingTask) {
+          const taskNumber = await this.sequenceService.nextTaskNumber(tasksCreated.length);
+          const taskDescription = [
+            `Activity: Site Visit`,
+            `Customer: ${customerName}`,
+            `Site Location: ${dto.location || 'Customer Facility'}`,
+            `Date & Time: ${visitDate.toISOString()}`,
+            `Assigned Team (${memberStaffList.length}): ${teamSummary}`,
+            `Purpose / Agenda: ${dto.purpose || dto.subject || 'Engineering inspection and feasibility assessment'}`,
+            dto.siteCondition ? `Site Environment: ${dto.siteCondition}` : null,
+            dto.voltageReading ? `Voltage Reading: ${dto.voltageReading}` : null,
+            dto.pumpRatingHp ? `Pump Rating: ${dto.pumpRatingHp} HP` : null,
+            dto.panelDimensions ? `Panel Dimensions: ${dto.panelDimensions}` : null,
+            dto.equipment ? `Required Equipment / Checklist: ${dto.equipment}` : null,
+            `Visit Status: ${dto.outcome || 'SCHEDULED'}`,
+            `Navigation: /crm/interactions?customerId=${dto.customerId || ''}`,
+            `[SiteVisit:${siteVisit.id}]`,
+          ]
+            .filter(Boolean)
+            .join('\n');
+
+          const task = await tx.task.create({
+            data: {
+              taskNumber,
+              title: `[Site Visit] ${dto.subject || 'Site Inspection'} - ${customerName}`,
+              description: taskDescription,
+              assigneeStaffId: memberId,
+              createdByStaffId: staffId!,
+              assignedByStaffId: staffId!,
+              priority: dto.priority || 'HIGH',
+              status: 'ASSIGNED',
+              dueDate: visitDate,
+              estimatedHours: dto.estimatedHours ? Number(dto.estimatedHours) : 4,
+              progress: 0,
+            },
+          });
+
+          await tx.taskActivity.create({
+            data: {
+              taskId: task.id,
+              staffId: staffId!,
+              action: 'TASK_CREATED',
+              newValue: 'ASSIGNED',
+            },
+          });
+
+          tasksCreated.push(task);
+        }
+      }
+
+      return {
+        ...siteVisit,
+        assignedTeam: memberStaffList,
+        tasksCreatedCount: tasksCreated.length,
+      };
+    }, { timeout: 20000, maxWait: 10000 });
   }
 }
