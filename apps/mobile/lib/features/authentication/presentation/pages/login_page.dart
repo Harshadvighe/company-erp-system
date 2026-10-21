@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:saark_erp_mobile/core/constants/app_constants.dart';
+import 'package:saark_erp_mobile/core/storage/app_storage.dart';
 import 'package:saark_erp_mobile/core/theme/app_theme.dart';
 import 'package:saark_erp_mobile/features/authentication/data/auth_repository.dart';
 
@@ -87,6 +89,76 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _showServerSettingsDialog() {
+    final urlCtrl = TextEditingController(
+      text: AppConstants.customServerUrl ?? AppConstants.baseUrl,
+    );
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.dns_rounded, color: AppTheme.primary, size: 20),
+            SizedBox(width: 8),
+            Text('Server & Database Connection',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 400),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Connected to cloud database via NestJS backend. You can connect directly to the Render cloud deployment, a custom domain, or local WiFi server.',
+                style: TextStyle(fontSize: 12, color: Colors.white70),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: urlCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Backend API URL',
+                  hintText: 'https://saark-erp-backend.onrender.com',
+                  isDense: true,
+                ),
+                style: const TextStyle(fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await AppStorage.delete(AppConstants.serverUrlKey);
+              setState(() {
+                AppConstants.customServerUrl = null;
+              });
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            child: const Text('Reset Default',
+                style: TextStyle(color: Colors.white60, fontSize: 12)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final newUrl = urlCtrl.text.trim();
+              if (newUrl.isNotEmpty) {
+                await AppStorage.write(AppConstants.serverUrlKey, newUrl);
+                setState(() {
+                  AppConstants.customServerUrl = newUrl;
+                });
+              }
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
+            child: const Text('Save & Apply', style: TextStyle(fontSize: 12)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -498,7 +570,30 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           ),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
+                Center(
+                  child: InkWell(
+                    onTap: _showServerSettingsDialog,
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.cloud_done_rounded, size: 14, color: Colors.tealAccent),
+                          const SizedBox(width: 6),
+                          Text(
+                            'API: ${Uri.tryParse(AppConstants.baseUrl)?.host ?? AppConstants.baseUrl}',
+                            style: const TextStyle(color: Colors.white60, fontSize: 11),
+                          ),
+                          const SizedBox(width: 6),
+                          const Icon(Icons.tune_rounded, size: 12, color: Colors.white38),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
                 const Center(
                   child: Text(
                     '© 2026 Saark Exploration Private Limited',
