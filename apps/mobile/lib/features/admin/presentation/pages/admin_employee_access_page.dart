@@ -289,9 +289,12 @@ class _AdminEmployeeAccessPageState extends ConsumerState<AdminEmployeeAccessPag
                           try {
                             final repo = ref.read(adminRepositoryProvider);
                             final empId = emp['id'] as String;
-                            await repo.resetEmployeePassword(empId, newPassword: np);
-                            if (mounted) {
+                            await repo.resetEmployeePassword(empId, newPassword: np)
+                                .timeout(const Duration(seconds: 20));
+                            if (ctx.mounted) {
                               Navigator.pop(ctx);
+                            }
+                            if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text('🔑 Password reset for ${emp['fullName']}'),

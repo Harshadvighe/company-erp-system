@@ -24,7 +24,16 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
   List<RoleItem> _roles = [];
   List<AdminUserItem> _users = [];
   bool _isLoading = true;
+  bool _isRefreshing = false;
   String? _errorMessage;
+
+  // Scroll controllers for requests table (vertical + horizontal)
+  final ScrollController _requestsVerticalScroll = ScrollController();
+  final ScrollController _requestsHorizontalScroll = ScrollController();
+
+  // Scroll controllers for users table (vertical + horizontal)
+  final ScrollController _usersVerticalScroll = ScrollController();
+  final ScrollController _usersHorizontalScroll = ScrollController();
 
   // Filters
   String _selectedDeptId = 'ALL';
@@ -42,6 +51,10 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
   void dispose() {
     _tabController.dispose();
     _searchController.dispose();
+    _requestsVerticalScroll.dispose();
+    _requestsHorizontalScroll.dispose();
+    _usersVerticalScroll.dispose();
+    _usersHorizontalScroll.dispose();
     super.dispose();
   }
 
@@ -53,21 +66,28 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
 
     try {
       final repo = ref.read(adminRepositoryProvider);
-      final depts = await repo.getDepartments();
-      final roles = await repo.getRoles();
-      final reqs = await repo.getEmployeeRequests(
+      final deptsFuture = repo.getDepartments();
+      final rolesFuture = repo.getRoles();
+      final reqsFuture = repo.getEmployeeRequests(
         departmentId: _selectedDeptId,
         status: _selectedStatus,
         search: _searchController.text.trim(),
       );
-      final users = await repo.getUsers();
+      final usersFuture = repo.getUsers();
+
+      final results = await Future.wait([
+        deptsFuture,
+        rolesFuture,
+        reqsFuture,
+        usersFuture,
+      ]).timeout(const Duration(seconds: 15));
 
       if (mounted) {
         setState(() {
-          _departments = depts;
-          _roles = roles;
-          _requests = reqs;
-          _users = users;
+          _departments = results[0] as List<DepartmentItem>;
+          _roles = results[1] as List<RoleItem>;
+          _requests = results[2] as List<Employee>;
+          _users = results[3] as List<AdminUserItem>;
           _isLoading = false;
         });
       }
@@ -82,22 +102,41 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
   }
 
   Future<void> _refreshRequests() async {
+    if (_isRefreshing) return;
+    setState(() => _isRefreshing = true);
+
     try {
       final repo = ref.read(adminRepositoryProvider);
-      final reqs = await repo.getEmployeeRequests(
+      final reqsFuture = repo.getEmployeeRequests(
         departmentId: _selectedDeptId,
         status: _selectedStatus,
         search: _searchController.text.trim(),
       );
-      final users = await repo.getUsers();
+      final usersFuture = repo.getUsers();
+
+      final results = await Future.wait([
+        reqsFuture,
+        usersFuture,
+        if (_departments.isEmpty) repo.getDepartments(),
+        if (_roles.isEmpty) repo.getRoles(),
+      ]).timeout(const Duration(seconds: 15));
+
       if (mounted) {
         setState(() {
-          _requests = reqs;
-          _users = users;
+          _requests = results[0] as List<Employee>;
+          _users = results[1] as List<AdminUserItem>;
+          if (_departments.isEmpty && results.length > 2) {
+            _departments = results[2] as List<DepartmentItem>;
+          }
+          if (_roles.isEmpty && results.length > 3) {
+            _roles = results[3] as List<RoleItem>;
+          }
+          _isRefreshing = false;
         });
       }
     } catch (e) {
       if (mounted) {
+        setState(() => _isRefreshing = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to load requests: $e'), backgroundColor: Colors.red),
         );
@@ -118,7 +157,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
       barrierDismissible: false,
       builder: (ctx) {
         return StatefulBuilder(
-          builder: (context, setDialogState) {
+          builder: (dialogCtx, setDialogState) {
             return AlertDialog(
               backgroundColor: const Color(0xFF1E2024),
               shape: RoundedRectangleBorder(
@@ -232,9 +271,12 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                           setDialogState(() => isSubmitting = true);
                           try {
                             final repo = ref.read(adminRepositoryProvider);
-                            await repo.resetEmployeePassword(employee.id, newPassword: np);
-                            if (mounted) {
+                            await repo.resetEmployeePassword(employee.id, newPassword: np)
+                                .timeout(const Duration(seconds: 20));
+                            if (ctx.mounted) {
                               Navigator.pop(ctx);
+                            }
+                            if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text('🔑 Password reset for ${employee.fullName}'),
@@ -316,7 +358,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
       barrierDismissible: false,
       builder: (ctx) {
         return StatefulBuilder(
-          builder: (context, setDialogState) {
+          builder: (dialogCtx, setDialogState) {
             return AlertDialog(
               backgroundColor: const Color(0xFF1E2024),
               shape: RoundedRectangleBorder(
@@ -619,9 +661,12 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                             setDialogState(() => isSubmitting = true);
                             try {
                               final repo = ref.read(adminRepositoryProvider);
-                              await repo.rejectEmployeeRequest(employee.id);
-                              if (mounted) {
+                              await repo.rejectEmployeeRequest(employee.id)
+                                  .timeout(const Duration(seconds: 20));
+                              if (ctx.mounted) {
                                 Navigator.pop(ctx);
+                              }
+                              if (mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text('Employee request ${employee.employeeCode} rejected.'),
@@ -686,10 +731,12 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                               password: password.isNotEmpty ? password : null,
                               departmentId: selectedDeptId.isNotEmpty ? selectedDeptId : null,
                               roleIds: selectedRoleId != null ? [selectedRoleId!] : null,
-                            );
+                            ).timeout(const Duration(seconds: 20));
 
-                            if (mounted) {
+                            if (ctx.mounted) {
                               Navigator.pop(ctx);
+                            }
+                            if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(
@@ -892,6 +939,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                       )
                     : TabBarView(
                         controller: _tabController,
+                        physics: const NeverScrollableScrollPhysics(),
                         children: [
                           _buildRequestsTabContent(),
                           const AdminEmployeeAccessPage(),
@@ -939,39 +987,56 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
             ],
           ),
           const Spacer(),
-          // Pending Requests Counter Pill
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: pendingCount > 0 ? const Color(0xFFF26522).withValues(alpha: 0.15) : Colors.white10,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: pendingCount > 0 ? const Color(0xFFF26522).withValues(alpha: 0.4) : Colors.white24),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.pending_actions_rounded,
-                  color: pendingCount > 0 ? const Color(0xFFF26522) : Colors.white60,
-                  size: 16,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '$pendingCount Pending Requests',
-                  style: TextStyle(
+          // Interactive Pending Requests Counter Button
+          InkWell(
+            onTap: () {
+              setState(() {
+                _selectedStatus = 'PENDING_APPROVAL';
+                _selectedDeptId = 'ALL';
+              });
+              _tabController.animateTo(0);
+              _refreshRequests();
+            },
+            borderRadius: BorderRadius.circular(4),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: pendingCount > 0 ? const Color(0xFFF26522).withValues(alpha: 0.15) : Colors.white10,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: pendingCount > 0 ? const Color(0xFFF26522).withValues(alpha: 0.4) : Colors.white24),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.pending_actions_rounded,
                     color: pendingCount > 0 ? const Color(0xFFF26522) : Colors.white60,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
+                    size: 16,
                   ),
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  Text(
+                    '$pendingCount Pending Requests',
+                    style: TextStyle(
+                      color: pendingCount > 0 ? const Color(0xFFF26522) : Colors.white60,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(width: 8),
           IconButton(
-            onPressed: _refreshRequests,
+            onPressed: _isRefreshing ? null : _refreshRequests,
             tooltip: 'Refresh Data',
-            icon: const Icon(Icons.refresh_rounded, color: Colors.white70),
+            icon: _isRefreshing
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFF26522)),
+                  )
+                : const Icon(Icons.refresh_rounded, color: Colors.white70),
           ),
         ],
       ),
@@ -982,6 +1047,20 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
   // TAB 1: EMPLOYEE REQUESTS WITH DEPARTMENT FILTERING
   // -------------------------------------------------------------
   Widget _buildRequestsTabContent() {
+    // Deduplicate departments by ID and exclude 'ALL' to prevent duplicate dropdown items
+    final seenDeptIds = <String>{};
+    final uniqueDepts = <DepartmentItem>[];
+    for (final d in _departments) {
+      if (d.id != 'ALL' && seenDeptIds.add(d.id)) {
+        uniqueDepts.add(d);
+      }
+    }
+    final isSelectedDeptValid = _selectedDeptId == 'ALL' || uniqueDepts.any((d) => d.id == _selectedDeptId);
+    final effectiveDeptId = isSelectedDeptValid ? _selectedDeptId : 'ALL';
+
+    const validStatuses = ['PENDING_APPROVAL', 'ACTIVE', 'ALL'];
+    final effectiveStatus = validStatuses.contains(_selectedStatus) ? _selectedStatus : 'PENDING_APPROVAL';
+
     return Container(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -997,7 +1076,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
             ),
             child: Row(
               children: [
-                // Department Filter Dropdown (Crucial for the user prompt scenario: R&D, Sales, etc.)
+                // Department Filter Dropdown
                 const Text('Department:', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
                 const SizedBox(width: 8),
                 Container(
@@ -1010,13 +1089,12 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                   ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
-                      value: _selectedDeptId,
+                      value: effectiveDeptId,
                       dropdownColor: const Color(0xFF1E2024),
                       style: const TextStyle(color: Colors.white, fontSize: 12),
                       items: [
                         const DropdownMenuItem(value: 'ALL', child: Text('All Departments')),
-                        ..._departments.map((d) {
-                          // Count how many requests in this department
+                        ...uniqueDepts.map((d) {
                           final count = _requests.where((r) => r.departmentId == d.id && r.status == 'PENDING_APPROVAL').length;
                           return DropdownMenuItem(
                             value: d.id,
@@ -1048,7 +1126,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                   ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
-                      value: _selectedStatus,
+                      value: effectiveStatus,
                       dropdownColor: const Color(0xFF1E2024),
                       style: const TextStyle(color: Colors.white, fontSize: 12),
                       items: const [
@@ -1086,7 +1164,11 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                         border: InputBorder.none,
                         isDense: true,
-                        prefixIcon: const Icon(Icons.search, size: 16, color: Colors.white38),
+                        prefixIcon: IconButton(
+                          icon: const Icon(Icons.search, size: 16, color: Colors.white38),
+                          onPressed: _refreshRequests,
+                          tooltip: 'Search',
+                        ),
                         suffixIcon: _searchController.text.isNotEmpty
                             ? IconButton(
                                 icon: const Icon(Icons.clear, size: 14, color: Colors.white54),
@@ -1105,7 +1187,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
           ),
           const SizedBox(height: 12),
 
-          // Requests Table
+          // Requests Table with explicit dual ScrollControllers
           Expanded(
             child: Container(
               decoration: BoxDecoration(
@@ -1136,14 +1218,20 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                       ),
                     )
                   : Scrollbar(
+                      controller: _requestsVerticalScroll,
                       thumbVisibility: true,
                       child: SingleChildScrollView(
+                        controller: _requestsVerticalScroll,
                         scrollDirection: Axis.vertical,
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(minWidth: 1050),
-                            child: DataTable(
+                        child: Scrollbar(
+                          controller: _requestsHorizontalScroll,
+                          thumbVisibility: true,
+                          child: SingleChildScrollView(
+                            controller: _requestsHorizontalScroll,
+                            scrollDirection: Axis.horizontal,
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(minWidth: 1050),
+                              child: DataTable(
                               headingRowHeight: 38,
                               dataRowMinHeight: 44,
                               dataRowMaxHeight: 52,
@@ -1274,6 +1362,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                         ),
                       ),
                     ),
+                  ),
             ),
           ),
         ],
@@ -1317,14 +1406,20 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                 border: Border.all(color: const Color(0xFF26282E)),
               ),
               child: Scrollbar(
+                controller: _usersVerticalScroll,
                 thumbVisibility: true,
                 child: SingleChildScrollView(
+                  controller: _usersVerticalScroll,
                   scrollDirection: Axis.vertical,
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(minWidth: 950),
-                      child: DataTable(
+                  child: Scrollbar(
+                    controller: _usersHorizontalScroll,
+                    thumbVisibility: true,
+                    child: SingleChildScrollView(
+                      controller: _usersHorizontalScroll,
+                      scrollDirection: Axis.horizontal,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minWidth: 950),
+                        child: DataTable(
                         headingRowHeight: 38,
                         dataRowMinHeight: 40,
                         dataRowMaxHeight: 48,
@@ -1382,6 +1477,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
               ),
             ),
           ),
+        ),
         ],
       ),
     );
