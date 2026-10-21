@@ -154,7 +154,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
 
     showDialog<void>(
       context: context,
-      barrierDismissible: false,
+      barrierDismissible: true,
       builder: (ctx) {
         return StatefulBuilder(
           builder: (dialogCtx, setDialogState) {
@@ -322,40 +322,73 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
     // Detect whether this employee already has a provisioned user account
     final bool alreadyProvisioned = employee.userId != null && employee.userId!.isNotEmpty;
 
-    // Find initial department ID
-    String? initialDeptId = employee.departmentId;
-    if (initialDeptId == null || !_departments.any((d) => d.id == initialDeptId)) {
-      if (_departments.isNotEmpty) {
-        initialDeptId = _departments.first.id;
+    // Deduplicate departments and roles to avoid dropdown crashes
+    final seenDeptIds = <String>{};
+    final uniqueDepts = <DepartmentItem>[];
+    for (final d in _departments) {
+      if (d.id.isNotEmpty && d.id != 'ALL' && seenDeptIds.add(d.id)) {
+        uniqueDepts.add(d);
       }
     }
 
-    // Suggested username: firstname.lastname or email prefix
-    String suggestedUsername = employee.email.split('@').first.toLowerCase().replaceAll(RegExp(r'[^a-z0-9.]'), '');
-    if (suggestedUsername.isEmpty) {
-      suggestedUsername = '${employee.firstName.toLowerCase()}.${employee.lastName.toLowerCase()}';
+    final seenRoleIds = <String>{};
+    final uniqueRoles = <RoleItem>[];
+    for (final r in _roles) {
+      if (r.id.isNotEmpty && seenRoleIds.add(r.id)) {
+        uniqueRoles.add(r);
+      }
+    }
+
+    // Find initial department ID
+    String? initialDeptId = employee.departmentId;
+    if (initialDeptId == null || !uniqueDepts.any((d) => d.id == initialDeptId)) {
+      if (uniqueDepts.isNotEmpty) {
+        initialDeptId = uniqueDepts.first.id;
+      }
+    }
+
+    // Suggested username: match existing user account if linked, else email prefix
+    final existingUser = employee.userId != null
+        ? _users.where((u) => u.id == employee.userId).firstOrNull
+        : null;
+
+    String suggestedUsername = '';
+    if (existingUser != null && existingUser.username.isNotEmpty) {
+      suggestedUsername = existingUser.username;
+    } else {
+      suggestedUsername = employee.email.split('@').first.toLowerCase().replaceAll(RegExp(r'[^a-z0-9.]'), '');
+      if (suggestedUsername.isEmpty) {
+        suggestedUsername = '${employee.firstName.toLowerCase()}.${employee.lastName.toLowerCase()}';
+      }
     }
 
     final usernameCtrl = TextEditingController(text: suggestedUsername);
-    final passwordCtrl = TextEditingController(text: 'Saark@2026');
+    final passwordCtrl = TextEditingController(text: alreadyProvisioned ? '' : 'Saark@2026');
     final desigCtrl = TextEditingController(text: employee.designation);
     String selectedDeptId = initialDeptId ?? '';
-    String? selectedRoleId = _roles.isNotEmpty ? _roles.first.id : null;
+    String? selectedRoleId = uniqueRoles.isNotEmpty ? uniqueRoles.first.id : null;
     bool obscurePassword = false;
     bool isSubmitting = false;
 
-    // Default to R&D role or Employee role if available
-    final defaultRole = _roles.firstWhere(
-      (r) => r.code == 'ROLE_EMPLOYEE' || r.code == 'ROLE_RND_ENG',
-      orElse: () => _roles.isNotEmpty ? _roles.first : RoleItem(id: '', name: 'Standard Employee', code: 'ROLE_EMPLOYEE'),
-    );
-    if (defaultRole.id.isNotEmpty) {
-      selectedRoleId = defaultRole.id;
+    // Pre-select existing role or default to R&D / Employee role
+    if (existingUser != null && existingUser.roles.isNotEmpty) {
+      final matchingRole = uniqueRoles.where((r) => existingUser.roles.contains(r.name) || existingUser.roles.contains(r.code)).firstOrNull;
+      if (matchingRole != null) {
+        selectedRoleId = matchingRole.id;
+      }
+    } else {
+      final defaultRole = uniqueRoles.firstWhere(
+        (r) => r.code == 'ROLE_EMPLOYEE' || r.code == 'ROLE_RND_ENG',
+        orElse: () => uniqueRoles.isNotEmpty ? uniqueRoles.first : RoleItem(id: '', name: 'Standard Employee', code: 'ROLE_EMPLOYEE'),
+      );
+      if (defaultRole.id.isNotEmpty) {
+        selectedRoleId = defaultRole.id;
+      }
     }
 
     showDialog<void>(
       context: context,
-      barrierDismissible: false,
+      barrierDismissible: true,
       builder: (ctx) {
         return StatefulBuilder(
           builder: (dialogCtx, setDialogState) {
@@ -492,13 +525,13 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                         ),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
-                            value: _departments.any((d) => d.id == selectedDeptId) ? selectedDeptId : null,
+                            value: uniqueDepts.any((d) => d.id == selectedDeptId) ? selectedDeptId : null,
                             dropdownColor: const Color(0xFF1E2024),
                             hint: const Text('Select Department', style: TextStyle(color: Colors.white38, fontSize: 12)),
                             icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
                             isExpanded: true,
                             style: const TextStyle(color: Colors.white, fontSize: 13),
-                            items: _departments.map((d) {
+                            items: uniqueDepts.map((d) {
                               return DropdownMenuItem<String>(
                                 value: d.id,
                                 child: Text('${d.name} (${d.code})'),
@@ -602,13 +635,13 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                         ),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
-                            value: _roles.any((r) => r.id == selectedRoleId) ? selectedRoleId : null,
+                            value: uniqueRoles.any((r) => r.id == selectedRoleId) ? selectedRoleId : null,
                             dropdownColor: const Color(0xFF1E2024),
                             hint: const Text('Select System Role', style: TextStyle(color: Colors.white38, fontSize: 12)),
                             icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
                             isExpanded: true,
                             style: const TextStyle(color: Colors.white, fontSize: 13),
-                            items: _roles.map((r) {
+                            items: uniqueRoles.map((r) {
                               return DropdownMenuItem<String>(
                                 value: r.id,
                                 child: Text('${r.name} (${r.code})'),
@@ -631,6 +664,8 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                   ),
                 ),
               ),
+              actionsAlignment: alreadyProvisioned ? MainAxisAlignment.spaceBetween : MainAxisAlignment.end,
+              actionsOverflowAlignment: OverflowBarAlignment.end,
               actions: [
                 if (alreadyProvisioned)
                   OutlinedButton.icon(
@@ -648,141 +683,147 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                     ),
                   ),
-                const Spacer(),
-                TextButton(
-                  onPressed: isSubmitting ? null : () => Navigator.pop(ctx),
-                  child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
-                ),
-                if (!alreadyProvisioned)
-                  TextButton(
-                    onPressed: isSubmitting
-                        ? null
-                        : () async {
-                            setDialogState(() => isSubmitting = true);
-                            try {
-                              final repo = ref.read(adminRepositoryProvider);
-                              await repo.rejectEmployeeRequest(employee.id)
-                                  .timeout(const Duration(seconds: 20));
-                              if (ctx.mounted) {
-                                Navigator.pop(ctx);
-                              }
-                              if (mounted) {
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    TextButton(
+                      onPressed: isSubmitting ? null : () => Navigator.pop(ctx),
+                      child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+                    ),
+                    if (!alreadyProvisioned)
+                      TextButton(
+                        onPressed: isSubmitting
+                            ? null
+                            : () async {
+                                setDialogState(() => isSubmitting = true);
+                                try {
+                                  final repo = ref.read(adminRepositoryProvider);
+                                  await repo.rejectEmployeeRequest(employee.id)
+                                      .timeout(const Duration(seconds: 20));
+                                  if (ctx.mounted) {
+                                    Navigator.pop(ctx);
+                                  }
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Employee request ${employee.employeeCode} rejected.'),
+                                        backgroundColor: Colors.redAccent,
+                                      ),
+                                    );
+                                    _refreshRequests();
+                                  }
+                                } catch (err) {
+                                  setDialogState(() => isSubmitting = false);
+                                  String errorMsg = err.toString();
+                                  if (err is DioException && err.response?.data != null) {
+                                    final d = err.response!.data;
+                                    if (d is Map && d['message'] != null) {
+                                      errorMsg = d['message'].toString();
+                                    }
+                                  }
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Error: $errorMsg'), backgroundColor: Colors.red),
+                                    );
+                                  }
+                                }
+                              },
+                        child: const Text('Reject', style: TextStyle(color: Colors.redAccent)),
+                      ),
+                    ElevatedButton.icon(
+                      onPressed: isSubmitting
+                          ? null
+                          : () async {
+                              final username = usernameCtrl.text.trim();
+                              final password = passwordCtrl.text.trim();
+
+                              if (username.isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Employee request ${employee.employeeCode} rejected.'),
-                                    backgroundColor: Colors.redAccent,
-                                  ),
+                                  const SnackBar(content: Text('Username is required')),
                                 );
-                                _refreshRequests();
+                                return;
                               }
-                            } catch (err) {
-                              setDialogState(() => isSubmitting = false);
-                              String errorMsg = err.toString();
-                              if (err is DioException && err.response?.data != null) {
-                                final d = err.response!.data;
-                                if (d is Map && d['message'] != null) {
-                                  errorMsg = d['message'].toString();
+
+                              if (!alreadyProvisioned && password.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Password is required for account creation')),
+                                );
+                                return;
+                              }
+
+                              if (password.isNotEmpty && password.length < 6) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Password must be at least 6 characters')),
+                                );
+                                return;
+                              }
+
+                              setDialogState(() => isSubmitting = true);
+
+                              try {
+                                final repo = ref.read(adminRepositoryProvider);
+                                await repo.approveEmployeeRequest(
+                                  employee.id,
+                                  username: username,
+                                  password: password.isNotEmpty ? password : null,
+                                  departmentId: selectedDeptId.isNotEmpty ? selectedDeptId : null,
+                                  roleIds: selectedRoleId != null ? [selectedRoleId!] : null,
+                                ).timeout(const Duration(seconds: 20));
+
+                                if (ctx.mounted) {
+                                  Navigator.pop(ctx);
+                                }
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        alreadyProvisioned
+                                            ? '✅ Employee ${employee.fullName} account details updated successfully!'
+                                            : '✅ Employee ${employee.fullName} approved!\nUser account "$username" created with assigned department and role.',
+                                      ),
+                                      backgroundColor: Colors.green[800],
+                                      duration: const Duration(seconds: 4),
+                                    ),
+                                  );
+                                  _refreshRequests();
+                                }
+                              } catch (err) {
+                                setDialogState(() => isSubmitting = false);
+                                String errorMsg = err.toString();
+                                if (err is DioException && err.response?.data != null) {
+                                  final d = err.response!.data;
+                                  if (d is Map && d['message'] != null) {
+                                    errorMsg = d['message'].toString();
+                                  }
+                                }
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Failed: $errorMsg'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
                                 }
                               }
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Error: $errorMsg'), backgroundColor: Colors.red),
-                                );
-                              }
-                            }
-                          },
-                    child: const Text('Reject', style: TextStyle(color: Colors.redAccent)),
-                  ),
-                ElevatedButton.icon(
-                  onPressed: isSubmitting
-                      ? null
-                      : () async {
-                          final username = usernameCtrl.text.trim();
-                          final password = passwordCtrl.text.trim();
-
-                          if (username.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Username is required')),
-                            );
-                            return;
-                          }
-
-                          if (!alreadyProvisioned && password.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Password is required for account creation')),
-                            );
-                            return;
-                          }
-
-                          if (password.isNotEmpty && password.length < 6) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Password must be at least 6 characters')),
-                            );
-                            return;
-                          }
-
-                          setDialogState(() => isSubmitting = true);
-
-                          try {
-                            final repo = ref.read(adminRepositoryProvider);
-                            await repo.approveEmployeeRequest(
-                              employee.id,
-                              username: username,
-                              password: password.isNotEmpty ? password : null,
-                              departmentId: selectedDeptId.isNotEmpty ? selectedDeptId : null,
-                              roleIds: selectedRoleId != null ? [selectedRoleId!] : null,
-                            ).timeout(const Duration(seconds: 20));
-
-                            if (ctx.mounted) {
-                              Navigator.pop(ctx);
-                            }
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    alreadyProvisioned
-                                        ? '✅ Employee ${employee.fullName} account details updated successfully!'
-                                        : '✅ Employee ${employee.fullName} approved!\nUser account "$username" created with assigned department and role.',
-                                  ),
-                                  backgroundColor: Colors.green[800],
-                                  duration: const Duration(seconds: 4),
-                                ),
-                              );
-                              _refreshRequests();
-                            }
-                          } catch (err) {
-                            setDialogState(() => isSubmitting = false);
-                            String errorMsg = err.toString();
-                            if (err is DioException && err.response?.data != null) {
-                              final d = err.response!.data;
-                              if (d is Map && d['message'] != null) {
-                                errorMsg = d['message'].toString();
-                              }
-                            }
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Failed: $errorMsg'),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                            }
-                          }
-                        },
-                  icon: isSubmitting
-                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : Icon(alreadyProvisioned ? Icons.save_outlined : Icons.check_circle_outline, size: 16),
-                  label: Text(
-                    isSubmitting
-                        ? (alreadyProvisioned ? 'Saving...' : 'Provisioning...')
-                        : (alreadyProvisioned ? 'Update Employee Details' : 'Approve & Create Account'),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: alreadyProvisioned ? Colors.teal[700] : const Color(0xFFF26522),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                  ),
+                            },
+                      icon: isSubmitting
+                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : Icon(alreadyProvisioned ? Icons.save_outlined : Icons.check_circle_outline, size: 16),
+                      label: Text(
+                        isSubmitting
+                            ? (alreadyProvisioned ? 'Saving...' : 'Provisioning...')
+                            : (alreadyProvisioned ? 'Update Employee Details' : 'Approve & Create Account'),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: alreadyProvisioned ? Colors.teal[700] : const Color(0xFFF26522),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             );
