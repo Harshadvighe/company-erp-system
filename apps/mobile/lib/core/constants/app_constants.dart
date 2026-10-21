@@ -6,6 +6,7 @@ class AppConstants {
   static const String serverUrlKey = 'custom_server_url';
 
   static String? customServerUrl;
+  static const String envApiUrl = String.fromEnvironment('API_URL');
 
   // API - Automatically routes on Web and Mobile
   static String get baseUrl {
@@ -13,6 +14,13 @@ class AppConstants {
       final clean = customServerUrl!.trim().endsWith('/')
           ? customServerUrl!.trim().substring(0, customServerUrl!.trim().length - 1)
           : customServerUrl!.trim();
+      if (clean.endsWith('/api/v1')) return clean;
+      return '$clean/api/v1';
+    }
+    if (envApiUrl.isNotEmpty) {
+      final clean = envApiUrl.endsWith('/')
+          ? envApiUrl.substring(0, envApiUrl.length - 1)
+          : envApiUrl;
       if (clean.endsWith('/api/v1')) return clean;
       return '$clean/api/v1';
     }

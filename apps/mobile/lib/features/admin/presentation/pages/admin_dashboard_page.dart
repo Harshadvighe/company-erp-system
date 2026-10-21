@@ -191,55 +191,59 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                   ),
                 ],
               ),
-              content: SizedBox(
-                width: 420,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: Colors.blue.withValues(alpha: 0.25)),
+              content: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: min(420.0, MediaQuery.of(context).size.width - 32),
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: Colors.blue.withValues(alpha: 0.25)),
+                        ),
+                        child: const Text(
+                          '⚠️ This will immediately change the employee login password. The employee must use the new password on next login.',
+                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                        ),
                       ),
-                      child: const Text(
-                        '⚠️ This will immediately change the employee login password. The employee must use the new password on next login.',
-                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                      const SizedBox(height: 16),
+                      const Text('New Password (min 8 characters):',
+                          style: TextStyle(color: Colors.white70, fontSize: 11)),
+                      const SizedBox(height: 6),
+                      _buildDialogInput(
+                        controller: newPassCtrl,
+                        hint: 'Enter new password',
+                        obscureText: obscureNew,
+                        prefixIcon: const Icon(Icons.lock_outline, size: 16, color: Colors.white38),
+                        suffixIcon: IconButton(
+                          icon: Icon(obscureNew ? Icons.visibility_off : Icons.visibility,
+                              size: 16, color: Colors.white54),
+                          onPressed: () => setDialogState(() => obscureNew = !obscureNew),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text('New Password (min 8 characters):',
-                        style: TextStyle(color: Colors.white70, fontSize: 11)),
-                    const SizedBox(height: 6),
-                    _buildDialogInput(
-                      controller: newPassCtrl,
-                      hint: 'Enter new password',
-                      obscureText: obscureNew,
-                      prefixIcon: const Icon(Icons.lock_outline, size: 16, color: Colors.white38),
-                      suffixIcon: IconButton(
-                        icon: Icon(obscureNew ? Icons.visibility_off : Icons.visibility,
-                            size: 16, color: Colors.white54),
-                        onPressed: () => setDialogState(() => obscureNew = !obscureNew),
+                      const SizedBox(height: 12),
+                      const Text('Confirm New Password:',
+                          style: TextStyle(color: Colors.white70, fontSize: 11)),
+                      const SizedBox(height: 6),
+                      _buildDialogInput(
+                        controller: confirmPassCtrl,
+                        hint: 'Re-enter new password',
+                        obscureText: obscureConfirm,
+                        prefixIcon: const Icon(Icons.lock_outline, size: 16, color: Colors.white38),
+                        suffixIcon: IconButton(
+                          icon: Icon(obscureConfirm ? Icons.visibility_off : Icons.visibility,
+                              size: 16, color: Colors.white54),
+                          onPressed: () => setDialogState(() => obscureConfirm = !obscureConfirm),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    const Text('Confirm New Password:',
-                        style: TextStyle(color: Colors.white70, fontSize: 11)),
-                    const SizedBox(height: 6),
-                    _buildDialogInput(
-                      controller: confirmPassCtrl,
-                      hint: 'Re-enter new password',
-                      obscureText: obscureConfirm,
-                      prefixIcon: const Icon(Icons.lock_outline, size: 16, color: Colors.white38),
-                      suffixIcon: IconButton(
-                        icon: Icon(obscureConfirm ? Icons.visibility_off : Icons.visibility,
-                            size: 16, color: Colors.white54),
-                        onPressed: () => setDialogState(() => obscureConfirm = !obscureConfirm),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               actions: [
@@ -433,8 +437,10 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                   ),
                 ],
               ),
-              content: SizedBox(
-                width: 580,
+              content: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: min(580.0, MediaQuery.of(context).size.width - 32),
+                ),
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -562,60 +568,76 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                         style: TextStyle(color: Color(0xFFF26522), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5),
                       ),
                       const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text('Login Username:', style: TextStyle(color: Colors.white70, fontSize: 11)),
-                                const SizedBox(height: 4),
-                                _buildDialogInput(
-                                  controller: usernameCtrl,
-                                  hint: 'e.g. aditya.k',
-                                  prefixIcon: const Icon(Icons.person_outline, size: 16, color: Colors.white38),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    const Text('Login Password:', style: TextStyle(color: Colors.white70, fontSize: 11)),
-                                    const Spacer(),
-                                    InkWell(
-                                      onTap: () {
-                                        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#%*';
-                                        final rand = Random();
-                                        final generated = List.generate(10, (_) => chars[rand.nextInt(chars.length)]).join();
-                                        setDialogState(() {
-                                          passwordCtrl.text = generated;
-                                          obscurePassword = false;
-                                        });
-                                      },
-                                      child: const Text('Generate', style: TextStyle(color: Color(0xFFF26522), fontSize: 11)),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                _buildDialogInput(
-                                  controller: passwordCtrl,
-                                  hint: alreadyProvisioned ? 'Blank to keep existing' : 'At least 6 characters',
-                                  obscureText: obscurePassword,
-                                  prefixIcon: const Icon(Icons.lock_outline, size: 16, color: Colors.white38),
-                                  suffixIcon: IconButton(
-                                    icon: Icon(obscurePassword ? Icons.visibility_off : Icons.visibility, size: 16, color: Colors.white54),
-                                    onPressed: () => setDialogState(() => obscurePassword = !obscurePassword),
+                      LayoutBuilder(
+                        builder: (ctx, constraints) {
+                          final isNarrow = constraints.maxWidth < 420;
+                          final usernameField = Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Login Username:', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                              const SizedBox(height: 4),
+                              _buildDialogInput(
+                                controller: usernameCtrl,
+                                hint: 'e.g. aditya.k',
+                                prefixIcon: const Icon(Icons.person_outline, size: 16, color: Colors.white38),
+                              ),
+                            ],
+                          );
+
+                          final passwordField = Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Text('Login Password:', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                                  const Spacer(),
+                                  InkWell(
+                                    onTap: () {
+                                      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#%*';
+                                      final rand = Random();
+                                      final generated = List.generate(10, (_) => chars[rand.nextInt(chars.length)]).join();
+                                      setDialogState(() {
+                                        passwordCtrl.text = generated;
+                                        obscurePassword = false;
+                                      });
+                                    },
+                                    child: const Text('Generate', style: TextStyle(color: Color(0xFFF26522), fontSize: 11)),
                                   ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              _buildDialogInput(
+                                controller: passwordCtrl,
+                                hint: alreadyProvisioned ? 'Blank to keep existing' : 'At least 6 characters',
+                                obscureText: obscurePassword,
+                                prefixIcon: const Icon(Icons.lock_outline, size: 16, color: Colors.white38),
+                                suffixIcon: IconButton(
+                                  icon: Icon(obscurePassword ? Icons.visibility_off : Icons.visibility, size: 16, color: Colors.white54),
+                                  onPressed: () => setDialogState(() => obscurePassword = !obscurePassword),
                                 ),
+                              ),
+                            ],
+                          );
+
+                          if (isNarrow) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                usernameField,
+                                const SizedBox(height: 12),
+                                passwordField,
                               ],
-                            ),
-                          ),
-                        ],
+                            );
+                          }
+
+                          return Row(
+                            children: [
+                              Expanded(child: usernameField),
+                              const SizedBox(width: 12),
+                              Expanded(child: passwordField),
+                            ],
+                          );
+                        },
                       ),
                       const SizedBox(height: 16),
 
@@ -996,91 +1018,119 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
   }
 
   Widget _buildHeaderBar(int pendingCount) {
+    final isMobile = MediaQuery.of(context).size.width < 700;
+
+    final titleSection = Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF26522).withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: const Icon(Icons.admin_panel_settings_rounded, color: Color(0xFFF26522), size: 24),
+        ),
+        const SizedBox(width: 14),
+        const Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Admin Management & User Provisioning',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 0.2),
+                overflow: TextOverflow.ellipsis,
+              ),
+              SizedBox(height: 3),
+              Text(
+                'Approve HR onboarding requests, assign departments, and generate user login credentials',
+                style: TextStyle(fontSize: 11, color: Colors.white60),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    final actionsSection = Row(
+      mainAxisSize: isMobile ? MainAxisSize.max : MainAxisSize.min,
+      mainAxisAlignment: isMobile ? MainAxisAlignment.spaceBetween : MainAxisAlignment.end,
+      children: [
+        InkWell(
+          onTap: () {
+            setState(() {
+              _selectedStatus = 'PENDING_APPROVAL';
+              _selectedDeptId = 'ALL';
+            });
+            _tabController.animateTo(0);
+            _refreshRequests();
+          },
+          borderRadius: BorderRadius.circular(4),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: pendingCount > 0 ? const Color(0xFFF26522).withValues(alpha: 0.15) : Colors.white10,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: pendingCount > 0 ? const Color(0xFFF26522).withValues(alpha: 0.4) : Colors.white24),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.pending_actions_rounded,
+                  color: pendingCount > 0 ? const Color(0xFFF26522) : Colors.white60,
+                  size: 16,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '$pendingCount Pending Requests',
+                  style: TextStyle(
+                    color: pendingCount > 0 ? const Color(0xFFF26522) : Colors.white60,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        IconButton(
+          onPressed: _isRefreshing ? null : _refreshRequests,
+          tooltip: 'Refresh Data',
+          icon: _isRefreshing
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFF26522)),
+                )
+              : const Icon(Icons.refresh_rounded, color: Colors.white70),
+        ),
+      ],
+    );
+
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
       decoration: const BoxDecoration(
         color: Color(0xFF1E2024),
         border: Border(bottom: BorderSide(color: Color(0xFF26282E))),
       ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF26522).withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(6),
+      child: isMobile
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                titleSection,
+                const SizedBox(height: 12),
+                actionsSection,
+              ],
+            )
+          : Row(
+              children: [
+                Expanded(child: titleSection),
+                const SizedBox(width: 16),
+                actionsSection,
+              ],
             ),
-            child: const Icon(Icons.admin_panel_settings_rounded, color: Color(0xFFF26522), size: 24),
-          ),
-          const SizedBox(width: 14),
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Admin Management & User Provisioning',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 0.2),
-              ),
-              SizedBox(height: 3),
-              Text(
-                'Approve HR onboarding requests, assign departments, and generate user login credentials',
-                style: TextStyle(fontSize: 12, color: Colors.white60),
-              ),
-            ],
-          ),
-          const Spacer(),
-          // Interactive Pending Requests Counter Button
-          InkWell(
-            onTap: () {
-              setState(() {
-                _selectedStatus = 'PENDING_APPROVAL';
-                _selectedDeptId = 'ALL';
-              });
-              _tabController.animateTo(0);
-              _refreshRequests();
-            },
-            borderRadius: BorderRadius.circular(4),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: pendingCount > 0 ? const Color(0xFFF26522).withValues(alpha: 0.15) : Colors.white10,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: pendingCount > 0 ? const Color(0xFFF26522).withValues(alpha: 0.4) : Colors.white24),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.pending_actions_rounded,
-                    color: pendingCount > 0 ? const Color(0xFFF26522) : Colors.white60,
-                    size: 16,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '$pendingCount Pending Requests',
-                    style: TextStyle(
-                      color: pendingCount > 0 ? const Color(0xFFF26522) : Colors.white60,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed: _isRefreshing ? null : _refreshRequests,
-            tooltip: 'Refresh Data',
-            icon: _isRefreshing
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFF26522)),
-                  )
-                : const Icon(Icons.refresh_rounded, color: Colors.white70),
-          ),
-        ],
-      ),
     );
   }
 
@@ -1115,115 +1165,149 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
               borderRadius: BorderRadius.circular(4),
               border: Border.all(color: const Color(0xFF26282E)),
             ),
-            child: Row(
-              children: [
-                // Department Filter Dropdown
-                const Text('Department:', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
-                const SizedBox(width: 8),
-                Container(
-                  height: 32,
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF141517),
-                    borderRadius: BorderRadius.circular(3),
-                    border: Border.all(color: const Color(0xFF2C2E33)),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: effectiveDeptId,
-                      dropdownColor: const Color(0xFF1E2024),
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
-                      items: [
-                        const DropdownMenuItem(value: 'ALL', child: Text('All Departments')),
-                        ...uniqueDepts.map((d) {
-                          final count = _requests.where((r) => r.departmentId == d.id && r.status == 'PENDING_APPROVAL').length;
-                          return DropdownMenuItem(
-                            value: d.id,
-                            child: Text(count > 0 ? '${d.name} ($count req)' : d.name),
-                          );
-                        }),
-                      ],
-                      onChanged: (v) {
-                        if (v != null) {
-                          setState(() => _selectedDeptId = v);
-                          _refreshRequests();
-                        }
-                      },
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
+            child: LayoutBuilder(
+              builder: (ctx, constraints) {
+                final isNarrow = constraints.maxWidth < 700;
 
-                // Status Filter
-                const Text('Status:', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
-                const SizedBox(width: 8),
-                Container(
-                  height: 32,
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF141517),
-                    borderRadius: BorderRadius.circular(3),
-                    border: Border.all(color: const Color(0xFF2C2E33)),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: effectiveStatus,
-                      dropdownColor: const Color(0xFF1E2024),
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
-                      items: const [
-                        DropdownMenuItem(value: 'PENDING_APPROVAL', child: Text('Pending Approval')),
-                        DropdownMenuItem(value: 'ACTIVE', child: Text('Approved / Active')),
-                        DropdownMenuItem(value: 'ALL', child: Text('All Statuses')),
-                      ],
-                      onChanged: (v) {
-                        if (v != null) {
-                          setState(() => _selectedStatus = v);
-                          _refreshRequests();
-                        }
-                      },
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-
-                // Search Bar
-                Expanded(
-                  child: Container(
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF141517),
-                      borderRadius: BorderRadius.circular(3),
-                      border: Border.all(color: const Color(0xFF2C2E33)),
-                    ),
-                    child: TextField(
-                      controller: _searchController,
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
-                      onSubmitted: (_) => _refreshRequests(),
-                      decoration: InputDecoration(
-                        hintText: 'Search by employee name, code, email...',
-                        hintStyle: const TextStyle(color: Colors.white24, fontSize: 12),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        border: InputBorder.none,
-                        isDense: true,
-                        prefixIcon: IconButton(
-                          icon: const Icon(Icons.search, size: 16, color: Colors.white38),
-                          onPressed: _refreshRequests,
-                          tooltip: 'Search',
+                final deptWidget = Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Department:', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
+                    const SizedBox(width: 8),
+                    Container(
+                      height: 32,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF141517),
+                        borderRadius: BorderRadius.circular(3),
+                        border: Border.all(color: const Color(0xFF2C2E33)),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: effectiveDeptId,
+                          dropdownColor: const Color(0xFF1E2024),
+                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                          items: [
+                            const DropdownMenuItem(value: 'ALL', child: Text('All Departments')),
+                            ...uniqueDepts.map((d) {
+                              final count = _requests.where((r) => r.departmentId == d.id && r.status == 'PENDING_APPROVAL').length;
+                              return DropdownMenuItem(
+                                value: d.id,
+                                child: Text(count > 0 ? '${d.name} ($count req)' : d.name),
+                              );
+                            }),
+                          ],
+                          onChanged: (v) {
+                            if (v != null) {
+                              setState(() => _selectedDeptId = v);
+                              _refreshRequests();
+                            }
+                          },
                         ),
-                        suffixIcon: _searchController.text.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear, size: 14, color: Colors.white54),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  _refreshRequests();
-                                },
-                              )
-                            : null,
                       ),
                     ),
+                  ],
+                );
+
+                final statusWidget = Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Status:', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
+                    const SizedBox(width: 8),
+                    Container(
+                      height: 32,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF141517),
+                        borderRadius: BorderRadius.circular(3),
+                        border: Border.all(color: const Color(0xFF2C2E33)),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: effectiveStatus,
+                          dropdownColor: const Color(0xFF1E2024),
+                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                          items: const [
+                            DropdownMenuItem(value: 'PENDING_APPROVAL', child: Text('Pending Approval')),
+                            DropdownMenuItem(value: 'ACTIVE', child: Text('Approved / Active')),
+                            DropdownMenuItem(value: 'ALL', child: Text('All Statuses')),
+                          ],
+                          onChanged: (v) {
+                            if (v != null) {
+                              setState(() => _selectedStatus = v);
+                              _refreshRequests();
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+
+                final searchWidget = Container(
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF141517),
+                    borderRadius: BorderRadius.circular(3),
+                    border: Border.all(color: const Color(0xFF2C2E33)),
                   ),
-                ),
-              ],
+                  child: TextField(
+                    controller: _searchController,
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                    onSubmitted: (_) => _refreshRequests(),
+                    decoration: InputDecoration(
+                      hintText: 'Search by employee name, code, email...',
+                      hintStyle: const TextStyle(color: Colors.white24, fontSize: 12),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      border: InputBorder.none,
+                      isDense: true,
+                      prefixIcon: IconButton(
+                        icon: const Icon(Icons.search, size: 16, color: Colors.white38),
+                        onPressed: _refreshRequests,
+                        tooltip: 'Search',
+                      ),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, size: 14, color: Colors.white54),
+                              onPressed: () {
+                                _searchController.clear();
+                                _refreshRequests();
+                              },
+                            )
+                          : null,
+                    ),
+                  ),
+                );
+
+                if (isNarrow) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          deptWidget,
+                          statusWidget,
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      searchWidget,
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    deptWidget,
+                    const SizedBox(width: 16),
+                    statusWidget,
+                    const SizedBox(width: 16),
+                    Expanded(child: searchWidget),
+                  ],
+                );
+              },
             ),
           ),
           const SizedBox(height: 12),

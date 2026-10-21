@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:saark_erp_mobile/core/constants/app_constants.dart';
+import 'package:saark_erp_mobile/core/storage/app_storage.dart';
 import 'package:saark_erp_mobile/core/theme/app_theme.dart';
 import 'package:saark_erp_mobile/core/routing/app_router.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  try {
+    final savedUrl = await AppStorage.read(AppConstants.serverUrlKey);
+    if (savedUrl != null && savedUrl.trim().isNotEmpty) {
+      AppConstants.customServerUrl = savedUrl.trim();
+    }
+  } catch (_) {}
   ErrorWidget.builder = (FlutterErrorDetails details) {
     return Scaffold(
       backgroundColor: const Color(0xFF181B21),

@@ -11,7 +11,7 @@ class ChangePasswordDialog extends ConsumerStatefulWidget {
   static Future<void> show(BuildContext context) {
     return showDialog<void>(
       context: context,
-      barrierDismissible: false,
+      barrierDismissible: true,
       builder: (ctx) => const ChangePasswordDialog(),
     );
   }
@@ -143,8 +143,10 @@ class _ChangePasswordDialogState extends ConsumerState<ChangePasswordDialog> {
           ),
         ],
       ),
-      content: SizedBox(
-        width: 440,
+      content: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: (MediaQuery.of(context).size.width - 48).clamp(280.0, 440.0),
+        ),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
