@@ -72,7 +72,6 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
   String _source = 'DIRECT';
   String _country = 'India';
   String? _industry;
-  List<StaffMember> _staffMembers = [];
   StaffMember? _selectedStaffHost;
 
   // Product & system interests
@@ -95,7 +94,6 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
       final list = await staffRepo.getStaffList();
       if (mounted) {
         setState(() {
-          _staffMembers = list;
           if (_selectedStaffHost == null) {
             final currentUser = ref.read(currentUserProvider);
             if (currentUser != null) {
@@ -503,7 +501,10 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
       _errorMessage = null;
     });
 
+    final currentUser = ref.read(currentUserProvider);
+    final assignedStaffId = _selectedStaffHost?.id ?? currentUser?.staffId;
     final assignedHostName = _selectedStaffHost?.fullName ??
+        currentUser?.fullName ??
         (_ownerNameCtrl.text.trim().isEmpty
             ? null
             : _ownerNameCtrl.text.trim());
@@ -549,7 +550,7 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
       'pincode': _pincodeCtrl.text.trim(),
       'country': _country,
       'ownerName': assignedHostName,
-      'assignedStaffId': _selectedStaffHost?.id,
+      'assignedStaffId': assignedStaffId,
       'numEmployees': int.tryParse(_staffCountCtrl.text) ?? 0,
       'staffCount': int.tryParse(_staffCountCtrl.text) ?? 0,
       'turnover':
@@ -969,14 +970,12 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
         ),
         const SizedBox(width: 14),
 
-        // Right Column (Sales Owner, Key Decision Maker, Address)
+        // Right Column (Key Decision Maker, Address)
         Expanded(
           flex: 11,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildSalesOwnershipCard(),
-              const SizedBox(height: 12),
               _buildPrimaryContactCard(),
               const SizedBox(height: 12),
               _buildAddressCard(),
@@ -996,8 +995,6 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
         _buildGstIntelligenceCard(),
         const SizedBox(height: 12),
         _buildCompanyIdentityCard(),
-        const SizedBox(height: 12),
-        _buildSalesOwnershipCard(),
         const SizedBox(height: 12),
         _buildPrimaryContactCard(),
         const SizedBox(height: 12),
@@ -1486,80 +1483,7 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
     );
   }
 
-  // ─── 4. SALES OWNERSHIP CARD ───────────────────────────────────────────────
-
-  Widget _buildSalesOwnershipCard() {
-    return _buildSectionCard(
-      icon: Icons.badge_outlined,
-      title: 'Sales Ownership & Account Assignment',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          DropdownButtonFormField<String>(
-            initialValue: _selectedStaffHost?.id.isNotEmpty == true
-                ? _selectedStaffHost!.id
-                : null,
-            decoration: _inputDecoration(
-              label: 'Sales Owner / Relationship Manager',
-              required: true,
-              prefixIcon: Icons.person_pin_outlined,
-            ),
-            dropdownColor: _cardBg,
-            style: const TextStyle(color: _textPrimary, fontSize: 13),
-            items: _staffMembers.map((s) {
-              final initials = s.fullName
-                  .trim()
-                  .split(' ')
-                  .map((e) => e.isNotEmpty ? e[0] : '')
-                  .take(2)
-                  .join()
-                  .toUpperCase();
-              return DropdownMenuItem<String>(
-                value: s.id,
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 11,
-                      backgroundColor: _primaryAccent.withValues(alpha: 0.25),
-                      child: Text(
-                        initials.isNotEmpty ? initials : 'S',
-                        style: const TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                            color: _primaryAccent),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        '${s.fullName}${s.designationName != null && s.designationName!.isNotEmpty ? " · ${s.designationName}" : ""}',
-                        style: const TextStyle(fontSize: 12.5),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-            onChanged: (val) {
-              if (val != null) {
-                final found =
-                    _staffMembers.where((s) => s.id == val).firstOrNull;
-                if (found != null) setState(() => _selectedStaffHost = found);
-              }
-            },
-          ),
-          const SizedBox(height: 5),
-          const Text(
-            'Defaulted to your account. Reassign to another authorized sales engineer if needed.',
-            style: TextStyle(color: _textMuted, fontSize: 10.5),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─── 5. PRIMARY CONTACT CARD ───────────────────────────────────────────────
+  // ─── 4. PRIMARY CONTACT CARD ───────────────────────────────────────────────
 
   Widget _buildPrimaryContactCard() {
     return _buildSectionCard(
@@ -1575,7 +1499,7 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
                 child: _buildCompactTextField(
                   controller: _contactPersonCtrl,
                   label: 'Contact Person',
-                  required: true,
+                  required: false,
                   prefixIcon: Icons.person_outline,
                 ),
               ),
@@ -1595,7 +1519,7 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
           _buildCompactTextField(
             controller: _emailCtrl,
             label: 'Email Address',
-            required: true,
+            required: false,
             keyboardType: TextInputType.emailAddress,
             prefixIcon: Icons.email_outlined,
           ),
@@ -1608,7 +1532,7 @@ class _CustomerFormPageState extends ConsumerState<CustomerFormPage> {
                 child: _buildCompactTextField(
                   controller: _phoneCtrl,
                   label: 'Mobile / Phone',
-                  required: true,
+                  required: false,
                   keyboardType: TextInputType.phone,
                   prefixIcon: Icons.phone_outlined,
                 ),

@@ -34,7 +34,13 @@ export class CustomersService {
     distributor?: string;
     dealer?: string;
     sortBy?: string;
-  }) {
+    recordScope?: string;
+    myRecords?: string;
+    userId?: string;
+    staffId?: string;
+    createdByUserId?: string;
+    assignedStaffId?: string;
+  }, user?: any) {
     const page = Math.max(1, Number(query?.page) || 1);
     const limit = Math.max(1, Math.min(1000, Number(query?.limit) || 25));
     const skip = (page - 1) * limit;
@@ -43,6 +49,40 @@ export class CustomersService {
     ];
     if (query?.type) conditions.push({ customerType: query.type });
     if (query?.category) conditions.push({ customerCategory: query.category });
+
+    const effectiveUserId = user?.id || query?.userId || query?.createdByUserId;
+    let effectiveStaffId = user?.staffId || query?.staffId || query?.assignedStaffId;
+
+    if (!effectiveStaffId && effectiveUserId) {
+      const userStaff = await this.prisma.staff.findFirst({
+        where: { userId: effectiveUserId },
+        select: { id: true },
+      });
+      if (userStaff) effectiveStaffId = userStaff.id;
+    }
+
+    if (
+      query?.recordScope === 'ADDED_BY_ME' ||
+      query?.recordScope === 'MY_RECORDS' ||
+      query?.myRecords === 'true'
+    ) {
+      if (effectiveUserId) {
+        conditions.push({ createdByUserId: effectiveUserId });
+      }
+    } else if (query?.recordScope === 'ASSIGNED_TO_ME') {
+      if (effectiveStaffId) {
+        conditions.push({ assignedStaffId: effectiveStaffId });
+      }
+    } else if (query?.recordScope === 'MY_ALL') {
+      const orList: Prisma.CustomerWhereInput[] = [];
+      if (effectiveUserId) orList.push({ createdByUserId: effectiveUserId });
+      if (effectiveStaffId) orList.push({ assignedStaffId: effectiveStaffId });
+      if (orList.length > 0) conditions.push({ OR: orList });
+    } else if (query?.createdByUserId) {
+      conditions.push({ createdByUserId: query.createdByUserId });
+    } else if (query?.assignedStaffId) {
+      conditions.push({ assignedStaffId: query.assignedStaffId });
+    }
 
     if (query?.search?.trim()) {
       const search = query.search.trim();
@@ -614,13 +654,13 @@ export class CustomersService {
         customerType: dto.customerType || 'END_CUSTOMER',
         customerCategory: dto.customerCategory || 'STANDARD',
         customerSegment: dto.customerSegment ?? 'VFD_PANEL',
-        contactPerson: dto.contactPerson,
-        designation: dto.designation,
+        contactPerson: dto.contactPerson || dto.companyName || 'Primary Contact',
+        designation: dto.designation || null,
         email:
           dto.source === 'EXCEL_IMPORT'
             ? dto.email ?? ''
-            : dto.email,
-        phone: dto.phone,
+            : (dto.email || ''),
+        phone: dto.phone || '',
         alternatePhone: dto.alternatePhone,
         website: dto.website,
         address: dto.address,
@@ -654,11 +694,11 @@ export class CustomersService {
     await tx.customerContact.create({
       data: {
         customerId: customer.id,
-        name: dto.contactPerson,
-        designation: dto.designation,
-        mobile: dto.phone,
-        email: dto.email,
-        whatsapp: dto.whatsapp || dto.phone,
+        name: dto.contactPerson || dto.companyName || 'Primary Contact',
+        designation: dto.designation || null,
+        mobile: dto.phone || '',
+        email: dto.email || null,
+        whatsapp: dto.whatsapp || dto.phone || null,
         isPrimary: true,
       },
     });

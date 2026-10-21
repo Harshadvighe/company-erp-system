@@ -20,8 +20,8 @@ export class CustomersController {
   @Get()
   @RequirePermissions('CUSTOMERS:VIEW', 'CRM:VIEW')
   @ApiOperation({ summary: 'List customers with search, filters & pagination' })
-  findAll(@Query() query: any) {
-    return this.customersService.findAll(query);
+  findAll(@Query() query: any, @Req() req: any) {
+    return this.customersService.findAll(query, req.user);
   }
 
   @Get('export')

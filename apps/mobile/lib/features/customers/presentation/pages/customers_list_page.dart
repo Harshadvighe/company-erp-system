@@ -36,6 +36,7 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
   String _districtFilter = 'ALL';
   String _distributorFilter = 'ALL';
   String _dealerFilter = 'ALL';
+  String _recordScopeFilter = 'ALL';
   String _sortOption = 'COMPANY_NAME_AZ';
   bool _filtersExpanded = false;
   bool _meetingFilterEnabled = false;
@@ -143,6 +144,16 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
     if (_dealerFilter != 'ALL') {
       filters['dealer'] = _dealerFilter;
     }
+    if (_recordScopeFilter != 'ALL') {
+      filters['recordScope'] = _recordScopeFilter;
+      final currentUser = ref.read(authProvider).user;
+      if (currentUser != null) {
+        filters['userId'] = currentUser.id;
+        if (currentUser.staffId != null) {
+          filters['staffId'] = currentUser.staffId;
+        }
+      }
+    }
     return filters;
   }
 
@@ -181,6 +192,7 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
       _districtFilter = 'ALL';
       _distributorFilter = 'ALL';
       _dealerFilter = 'ALL';
+      _recordScopeFilter = 'ALL';
       _sortOption = 'COMPANY_NAME_AZ';
       _meetingFilterEnabled = false;
       _meetingFrom = null;
@@ -489,6 +501,7 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
       body: Column(
         children: [
           _buildHeader(isWide, state),
+          _buildScopeFilterBar(state),
           _buildSortingFilters(state),
           if (_selectedCustomerIds.isNotEmpty) _buildBulkActionBar(state),
           Expanded(
@@ -585,6 +598,151 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
     );
   }
 
+  Widget _buildScopeFilterBar(CustomerListState state) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: const BoxDecoration(
+        color: AppTheme.darkCard,
+        border: Border(bottom: BorderSide(color: AppTheme.darkBorder)),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            const Icon(Icons.filter_list, size: 15, color: AppTheme.primary),
+            const SizedBox(width: 8),
+            const Text(
+              'Show:',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 8),
+            _buildScopeChip(
+              label: 'All Companies',
+              icon: Icons.domain,
+              count: state.systemTotal > 0 ? state.systemTotal : null,
+              isSelected: _recordScopeFilter == 'ALL',
+              onTap: () {
+                if (_recordScopeFilter != 'ALL') {
+                  setState(() => _recordScopeFilter = 'ALL');
+                  _loadCompanies(page: 1);
+                }
+              },
+            ),
+            const SizedBox(width: 8),
+            _buildScopeChip(
+              label: 'Added by Me',
+              icon: Icons.person_pin_circle_outlined,
+              isSelected: _recordScopeFilter == 'ADDED_BY_ME',
+              onTap: () {
+                if (_recordScopeFilter != 'ADDED_BY_ME') {
+                  setState(() => _recordScopeFilter = 'ADDED_BY_ME');
+                  _loadCompanies(page: 1);
+                }
+              },
+            ),
+            const SizedBox(width: 8),
+            _buildScopeChip(
+              label: 'Assigned to Me',
+              icon: Icons.assignment_ind_outlined,
+              isSelected: _recordScopeFilter == 'ASSIGNED_TO_ME',
+              onTap: () {
+                if (_recordScopeFilter != 'ASSIGNED_TO_ME') {
+                  setState(() => _recordScopeFilter = 'ASSIGNED_TO_ME');
+                  _loadCompanies(page: 1);
+                }
+              },
+            ),
+            const SizedBox(width: 8),
+            _buildScopeChip(
+              label: 'My Records (All)',
+              icon: Icons.folder_shared_outlined,
+              isSelected: _recordScopeFilter == 'MY_ALL',
+              onTap: () {
+                if (_recordScopeFilter != 'MY_ALL') {
+                  setState(() => _recordScopeFilter = 'MY_ALL');
+                  _loadCompanies(page: 1);
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildScopeChip({
+    required String label,
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+    int? count,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppTheme.primary.withValues(alpha: 0.22)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? AppTheme.primary
+                : AppTheme.darkBorder.withValues(alpha: 0.8),
+            width: isSelected ? 1.4 : 1.0,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 13,
+              color: isSelected ? AppTheme.primary : Colors.white60,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? Colors.white : Colors.white70,
+              ),
+            ),
+            if (count != null) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppTheme.primary
+                      : Colors.white.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  count.toString(),
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: isSelected ? Colors.white : Colors.white70,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildSortingFilters(CustomerListState state) {
     final states = (_filterOptions['states'] as List? ?? [])
         .map((value) => value.toString())
@@ -646,6 +804,22 @@ class _CustomersListPageState extends ConsumerState<CustomersListPage> {
             runSpacing: 8,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
+              _dropdownFilter(
+                'Record Ownership',
+                _recordScopeFilter,
+                const ['ALL', 'ADDED_BY_ME', 'ASSIGNED_TO_ME', 'MY_ALL'],
+                (value) {
+                  setState(() => _recordScopeFilter = value ?? 'ALL');
+                  _loadCompanies(page: 1);
+                },
+                labels: const {
+                  'ALL': 'All Records',
+                  'ADDED_BY_ME': 'Added by Me (My Records)',
+                  'ASSIGNED_TO_ME': 'Assigned to Me',
+                  'MY_ALL': 'My Records (Added or Assigned)',
+                },
+                width: 240,
+              ),
               SizedBox(
                 width: 250,
                 child: OutlinedButton.icon(
