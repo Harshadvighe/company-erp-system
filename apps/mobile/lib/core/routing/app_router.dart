@@ -189,10 +189,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const VendorsListPage(),
           ),
 
-          // ─── Products ────────────────────────────────────────────
+          // ─── Products & Materials ────────────────────────────────
           GoRoute(
             path: '/products',
             name: 'products',
+            builder: (context, state) => const ProductsListPage(),
+          ),
+          GoRoute(
+            path: '/materials',
+            name: 'materials',
             builder: (context, state) => const ProductsListPage(),
           ),
 

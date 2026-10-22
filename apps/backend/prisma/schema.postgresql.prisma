@@ -497,6 +497,29 @@ model Product {
   currentStock  Int      @default(0)
   imageUrl      String?
   status        String   @default("ACTIVE")
+
+  // Material Master attributes from Excel Import
+  make            String?
+  brand           String?
+  subCategory1    String?
+  subCategory2    String?
+  subCategory3    String?
+  subCategory4    String?
+  subCategory5    String?
+  subCategory6    String?
+  subCategory7    String?
+  subCategory8    String?
+  subCategory9    String?
+  subCategory10   String?
+  capacity        String?
+  supplier        String?
+  listPrice       Float?
+  dpDiscount      Float?
+  dealerPrice     Float?
+  lpDiscount      Float?
+  landingPrice    Float?
+  specifications  String?
+
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

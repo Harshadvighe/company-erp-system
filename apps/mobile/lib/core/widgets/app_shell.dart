@@ -153,12 +153,12 @@ List<_NavItem> _getAuthorizedNavItems(AuthUser? user) {
     ));
   }
 
-  if (user.canView('INVENTORY') || user.canView('PURCHASE')) {
+  if (user.canView('INVENTORY') || user.canView('PURCHASE') || user.canView('MATERIALS')) {
     items.add(const _NavItem(
-      label: 'Products',
+      label: 'Material Master',
       icon: Icons.category_outlined,
       activeIcon: Icons.category,
-      route: '/products',
+      route: '/materials',
     ));
   }
 
@@ -208,6 +208,10 @@ int _getNavIndex(List<_NavItem> items, String route) {
       return i;
     }
     if (items[i].route == '/dashboard' && (route == '/dashboard' || route == '/')) {
+      return i;
+    }
+    if ((items[i].route == '/materials' || items[i].route == '/products') &&
+        (route.startsWith('/materials') || route.startsWith('/products'))) {
       return i;
     }
     if (route.startsWith(items[i].route)) return i;

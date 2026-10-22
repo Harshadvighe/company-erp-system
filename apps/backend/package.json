@@ -16,6 +16,7 @@
     "test": "jest",
     "test:gst": "node --require ts-node/register --test scripts/gst-verification.test.js",
     "test:import": "node --require ts-node/register --test scripts/bulk-import.test.js",
+    "test:materials": "node --test scripts/material-master-import.test.js",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:hr-admin": "node scripts/test_hr_and_admin_suite.js"

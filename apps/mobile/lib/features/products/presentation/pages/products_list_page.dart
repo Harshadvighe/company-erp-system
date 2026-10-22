@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:saark_erp_mobile/core/theme/app_theme.dart';
 import 'package:saark_erp_mobile/core/constants/app_constants.dart';
+import 'package:saark_erp_mobile/core/widgets/bulk_import_modal.dart';
 import 'package:saark_erp_mobile/features/products/data/products_repository.dart';
 
 class ProductsListPage extends ConsumerStatefulWidget {
@@ -17,7 +18,7 @@ class _ProductsListPageState extends ConsumerState<ProductsListPage>
   final _searchController = TextEditingController();
   late TabController _tabController;
 
-  final _typeFilters = ['ALL', 'FINISHED_PRODUCT', 'RAW_MATERIAL', 'SERVICE', 'COMPONENT'];
+  final _typeFilters = ['ALL', 'RAW_MATERIAL', 'COMPONENT', 'FINISHED_PRODUCT', 'SERVICE'];
 
   @override
   void initState() {
@@ -61,9 +62,22 @@ class _ProductsListPageState extends ConsumerState<ProductsListPage>
             }
           },
         ),
-        title: const Text('Products & Items'),
+        title: const Text('Material Master & Products'),
         backgroundColor: AppTheme.darkSurface,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.upload_file),
+            tooltip: 'Import Excel / Material Master',
+            onPressed: () {
+              BulkImportModal.show(
+                context,
+                target: 'MATERIAL',
+                onImportComplete: () {
+                  ref.read(productListProvider.notifier).loadProducts();
+                },
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () => ref.read(productListProvider.notifier).loadProducts(),
@@ -142,11 +156,13 @@ class _ProductsListPageState extends ConsumerState<ProductsListPage>
           headingRowColor: WidgetStateProperty.all(AppTheme.darkBackground),
           columns: const [
             DataColumn(label: Text('SKU', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Product Name', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
+            DataColumn(label: Text('Material / Product Name', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
             DataColumn(label: Text('Category', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Type', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
+            DataColumn(label: Text('Make', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
+            DataColumn(label: Text('Capacity', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
             DataColumn(label: Text('Unit', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Sale Price', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
+            DataColumn(label: Text('List Price', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
+            DataColumn(label: Text('Quoted Price', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
             DataColumn(label: Text('Stock', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
             DataColumn(label: Text('Status', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
           ],
@@ -159,9 +175,11 @@ class _ProductsListPageState extends ConsumerState<ProductsListPage>
               DataCell(Text(p['sku'] as String? ?? '', style: const TextStyle(fontSize: 12, fontFamily: 'monospace', color: AppTheme.primary))),
               DataCell(Text(p['name'] as String? ?? '', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500))),
               DataCell(Text((p['category'] as Map?)?['name'] as String? ?? '—', style: const TextStyle(fontSize: 12))),
-              DataCell(Text((p['productType'] as String? ?? '').replaceAll('_', ' '), style: const TextStyle(fontSize: 11))),
+              DataCell(Text(p['make'] as String? ?? '—', style: const TextStyle(fontSize: 12))),
+              DataCell(Text(p['capacity'] as String? ?? '—', style: const TextStyle(fontSize: 12))),
               DataCell(Text((p['unit'] as Map?)?['code'] as String? ?? '—', style: const TextStyle(fontSize: 12))),
-              DataCell(Text('₹${p['sellingPrice'] ?? 0}', style: const TextStyle(fontSize: 12))),
+              DataCell(Text(p['listPrice'] != null ? '₹${p['listPrice']}' : '—', style: const TextStyle(fontSize: 12))),
+              DataCell(Text(p['landingPrice'] != null ? '₹${p['landingPrice']}' : '₹${p['sellingPrice'] ?? 0}', style: const TextStyle(fontSize: 12))),
               DataCell(Row(children: [
                 Text('$stock', style: TextStyle(fontSize: 12, color: isLowStock ? AppTheme.error : Colors.white)),
                 if (isLowStock) ...[

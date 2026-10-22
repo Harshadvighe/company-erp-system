@@ -16,6 +16,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 export enum ImportTarget {
   CUSTOMER = 'CUSTOMER',
   VENDOR = 'VENDOR',
+  MATERIAL = 'MATERIAL',
 }
 
 export enum GstLookupStatus {

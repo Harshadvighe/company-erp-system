@@ -22,6 +22,7 @@ import { SalesModule } from './modules/sales/sales.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { BulkImportModule } from './modules/bulk-import/bulk-import.module';
+import { MaterialsModule } from './modules/materials/materials.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { BulkImportModule } from './modules/bulk-import/bulk-import.module';
     CustomersModule,
     VendorsModule,
     ProductsModule,
+    MaterialsModule,
     CrmModule,
     SalesModule,
     PanelManufacturingModule,

@@ -291,6 +291,147 @@ export const VENDOR_COLUMN_DEFINITIONS: ColumnMappingDefinition[] = [
   },
 ];
 
+export const MATERIAL_COLUMN_DEFINITIONS: ColumnMappingDefinition[] = [
+  {
+    field: 'sku',
+    label: 'SKU / Item Code',
+    required: true,
+    synonyms: ['sku', 'item code', 'product code', 'part no', 'part number', 'code', 'cat no', 'cat. no', 'item no', 'article code'],
+  },
+  {
+    field: 'name',
+    label: 'Item / Material Name',
+    required: true,
+    synonyms: ['item name', 'product name', 'material name', 'name', 'item description', 'description', 'particulars', 'code with size', 'fans 12 vdc 240 vac', 'pin type insulated lugs', 'description cat no', 'specification'],
+  },
+  {
+    field: 'category',
+    label: 'Category',
+    required: false,
+    synonyms: ['category', 'product category', 'item category', 'group', 'type', 'product type', 'pump type'],
+  },
+  {
+    field: 'make',
+    label: 'Make / Manufacturer',
+    required: false,
+    synonyms: ['make', 'brand', 'manufacturer', 'mfr', 'switchgare make', 'vfd make'],
+  },
+  {
+    field: 'subCategory1',
+    label: 'Sub Category Type 1',
+    required: false,
+    synonyms: ['sub category type 1', 'sub category 1', 'sub-category 1', 'subcategory 1', 'sub category', 'panel type'],
+  },
+  {
+    field: 'subCategory2',
+    label: 'Sub Category Type 2',
+    required: false,
+    synonyms: ['sub category type 2', 'sub category 2', 'sub-category 2', 'subcategory 2'],
+  },
+  {
+    field: 'subCategory3',
+    label: 'Sub Category Type 3',
+    required: false,
+    synonyms: ['sub category type 3', 'sub category 3', 'sub-category 3', 'subcategory 3'],
+  },
+  {
+    field: 'subCategory4',
+    label: 'Sub Category Type 4',
+    required: false,
+    synonyms: ['sub category type 4', 'sub category 4', 'sub-category 4', 'subcategory 4'],
+  },
+  {
+    field: 'subCategory5',
+    label: 'Sub Category Type 5',
+    required: false,
+    synonyms: ['sub category type 5', 'sub category 5', 'sub-category 5', 'subcategory 5'],
+  },
+  {
+    field: 'subCategory6',
+    label: 'Sub Category Type 6',
+    required: false,
+    synonyms: ['sub category type 6', 'sub category 6', 'sub-category 6', 'subcategory 6'],
+  },
+  {
+    field: 'subCategory7',
+    label: 'Sub Category Type 7',
+    required: false,
+    synonyms: ['sub category type 7', 'sub category 7', 'sub-category 7', 'subcategory 7'],
+  },
+  {
+    field: 'subCategory8',
+    label: 'Sub Category Type 8',
+    required: false,
+    synonyms: ['sub category type 8', 'sub category 8', 'sub-category 8', 'subcategory 8'],
+  },
+  {
+    field: 'subCategory9',
+    label: 'Sub Category Type 9',
+    required: false,
+    synonyms: ['sub category type 9', 'sub category 9', 'sub-category 9', 'subcategory 9'],
+  },
+  {
+    field: 'subCategory10',
+    label: 'Sub Category Type 10',
+    required: false,
+    synonyms: ['sub category type 10', 'sub category 10', 'sub-category 10', 'subcategory 10'],
+  },
+  {
+    field: 'capacity',
+    label: 'Capacity / Rating',
+    required: false,
+    synonyms: ['capacity', 'rating', 'hp', 'kw', 'kilo watt', 'current', 'size', 'size (mm)', 'inch', 'mm2', 'voltage', 'pump hp', 'pump current'],
+  },
+  {
+    field: 'unit',
+    label: 'Unit of Measure',
+    required: false,
+    synonyms: ['unit', 'uom', 'unit of measure', 'nos', 'meter', 'pcs', 'kg', 'mtr'],
+  },
+  {
+    field: 'supplier',
+    label: 'Supplier / Source',
+    required: false,
+    synonyms: ['supplier', 'vendor', 'supplier name', 'source', 'party'],
+  },
+  {
+    field: 'listPrice',
+    label: 'List Price (Catalog / MRP)',
+    required: false,
+    synonyms: ['list price', 'catalog price', 'mrp', 'standard price'],
+  },
+  {
+    field: 'dpDiscount',
+    label: 'DP Discount (%) [Internal]',
+    required: false,
+    synonyms: ['dp discount', 'dp discount %', 'dealer discount', 'purchase discount', 'purchase discount %', 'discount %'],
+  },
+  {
+    field: 'dealerPrice',
+    label: 'Dealer Price (DP / Purchase Cost) [Internal]',
+    required: false,
+    synonyms: ['dp', 'dealer price', 'purchase price', 'purchase cost', 'cost price', 'net purchase price'],
+  },
+  {
+    field: 'lpDiscount',
+    label: 'LP Discount (%)',
+    required: false,
+    synonyms: ['lp discount', 'lp discount %', 'landing discount'],
+  },
+  {
+    field: 'landingPrice',
+    label: 'Landing Price (LP / Quoted Price)',
+    required: false,
+    synonyms: ['lp', 'landing price', 'selling price', 'sale price', 'final price', 'quoted price', 'price', 'price grey', 'price colour', 'price white', 'price jigo', 'price metal'],
+  },
+  {
+    field: 'hsnSac',
+    label: 'HSN / SAC Code',
+    required: false,
+    synonyms: ['hsn', 'sac', 'hsn/sac', 'hsn code', 'sac code'],
+  },
+];
+
 /**
  * Formula Injection Protection:
  * Prevent CSV/Spreadsheet formula execution by escaping leading formula operators.
@@ -854,10 +995,14 @@ export function normalizeHeader(header: string): string {
  */
 export function autoDetectColumnMapping(
   headers: string[],
-  target: 'CUSTOMER' | 'VENDOR',
+  target: 'CUSTOMER' | 'VENDOR' | 'MATERIAL' | string,
 ): Record<string, string> {
   const definitions =
-    target === 'CUSTOMER' ? CUSTOMER_COLUMN_DEFINITIONS : VENDOR_COLUMN_DEFINITIONS;
+    target === 'CUSTOMER'
+      ? CUSTOMER_COLUMN_DEFINITIONS
+      : target === 'MATERIAL' || target === 'PRODUCT'
+      ? MATERIAL_COLUMN_DEFINITIONS
+      : VENDOR_COLUMN_DEFINITIONS;
 
   const mapping: Record<string, string> = {};
   const usedFields = new Set<string>();

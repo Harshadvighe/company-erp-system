@@ -15,6 +15,7 @@ import {
   sanitizeSpreadsheetCell,
   CUSTOMER_COLUMN_DEFINITIONS,
   VENDOR_COLUMN_DEFINITIONS,
+  MATERIAL_COLUMN_DEFINITIONS,
 } from './excel-parser.util';
 import {
   ImportTarget,
@@ -147,12 +148,15 @@ export class BulkImportService {
     const definitions =
       dto.target === ImportTarget.CUSTOMER
         ? CUSTOMER_COLUMN_DEFINITIONS
+        : dto.target === ImportTarget.MATERIAL
+        ? MATERIAL_COLUMN_DEFINITIONS
         : VENDOR_COLUMN_DEFINITIONS;
 
     // 3. Collect in-file duplicate trackers
     const gstinCountInFile = new Map<string, number[]>();
     const phoneCountInFile = new Map<string, number[]>();
     const nameCountInFile = new Map<string, number[]>();
+    const skuCountInFile = new Map<string, number[]>();
 
     const preliminaryRows: Array<{
       rowNumber: number;
@@ -176,6 +180,13 @@ export class BulkImportService {
       });
 
       preliminaryRows.push({ rowNumber, rawData: rawRow, mappedData });
+
+      // Track Material SKU
+      if (dto.target === ImportTarget.MATERIAL && mappedData.sku) {
+        const cleanSku = String(mappedData.sku).trim().replace(/\.0+$/, '');
+        if (!skuCountInFile.has(cleanSku)) skuCountInFile.set(cleanSku, []);
+        skuCountInFile.get(cleanSku)!.push(rowNumber);
+      }
 
       // Track GSTIN
       if (mappedData.gstin) {
@@ -214,9 +225,21 @@ export class BulkImportService {
     let existingByGstin = new Map<string, any>();
     let existingByPhone = new Map<string, any>();
     let existingByName = new Map<string, any>();
+    let existingBySku = new Map<string, any>();
 
     if (dto.checkDuplicates !== false) {
-      if (dto.target === ImportTarget.CUSTOMER) {
+      if (dto.target === ImportTarget.MATERIAL) {
+        const skuList = Array.from(skuCountInFile.keys());
+        if (skuList.length > 0) {
+          const matchedProducts = await this.prisma.product.findMany({
+            where: { sku: { in: skuList }, status: { not: 'DELETED' } },
+            select: { id: true, sku: true, name: true, purchasePrice: true, sellingPrice: true, make: true, category: { select: { name: true } } },
+          });
+          matchedProducts.forEach((p) => {
+            existingBySku.set(p.sku.trim(), p);
+          });
+        }
+      } else if (dto.target === ImportTarget.CUSTOMER) {
         const [gstMatches, phoneMatches, nameMatches] = await Promise.all([
           gstinList.length > 0
             ? this.prisma.customer.findMany({
@@ -353,6 +376,118 @@ export class BulkImportService {
       const errors: string[] = [];
       const warnings: string[] = [];
       const conflicts: PreviewFieldConflict[] = [];
+
+      // Handle MATERIAL target preview & validation
+      if (dto.target === ImportTarget.MATERIAL) {
+        let validationStatus = RowValidationStatus.VALID;
+        const rawSku = mappedData.sku ? String(mappedData.sku).trim().replace(/\.0+$/, '') : '';
+        const rawName = mappedData.name ? String(mappedData.name).trim() : '';
+
+        // Role/permission-based Internal Pricing protection
+        const userPerms: string[] = user?.permissions || [];
+        const isAdmin = user?.isAdmin || (user?.roles || []).some((r: string) => ['ROLE_ADMIN', 'ADMIN', 'SUPER_ADMIN'].includes(r));
+        const canViewInternalPrice = isAdmin || userPerms.includes('INTERNAL_PRICING:VIEW') || userPerms.includes('MATERIALS:VIEW_INTERNAL_PRICING');
+
+        const enrichedData: Record<string, any> = { ...mappedData };
+        if (!canViewInternalPrice) {
+          delete mappedData.dpDiscount;
+          delete mappedData.dealerPrice;
+          delete enrichedData.dpDiscount;
+          delete enrichedData.dealerPrice;
+        }
+
+        // Validate mandatory fields
+        if (!rawSku && !rawName) {
+          validationStatus = RowValidationStatus.INVALID;
+          errors.push('Mandatory fields missing: Both SKU and Item Name are blank');
+        } else if (!rawSku) {
+          validationStatus = RowValidationStatus.WARNING;
+          warnings.push('SKU is blank; system will auto-assign a SKU upon import');
+        }
+
+        // Duplicate checks
+        let duplicateInfo: any = undefined;
+        if (rawSku) {
+          const inRows = skuCountInFile.get(rawSku) || [];
+          if (inRows.length > 1) {
+            validationStatus = RowValidationStatus.DUPLICATE_POSSIBLE;
+            duplicateInfo = {
+              type: 'IN_FILE',
+              field: 'sku',
+              description: `Duplicate SKU "${rawSku}" appears in rows: ${inRows.join(', ')}`,
+            };
+            warnings.push(`Duplicate SKU in spreadsheet (rows ${inRows.join(', ')})`);
+          }
+
+          if (existingBySku.has(rawSku)) {
+            const existing = existingBySku.get(rawSku);
+            validationStatus = RowValidationStatus.DUPLICATE_EXACT;
+            duplicateInfo = {
+              type: 'DATABASE_EXACT',
+              field: 'sku',
+              existingId: existing.id,
+              existingCode: existing.sku,
+              existingName: existing.name,
+              description: `SKU already exists in database: ${rawSku} (${existing.name})`,
+            };
+            warnings.push(`SKU already exists in database: ${rawSku}`);
+
+            if (rawName && existing.name !== rawName) {
+              conflicts.push({
+                field: 'name',
+                label: 'Item Name',
+                userValue: rawName,
+                gstValue: existing.name,
+              });
+            }
+          }
+        }
+
+        // Numeric price validation
+        const priceKeys = [
+          { key: 'listPrice', label: 'List Price' },
+          { key: 'dpDiscount', label: 'DP Discount' },
+          { key: 'dealerPrice', label: 'Dealer Price (DP)' },
+          { key: 'lpDiscount', label: 'LP Discount' },
+          { key: 'landingPrice', label: 'Landing Price (LP)' },
+        ];
+        priceKeys.forEach(({ key, label }) => {
+          if (mappedData[key] !== undefined && mappedData[key] !== '') {
+            const num = Number(mappedData[key]);
+            if (isNaN(num)) {
+              errors.push(`${label} must be a valid number (got "${mappedData[key]}")`);
+              if (validationStatus === RowValidationStatus.VALID) {
+                validationStatus = RowValidationStatus.INVALID;
+              }
+            }
+          }
+        });
+
+        if (errors.length > 0) invalidCount++;
+        else if (validationStatus === RowValidationStatus.DUPLICATE_EXACT || validationStatus === RowValidationStatus.DUPLICATE_POSSIBLE) duplicateCount++;
+        else if (warnings.length > 0) warningCount++;
+        else validCount++;
+
+        const isIncluded =
+          validationStatus === RowValidationStatus.VALID ||
+          validationStatus === RowValidationStatus.WARNING;
+
+        previewRows.push({
+          rowNumber,
+          isIncluded,
+          validationStatus,
+          gstLookupStatus: GstLookupStatus.NOT_APPLICABLE,
+          rawData,
+          mappedData,
+          enrichedData,
+          duplicateInfo,
+          errors,
+          warnings,
+          conflicts,
+        });
+
+        continue;
+      }
 
       let rawGstin = mappedData.gstin?.trim().toUpperCase() || '';
       let rawCompanyName = mappedData.companyName?.trim() || '';
@@ -738,9 +873,199 @@ export class BulkImportService {
       }
     }
 
+    // Role/permission-based Internal Pricing protection
+    const userPerms: string[] = user?.permissions || [];
+    const isAdmin =
+      user?.isAdmin === true ||
+      (user?.roles || []).some((r: string) =>
+        ['ROLE_ADMIN', 'ADMIN', 'SUPER_ADMIN'].includes(r),
+      );
+    const canViewInternalPrice =
+      isAdmin ||
+      userPerms.includes('INTERNAL_PRICING:VIEW') ||
+      userPerms.includes('MATERIALS:VIEW_INTERNAL_PRICING');
+
     for (const item of rowsToImport) {
       const { rowNumber, data, gstData, gstVerificationToken } = item;
       const combined = { ...(gstData || {}), ...(data || {}) };
+
+      // ─── Handle MATERIAL target execution ────────────────────────────
+      if (dto.target === ImportTarget.MATERIAL) {
+        const rawSku = combined.sku ? String(combined.sku).trim().replace(/\.0+$/, '') : '';
+        const rawName = combined.name
+          ? String(combined.name).trim()
+          : (combined.itemName ? String(combined.itemName).trim() : '');
+
+        if (!rawSku && !rawName) {
+          const error = 'Missing mandatory fields: Both SKU and Item Name are blank.';
+          errors.push({ rowNumber, companyName: undefined, error });
+          rowResults.push({ rowNumber, companyName: undefined, status: 'FAILED', error });
+          continue;
+        }
+
+        const sku = rawSku || `MAT-${Date.now().toString().slice(-6)}-${rowNumber}`;
+        const name = rawName || sku;
+
+        // Duplicate prevention within import batch
+        const duplicateKey = `sku:${sku}`;
+        if (dto.skipDuplicates !== false && seenIdentifiers.has(duplicateKey)) {
+          const error = `Duplicate SKU (${sku}) inside this import batch was skipped.`;
+          skippedCount++;
+          rowResults.push({ rowNumber, companyName: name, status: 'SKIPPED', error });
+          continue;
+        }
+        seenIdentifiers.add(duplicateKey);
+
+        try {
+          const existingProduct = await this.prisma.product.findUnique({
+            where: { sku },
+          });
+
+          // Resolve Category
+          let categoryId: string | null = null;
+          const catName = (combined.category || 'General').trim();
+          let cat = await this.prisma.productCategory.findFirst({
+            where: { name: { equals: catName } },
+          });
+          if (!cat) {
+            const catCode = catName.toUpperCase().replace(/[^A-Z0-9]/g, '_').slice(0, 20) || 'CAT';
+            cat = await this.prisma.productCategory.create({
+              data: { name: catName, code: `${catCode}_${Date.now().toString().slice(-4)}` },
+            });
+          }
+          categoryId = cat.id;
+
+          // Resolve Unit
+          let unitId: string | null = null;
+          const uName = (combined.unit || 'Nos').trim();
+          let u = await this.prisma.unit.findFirst({
+            where: { name: { equals: uName } },
+          });
+          if (!u) {
+            const uCode = uName.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10) || 'NOS';
+            u = await this.prisma.unit.create({
+              data: { name: uName, code: `${uCode}_${Date.now().toString().slice(-4)}` },
+            });
+          }
+          unitId = u.id;
+
+          // Numeric price parsing helper
+          const parsePrice = (val: any) => {
+            if (val === undefined || val === null || val === '') return null;
+            const n = Number(val);
+            return isNaN(n) ? null : n;
+          };
+
+          const listPrice = parsePrice(combined.listPrice);
+          const dpDiscount = canViewInternalPrice ? parsePrice(combined.dpDiscount) : null;
+          const dealerPrice = canViewInternalPrice ? parsePrice(combined.dealerPrice || combined.dp) : null;
+          const lpDiscount = parsePrice(combined.lpDiscount);
+          const landingPrice = parsePrice(combined.landingPrice || combined.lp);
+          const purchasePrice = dealerPrice !== null ? dealerPrice : 0;
+          const sellingPrice = landingPrice !== null ? landingPrice : (listPrice !== null ? listPrice : 0);
+
+          if (existingProduct) {
+            if (dto.updateExisting) {
+              const updateData: any = {
+                name,
+                categoryId,
+                unitId,
+                make: combined.make?.trim() || existingProduct.make,
+                subCategory1: combined.subCategory1?.trim() || existingProduct.subCategory1,
+                subCategory2: combined.subCategory2?.trim() || existingProduct.subCategory2,
+                subCategory3: combined.subCategory3?.trim() || existingProduct.subCategory3,
+                subCategory4: combined.subCategory4?.trim() || existingProduct.subCategory4,
+                subCategory5: combined.subCategory5?.trim() || existingProduct.subCategory5,
+                subCategory6: combined.subCategory6?.trim() || existingProduct.subCategory6,
+                subCategory7: combined.subCategory7?.trim() || existingProduct.subCategory7,
+                subCategory8: combined.subCategory8?.trim() || existingProduct.subCategory8,
+                subCategory9: combined.subCategory9?.trim() || existingProduct.subCategory9,
+                subCategory10: combined.subCategory10?.trim() || existingProduct.subCategory10,
+                capacity: combined.capacity?.trim() || existingProduct.capacity,
+                supplier: combined.supplier?.trim() || existingProduct.supplier,
+                hsnSac: combined.hsnSac?.trim() || existingProduct.hsnSac,
+              };
+
+              if (listPrice !== null) updateData.listPrice = listPrice;
+              if (canViewInternalPrice && dpDiscount !== null) updateData.dpDiscount = dpDiscount;
+              if (canViewInternalPrice && dealerPrice !== null) {
+                updateData.dealerPrice = dealerPrice;
+                updateData.purchasePrice = dealerPrice;
+              }
+              if (lpDiscount !== null) updateData.lpDiscount = lpDiscount;
+              if (landingPrice !== null) {
+                updateData.landingPrice = landingPrice;
+                updateData.sellingPrice = landingPrice;
+              }
+
+              await this.prisma.product.update({
+                where: { id: existingProduct.id },
+                data: updateData,
+              });
+              updatedCount++;
+              rowResults.push({ rowNumber, companyName: name, status: 'UPDATED' });
+            } else {
+              skippedCount++;
+              rowResults.push({
+                rowNumber,
+                companyName: name,
+                status: 'SKIPPED',
+                error: `Matching material SKU already exists (${sku}).`,
+              });
+            }
+          } else {
+            await this.prisma.product.create({
+              data: {
+                sku,
+                name,
+                productType: 'RAW_MATERIAL',
+                categoryId,
+                unitId,
+                make: combined.make?.trim() || null,
+                subCategory1: combined.subCategory1?.trim() || null,
+                subCategory2: combined.subCategory2?.trim() || null,
+                subCategory3: combined.subCategory3?.trim() || null,
+                subCategory4: combined.subCategory4?.trim() || null,
+                subCategory5: combined.subCategory5?.trim() || null,
+                subCategory6: combined.subCategory6?.trim() || null,
+                subCategory7: combined.subCategory7?.trim() || null,
+                subCategory8: combined.subCategory8?.trim() || null,
+                subCategory9: combined.subCategory9?.trim() || null,
+                subCategory10: combined.subCategory10?.trim() || null,
+                capacity: combined.capacity?.trim() || null,
+                supplier: combined.supplier?.trim() || null,
+                listPrice,
+                dpDiscount,
+                dealerPrice,
+                lpDiscount,
+                landingPrice,
+                purchasePrice,
+                sellingPrice,
+                hsnSac: combined.hsnSac?.trim() || null,
+                status: 'ACTIVE',
+              },
+            });
+            successCount++;
+            rowResults.push({ rowNumber, companyName: name, status: 'IMPORTED' });
+          }
+        } catch (err: any) {
+          this.logger.error(`Import error on row ${rowNumber}: ${err.message}`, err.stack);
+          databaseErrorCount++;
+          errors.push({
+            rowNumber,
+            companyName: name,
+            error: err.message || 'Database insert failed',
+          });
+          rowResults.push({
+            rowNumber,
+            companyName: name,
+            status: 'FAILED',
+            error: err.message || 'Database insert failed',
+          });
+        }
+
+        continue;
+      }
 
       const gstin = typeof combined.gstin === 'string' && combined.gstin.trim()
         ? combined.gstin.replace(/\s+/g, '').toUpperCase()
@@ -1139,8 +1464,8 @@ export class BulkImportService {
       userId: user?.id,
       userEmail: user?.email,
       action: 'BULK_IMPORT',
-      module: dto.target === ImportTarget.CUSTOMER ? 'CUSTOMERS' : 'VENDORS',
-      entityType: dto.target === ImportTarget.CUSTOMER ? 'Customer' : 'Vendor',
+      module: dto.target === ImportTarget.CUSTOMER ? 'CUSTOMERS' : dto.target === ImportTarget.MATERIAL ? 'MATERIALS' : 'VENDORS',
+      entityType: dto.target === ImportTarget.CUSTOMER ? 'Customer' : dto.target === ImportTarget.MATERIAL ? 'Product' : 'Vendor',
       details: `Bulk Import (${dto.target}) Completed: ${successCount} imported, ${updatedCount} updated, ${skippedCount} skipped, ${errors.length} failed. File: ${dto.fileName || 'spreadsheet'}`,
       ipAddress,
     });
@@ -1162,6 +1487,15 @@ export class BulkImportService {
    * 3. Generate sample template CSV with headers and realistic sample rows
    */
   getSampleTemplate(target: ImportTarget): string {
+    if (target === ImportTarget.MATERIAL) {
+      return [
+        'SKU,Category,Make,SUB Category Type 1,SUB Category Type 2,SUB Category Type 3,SUB Category Type 4,Item Name,CAPACITY,Unit,Supplier,List Price,DP Discount,DP,LP Discount,LP',
+        'AI-PCU01,Controller,SAARK,HMI,HMI FOR LESS THAN 3 HP SVFD,<=3,AI-PCU01 WITH HMI DISPLAY,AI-PCU01,1.0,Nos,Saark Exploration Pvt Ltd,50000,50,25000,0,25000',
+        'SCH-LC1D25,CONTACTOR,Schneider,3 POLE,415V AC,LC1D25,25A,25A 3P Contactor,25A,Nos,Schneider Electric India,2450,42,1421,10,2205',
+        'POL-1.5-BLU,Wire,Polycab,Single Core,Copper,FR,1.5 SQMM,1.5 sqmm Blue Wire,1.5,Meter,Polycab India,18.5,25,13.88,5,17.5',
+      ].join('\r\n');
+    }
+
     if (target === ImportTarget.CUSTOMER) {
       return [
         'Company Name,GSTIN,Contact Person,Mobile,Email,Address,City,State,PIN Code,PAN,Customer Type,Industry,Turnover,Payment Terms,Notes',

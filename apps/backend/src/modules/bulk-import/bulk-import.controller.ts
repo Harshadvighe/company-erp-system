@@ -48,6 +48,10 @@ export class BulkImportController {
     'PURCHASE:VIEW',
     'VENDORS:CREATE',
     'VENDORS:VIEW',
+    'MATERIALS:CREATE',
+    'MATERIALS:VIEW',
+    'INVENTORY:CREATE',
+    'INVENTORY:VIEW',
     'BULK_IMPORT:CREATE',
     'BULK_IMPORT:VIEW',
   )
@@ -85,6 +89,22 @@ export class BulkImportController {
         if (!canCustomer) {
           throw new ForbiddenException(
             'Access Denied: Missing CRM/Customer permission to parse and preview spreadsheet',
+          );
+        }
+      } else if (target === ImportTarget.MATERIAL) {
+        const canMaterial = userPerms.some((p) =>
+          [
+            'MATERIALS:CREATE',
+            'MATERIALS:VIEW',
+            'INVENTORY:CREATE',
+            'INVENTORY:VIEW',
+            'BULK_IMPORT:CREATE',
+            'BULK_IMPORT:VIEW',
+          ].includes(p),
+        );
+        if (!canMaterial) {
+          throw new ForbiddenException(
+            'Access Denied: Missing Material/Inventory permission to parse and preview spreadsheet',
           );
         }
       } else {
@@ -143,6 +163,8 @@ export class BulkImportController {
     'CRM:CREATE',
     'VENDORS:CREATE',
     'PURCHASE:CREATE',
+    'MATERIALS:CREATE',
+    'INVENTORY:CREATE',
     'BULK_IMPORT:CREATE',
   )
   @ApiOperation({
@@ -164,6 +186,15 @@ export class BulkImportController {
         if (!canCustomer) {
           throw new ForbiddenException(
             'Access Denied: Missing CRM:CREATE or CUSTOMERS:CREATE permission to execute import',
+          );
+        }
+      } else if (dto.target === ImportTarget.MATERIAL) {
+        const canMaterial = userPerms.some((p) =>
+          ['MATERIALS:CREATE', 'INVENTORY:CREATE', 'BULK_IMPORT:CREATE'].includes(p),
+        );
+        if (!canMaterial) {
+          throw new ForbiddenException(
+            'Access Denied: Missing MATERIALS:CREATE or INVENTORY:CREATE permission to execute import',
           );
         }
       } else {
@@ -191,6 +222,10 @@ export class BulkImportController {
     'PURCHASE:EXPORT',
     'VENDORS:VIEW',
     'PURCHASE:VIEW',
+    'MATERIALS:EXPORT',
+    'MATERIALS:VIEW',
+    'INVENTORY:EXPORT',
+    'INVENTORY:VIEW',
     'BULK_IMPORT:VIEW',
   )
   @ApiOperation({ summary: 'Download standard sample import template CSV' })
@@ -200,7 +235,9 @@ export class BulkImportController {
     @Res() res: Response,
   ) {
     const target =
-      targetParam.toUpperCase() === 'VENDOR'
+      targetParam.toUpperCase() === 'MATERIAL'
+        ? ImportTarget.MATERIAL
+        : targetParam.toUpperCase() === 'VENDOR'
         ? ImportTarget.VENDOR
         : ImportTarget.CUSTOMER;
 

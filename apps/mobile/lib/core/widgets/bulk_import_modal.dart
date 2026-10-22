@@ -81,8 +81,11 @@ class _BulkImportModalState extends ConsumerState<BulkImportModal> {
     super.dispose();
   }
 
-  String get _targetTitle =>
-      widget.target == 'CUSTOMER' ? 'Customer / Company' : 'Vendor';
+  String get _targetTitle => widget.target == 'CUSTOMER'
+      ? 'Customer / Company'
+      : widget.target == 'MATERIAL'
+          ? 'Material Master / Components'
+          : 'Vendor';
 
   void _pickSpreadsheetFile() {
     pickAndUploadWebFile(
