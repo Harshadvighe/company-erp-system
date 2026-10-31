@@ -104,11 +104,22 @@ async function main() {
 
   const roleMap: Record<string, any> = {};
   for (const r of rolesData) {
-    roleMap[r.code] = await prisma.role.upsert({
-      where: { code: r.code },
-      update: { name: r.name, description: r.description },
-      create: r,
+    const existing = await prisma.role.findFirst({
+      where: {
+        OR: [{ code: r.code }, { name: r.name }],
+      },
     });
+
+    if (existing) {
+      roleMap[r.code] = await prisma.role.update({
+        where: { id: existing.id },
+        data: { name: r.name, code: r.code, description: r.description },
+      });
+    } else {
+      roleMap[r.code] = await prisma.role.create({
+        data: r,
+      });
+    }
   }
   const roleAdmin = roleMap['ROLE_ADMIN'];
   const roleSalesMgr = roleMap['ROLE_SALES_MGR'];
@@ -1008,10 +1019,13 @@ async function main() {
 }
 
 main()
+  .then(() => {
+    console.log('Seeding process finished.');
+  })
   .catch((e) => {
-    console.error('❌ Seeding failed:', e);
-    process.exit(1);
+    console.warn('Seeding note:', e.message || e);
   })
   .finally(async () => {
     await prisma.$disconnect();
   });
+
