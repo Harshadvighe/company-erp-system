@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: saark-erp-system
+    env: node
+    plan: free
+    rootDir: apps/backend
+    buildCommand: npm install && npm run build:render
+    startCommand: npm run start:prod
+    autoDeploy: true
+    healthCheckPath: /api/docs
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: REFRESH_TOKEN_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: REFRESH_TOKEN_EXPIRES_IN
+        value: 30d
