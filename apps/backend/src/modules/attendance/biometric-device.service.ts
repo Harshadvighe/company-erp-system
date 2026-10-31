@@ -6,7 +6,6 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
-import { Cron, CronExpression } from '@nestjs/schedule';
 import {
   RegisterDeviceDto,
   UpdateDeviceDto,
@@ -42,6 +41,7 @@ export interface RawPunchData {
 export class BiometricDeviceService {
   private readonly logger = new Logger(BiometricDeviceService.name);
   private readonly socketTimeout = 10000;
+  private syncTimer: any;
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -722,8 +722,7 @@ export class BiometricDeviceService {
   // AUTO SYNC CRON JOB
   // =========================================================================
 
-  @Cron(CronExpression.EVERY_15_MINUTES)
-  async autoSyncAllDevices() {
+    async autoSyncAllDevices() {
     this.logger.log('Running automatic biometric device sync...');
 
     const devices = await this.prisma.biometricDevice.findMany({
@@ -841,6 +840,7 @@ export class BiometricDeviceService {
   }
 
   async onModuleDestroy() {
+    if (this.syncTimer) clearInterval(this.syncTimer);
     this.logger.log('BiometricDeviceService destroyed');
   }
 }
