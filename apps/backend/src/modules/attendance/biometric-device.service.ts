@@ -12,13 +12,13 @@ import {
   UpdateDeviceDto,
   DeviceConnectionType,
   DeviceType,
-  PunchType,
 } from './dto/register-device.dto';
 import {
   SyncAttendanceRequestDto,
   SyncResponseDto,
   SyncType,
   DevicePunchRecord,
+  PunchType,
 } from './dto/sync-request.dto';
 import * as net from 'net';
 
@@ -843,3 +843,4 @@ export class BiometricDeviceService {
   async onModuleDestroy() {
     this.logger.log('BiometricDeviceService destroyed');
   }
+}

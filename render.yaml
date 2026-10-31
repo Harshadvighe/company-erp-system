@@ -7,7 +7,6 @@ services:
     buildCommand: npm install --legacy-peer-deps && npm run build:render
     startCommand: npm run start:prod
     autoDeploy: true
-    healthCheckPath: /api/docs
     envVars:
       - key: NODE_ENV
         value: production

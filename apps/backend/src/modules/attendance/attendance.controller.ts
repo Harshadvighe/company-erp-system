@@ -29,7 +29,7 @@ import {
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('api/v1/attendance-sync')
-export class AttendanceSyncController {
+export class AttendanceController {
   constructor(
     private readonly deviceService: BiometricDeviceService,
   ) {}
@@ -117,3 +117,4 @@ export class AttendanceSyncController {
     };
   }
 }
+export { AttendanceController as AttendanceSyncController };
