@@ -12,7 +12,7 @@ import { AuditService } from '../../core/audit/audit.service';
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       useFactory: () => ({
-        secret: process.env.JWT_SECRET,
+        secret: process.env.JWT_SECRET || 'saark-exploration-secure-jwt-secret-key-2026',
         signOptions: { expiresIn: process.env.JWT_EXPIRES_IN || '1d' },
       }),
     }),
