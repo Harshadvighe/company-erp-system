@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saark_erp_mobile/core/constants/app_constants.dart';
 import 'package:saark_erp_mobile/core/storage/app_storage.dart';
@@ -139,7 +140,24 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = AuthState(user: user);
   }
 
-  Future<void> logout() async {
+  Future<void> logout([String? sessionId]) async {
+    final token = await AppStorage.read(AppConstants.accessTokenKey);
+    if (token != null) {
+      try {
+        final dio = Dio(BaseOptions(
+          baseUrl: AppConstants.baseUrl,
+          connectTimeout: const Duration(seconds: 4),
+          receiveTimeout: const Duration(seconds: 4),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        ));
+        await dio.post('/auth/logout', data: {
+          if (sessionId != null) 'sessionId': sessionId,
+        });
+      } catch (_) {}
+    }
     await AppStorage.deleteAll();
     state = const AuthState();
   }

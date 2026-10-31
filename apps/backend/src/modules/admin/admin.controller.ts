@@ -272,4 +272,174 @@ export class AdminController {
   ) {
     return this.adminService.rejectEmployeeRequest(id, reason, req.user);
   }
+
+  // ─── SETTINGS & SYSTEM CONFIGURATION ────────────────────────────────────────
+
+  @Get('settings')
+  @ApiOperation({ summary: 'Get admin system settings and email preferences' })
+  getSettings() {
+    return this.adminService.getSettings();
+  }
+
+  @Put('settings')
+  @ApiOperation({ summary: 'Update admin system settings and email preferences' })
+  updateSettings(@Body() dto: any) {
+    return this.adminService.updateSettings(dto);
+  }
+
+  @Get('mail-logs')
+  @ApiOperation({ summary: 'List recent email notifications dispatched by system' })
+  getMailLogs() {
+    return this.adminService.getMailLogs();
+  }
+
+  @Post('send-test-email')
+  @ApiOperation({ summary: 'Send a test email to verify SMTP configuration' })
+  sendTestEmail(@Body() body: { to: string }) {
+    return this.adminService.sendTestEmail(body.to);
+  }
+
+  @Post('employee-requests/:id/resend-email')
+  @ApiOperation({ summary: 'Resend welcome onboarding credentials email to employee' })
+  resendWelcomeEmail(@Param('id') id: string) {
+    return this.adminService.resendWelcomeEmail(id);
+  }
+
+  // ─── AUDIT TRAIL & COMPLIANCE ACCESS LOGS ──────────────────────────────────
+
+  @Get('audit-logs')
+  @ApiOperation({ summary: 'List tamper-evident audit logs with module and action filters' })
+  getAuditLogs(
+    @Query('module') module?: string,
+    @Query('action') action?: string,
+    @Query('search') search?: string,
+    @Query('limit') limit?: number,
+    @Query('offset') offset?: number,
+  ) {
+    return this.adminService.getAuditLogs({ module, action, search, limit, offset });
+  }
+
+  // ─── INDUSTRIAL SECURITY & GOVERNANCE POLICIES ─────────────────────────────
+
+  @Get('security/policy')
+  @ApiOperation({ summary: 'Get plant cybersecurity & governance configuration (IEC 62443 / ISO 27001)' })
+  getSecurityPolicy() {
+    return this.adminService.getSecurityPolicy();
+  }
+
+  @Put('security/policy')
+  @ApiOperation({ summary: 'Update plant cybersecurity & governance configuration' })
+  updateSecurityPolicy(@Body() dto: any, @Req() req: any) {
+    return this.adminService.updateSecurityPolicy(dto, req.user);
+  }
+
+  @Get('security/sessions')
+  @ApiOperation({ summary: 'Get active enterprise user sessions across plant and HQ' })
+  getActiveSessions() {
+    return this.adminService.getActiveSessions();
+  }
+
+  @Get('security/session-history')
+  @ApiOperation({ summary: 'Get user login and logout history records with timestamps and durations' })
+  getSessionHistory(
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('userId') userId?: string,
+    @Query('limit') limit?: number,
+    @Query('offset') offset?: number,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.adminService.getSessionHistory({ search, status, userId, limit, offset, startDate, endDate });
+  }
+
+  @Delete('security/sessions/:id')
+  @ApiOperation({ summary: 'Terminate or revoke an active session' })
+  revokeSession(@Param('id') id: string, @Req() req: any) {
+    return this.adminService.revokeSession(id, req.user);
+  }
+
+  @Post('security/sessions/:id/terminate')
+  @ApiOperation({ summary: 'Terminate or revoke an active session (POST alternative)' })
+  terminateSession(@Param('id') id: string, @Req() req: any) {
+    return this.adminService.revokeSession(id, req.user);
+  }
+
+  // ─── SYSTEM HEALTH & DIAGNOSTICS ──────────────────────────────────────────
+
+  @Get('system/health')
+  @ApiOperation({ summary: 'Industrial telemetry: PostgreSQL latency, pool health, memory, uptime' })
+  getSystemHealth() {
+    return this.adminService.getSystemHealth();
+  }
+
+  @Post('system/backup')
+  @ApiOperation({ summary: 'Trigger manual database snapshot and disaster recovery backup' })
+  triggerSystemBackup(@Req() req: any) {
+    return this.adminService.triggerSystemBackup(req.user);
+  }
+
+  // ─── USER SECURITY MANAGEMENT ─────────────────────────────────────────────
+
+  @Patch('users/:id/unlock')
+  @ApiOperation({ summary: 'Unlock a locked user account and reset failed attempt counters' })
+  unlockUser(@Param('id') id: string, @Req() req: any) {
+    return this.adminService.unlockUser(id, req.user);
+  }
+
+  @Patch('users/:id/reset-password')
+  @ApiOperation({ summary: 'Administrator reset user password' })
+  resetPassword(@Param('id') id: string, @Req() req: any, @Body('password') password?: string) {
+    return this.adminService.resetPassword(id, password, req.user);
+  }
+
+  @Patch('users/:id/toggle-face')
+  @ApiOperation({ summary: 'Toggle biometric face authentication requirement for user' })
+  toggleFaceVerification(@Param('id') id: string, @Req() req: any, @Body('enabled') enabled?: boolean) {
+    return this.adminService.toggleFaceVerification(id, enabled, req.user);
+  }
+
+  // ─── POSTGRESQL LIVE DATABASE EXPLORER ────────────────────────────────────
+
+  @Post('database/auth')
+  @ApiOperation({ summary: 'Authenticate DBA credentials to access PostgreSQL Database Explorer' })
+  authenticateDatabaseAccess(@Body() dto: { username?: string; password?: string }) {
+    return this.adminService.verifyDatabaseAccess(dto);
+  }
+
+  @Get('database/telemetry')
+  @ApiOperation({ summary: 'Get live PostgreSQL connection telemetry' })
+  getDatabaseTelemetry() {
+    return this.adminService.getDatabaseTelemetry();
+  }
+
+  @Get('database/tables')
+  @ApiOperation({ summary: 'List all public PostgreSQL tables with row counts and schema information' })
+  getDatabaseTables() {
+    return this.adminService.getDatabaseTables();
+  }
+
+  @Get('database/table/:tableName')
+  @ApiOperation({ summary: 'Fetch table columns and paginated records' })
+  getDatabaseTableData(
+    @Param('tableName') tableName: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.adminService.getDatabaseTableData(tableName, {
+      page: page ? parseInt(page, 10) : 1,
+      limit: limit ? parseInt(limit, 10) : 25,
+      search,
+    });
+  }
+
+  @Post('database/query')
+  @ApiOperation({ summary: 'Execute safe read-only SQL query on PostgreSQL database' })
+  executeDatabaseQuery(@Body() dto: { query: string; limit?: number }) {
+    if (!dto?.query) throw new BadRequestException('SQL query is required');
+    return this.adminService.executeReadOnlyQuery(dto.query, dto.limit);
+  }
 }
+
+

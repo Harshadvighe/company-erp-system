@@ -44,6 +44,52 @@ class ProductsRepository {
   Future<void> deleteProduct(String id) async {
     await _dio.delete('/products/$id');
   }
+
+  // ─── SECTORS ─────────────────────────────────────────────────────────────
+
+  Future<List<dynamic>> getSectors() async {
+    try {
+      final response = await _dio.get('/products/sectors/list');
+      final data = response.data;
+      if (data is Map) return data['data'] as List? ?? [];
+      return data as List? ?? [];
+    } catch (_) {
+      return [
+        {'id': '1', 'name': 'Booster Pump', 'code': 'BOOSTER_PUMP'},
+        {'id': '2', 'name': 'STP Panel', 'code': 'STP_PANEL'},
+        {'id': '3', 'name': 'Water Meter', 'code': 'WATER_METER'},
+        {'id': '4', 'name': 'BMS', 'code': 'BMS'},
+        {'id': '5', 'name': 'VFD Panel', 'code': 'VFD_PANEL'},
+      ];
+    }
+  }
+
+  Future<Map<String, dynamic>> createSector(String name) async {
+    final response = await _dio.post('/products/sectors', data: {'name': name});
+    return response.data as Map<String, dynamic>;
+  }
+
+  // ─── PROMOTION MATERIALS ─────────────────────────────────────────────────
+
+  Future<List<dynamic>> getPromotions() async {
+    try {
+      final response = await _dio.get('/products/promotions/list');
+      final data = response.data;
+      if (data is Map) return data['data'] as List? ?? [];
+      return data as List? ?? [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> createPromotion(Map<String, dynamic> data) async {
+    final response = await _dio.post('/products/promotions', data: data);
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<void> deletePromotion(String id) async {
+    await _dio.delete('/products/promotions/$id');
+  }
 }
 
 final productsRepositoryProvider = Provider<ProductsRepository>((ref) {

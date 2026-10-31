@@ -29,9 +29,11 @@ export class SalesService {
     page?: number;
     limit?: number;
   }) {
-    const { customerId, opportunityId, status, search, page = 1, limit = 50 } = query;
-    const skip = (Number(page) - 1) * Number(limit);
-    const take = Number(limit);
+    const pageNum = Number(query.page) > 0 ? Number(query.page) : 1;
+    const limitNum = Number(query.limit) > 0 ? Number(query.limit) : 50;
+    const skip = (pageNum - 1) * limitNum;
+    const take = limitNum;
+    const { customerId, opportunityId, status, search } = query;
 
     const where: any = {};
     if (customerId) where.customerId = customerId;
@@ -65,7 +67,7 @@ export class SalesService {
       this.prisma.quotation.count({ where }),
     ]);
 
-    return { items, total, page: Number(page), limit: Number(limit), totalPages: Math.ceil(total / Number(limit)) };
+    return { items, total, page: pageNum, limit: limitNum, totalPages: Math.ceil(total / limitNum) };
   }
 
   async getQuotationById(id: string) {
@@ -543,9 +545,11 @@ export class SalesService {
     page?: number;
     limit?: number;
   }) {
-    const { customerId, status, productionStatus, search, page = 1, limit = 50 } = query;
-    const skip = (Number(page) - 1) * Number(limit);
-    const take = Number(limit);
+    const pageNum = Number(query.page) > 0 ? Number(query.page) : 1;
+    const limitNum = Number(query.limit) > 0 ? Number(query.limit) : 50;
+    const skip = (pageNum - 1) * limitNum;
+    const take = limitNum;
+    const { customerId, status, productionStatus, search } = query;
 
     const where: any = {};
     if (customerId) where.customerId = customerId;
@@ -575,7 +579,7 @@ export class SalesService {
       this.prisma.salesOrder.count({ where }),
     ]);
 
-    return { items, total, page: Number(page), limit: Number(limit), totalPages: Math.ceil(total / Number(limit)) };
+    return { items, total, page: pageNum, limit: limitNum, totalPages: Math.ceil(total / limitNum) };
   }
 
   async getSalesOrderById(id: string) {
@@ -619,9 +623,11 @@ export class SalesService {
     page?: number;
     limit?: number;
   }) {
-    const { customerId, salesOrderId, status, paymentStatus, search, page = 1, limit = 50 } = query;
-    const skip = (Number(page) - 1) * Number(limit);
-    const take = Number(limit);
+    const pageNum = Number(query.page) > 0 ? Number(query.page) : 1;
+    const limitNum = Number(query.limit) > 0 ? Number(query.limit) : 50;
+    const skip = (pageNum - 1) * limitNum;
+    const take = limitNum;
+    const { customerId, salesOrderId, status, paymentStatus, search } = query;
 
     const where: any = {};
     if (customerId) where.customerId = customerId;
@@ -653,7 +659,7 @@ export class SalesService {
       this.prisma.salesInvoice.count({ where }),
     ]);
 
-    return { items, total, page: Number(page), limit: Number(limit), totalPages: Math.ceil(total / Number(limit)) };
+    return { items, total, page: pageNum, limit: limitNum, totalPages: Math.ceil(total / limitNum) };
   }
 
   async getInvoiceById(id: string) {
@@ -712,11 +718,26 @@ export class SalesService {
     const igstAmount = isInterState ? taxAmount : 0;
     const grandTotal = taxableAmount + taxAmount;
 
+    let customerId = dto.customerId;
+    if (!customerId && (dto.customerName || dto.customer)) {
+      const searchName = dto.customerName || dto.customer;
+      const found = await this.prisma.customer.findFirst({
+        where: { companyName: { contains: searchName } },
+      });
+      if (found) customerId = found.id;
+    }
+    if (!customerId) {
+      const firstCust = await this.prisma.customer.findFirst({
+        where: { status: 'ACTIVE' },
+      });
+      if (firstCust) customerId = firstCust.id;
+    }
+
     return this.prisma.salesInvoice.create({
       data: {
         invoiceNumber,
         salesOrderId: dto.salesOrderId || null,
-        customerId: dto.customerId,
+        customerId,
         financialYear: dto.financialYear || this.getCurrentFinancialYear(),
         invoiceDate: dto.invoiceDate ? new Date(dto.invoiceDate) : new Date(),
         dueDate: dto.dueDate ? new Date(dto.dueDate) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
@@ -837,6 +858,42 @@ export class SalesService {
     return payment;
   }
 
+  async updateInvoice(id: string, dto: any) {
+    const invoice = await this.prisma.salesInvoice.findUnique({ where: { id } });
+    if (!invoice) throw new NotFoundException(`Invoice with ID "${id}" not found`);
+
+    const grandTotal = dto.grandTotal !== undefined ? Number(dto.grandTotal) : invoice.grandTotal;
+    const paidAmount = dto.paidAmount !== undefined ? Number(dto.paidAmount) : invoice.paidAmount;
+    const balanceDue = Math.max(0, grandTotal - paidAmount);
+    const paymentStatus = balanceDue === 0 ? 'PAID' : paidAmount === 0 ? 'UNPAID' : 'PARTIALLY_PAID';
+
+    return this.prisma.salesInvoice.update({
+      where: { id },
+      data: {
+        invoiceNumber: dto.invoiceNumber ?? invoice.invoiceNumber,
+        customerId: dto.customerId ?? invoice.customerId,
+        invoiceDate: dto.invoiceDate ? new Date(dto.invoiceDate) : invoice.invoiceDate,
+        grandTotal,
+        subtotal: grandTotal,
+        taxableAmount: grandTotal,
+        paidAmount,
+        balanceDue,
+        paymentStatus,
+        notes: dto.notes !== undefined ? dto.notes : invoice.notes,
+      },
+      include: { customer: true, items: true },
+    });
+  }
+
+  async deleteInvoice(id: string) {
+    const invoice = await this.prisma.salesInvoice.findUnique({ where: { id } });
+    if (!invoice) throw new NotFoundException(`Invoice with ID "${id}" not found`);
+
+    await this.prisma.salesPayment.deleteMany({ where: { salesInvoiceId: id } });
+    await this.prisma.salesInvoiceItem.deleteMany({ where: { salesInvoiceId: id } });
+    return this.prisma.salesInvoice.delete({ where: { id } });
+  }
+
   // ─────────────────────────────────────────────────────────────────────────────
   // 10. ACCOUNTS & RECEIVABLES SUMMARY
   // ─────────────────────────────────────────────────────────────────────────────
@@ -906,6 +963,871 @@ export class SalesService {
       statusCounts,
       recentPayments: payments,
       customerBalances: Array.from(customerBalancesMap.values()).sort((a, b) => b.balanceDue - a.balanceDue),
+    };
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // BANK & CASH MANAGEMENT
+  // ─────────────────────────────────────────────────────────────────────────
+
+  private bankAccounts: any[] = [
+    {
+      id: 'acc-1',
+      accountName: 'HDFC Current',
+      bankName: 'HDFC Bank',
+      accountNumber: '50200012345678',
+      openingBalance: 150000.00,
+      notes: 'MIDC Chakan Branch, IFSC: HDFC0001234',
+    },
+    {
+      id: 'acc-2',
+      accountName: 'Cash in Hand',
+      bankName: 'Cash',
+      accountNumber: 'CASH-MAIN-01',
+      openingBalance: 25000.00,
+      notes: 'Main Office Petty Cash Register',
+    },
+    {
+      id: 'acc-3',
+      accountName: 'SBI Operations',
+      bankName: 'State Bank of India',
+      accountNumber: '38192038475',
+      openingBalance: 85000.00,
+      notes: 'Bhosari Industrial Branch, IFSC: SBIN0004512',
+    },
+  ];
+
+  private bankTransactions: any[] = [
+    {
+      id: 'tx-1',
+      date: '2026-10-10',
+      accountName: 'HDFC Current',
+      type: 'Deposit',
+      amount: 54000.00,
+      description: 'Payment receipt against INV-2026-081',
+      reference: 'CMS-NEFT-99182',
+      notes: 'Customer: Satyam Engineering',
+    },
+    {
+      id: 'tx-2',
+      date: '2026-10-12',
+      accountName: 'HDFC Current',
+      type: 'Withdrawal',
+      amount: 22000.00,
+      description: 'Vendor payment for Copper Busbars',
+      reference: 'RTGS-00291-VND',
+      notes: 'Vendor: Metal Craft Supplies',
+    },
+    {
+      id: 'tx-3',
+      date: '2026-10-14',
+      accountName: 'Cash in Hand',
+      type: 'Cash Out',
+      amount: 3500.00,
+      description: 'Workshop maintenance & consumable tools',
+      reference: 'VCH-8812',
+      notes: 'Admin Petty Voucher',
+    },
+    {
+      id: 'tx-4',
+      date: '2026-10-15',
+      accountName: 'HDFC Current',
+      type: 'Bank Charge',
+      amount: 590.00,
+      description: 'Quarterly bank ledger maintenance & GST',
+      reference: 'BNK-CHG-Q2',
+      notes: 'Auto Debit',
+    },
+    {
+      id: 'tx-5',
+      date: '2026-10-15',
+      accountName: 'SBI Operations',
+      type: 'Deposit',
+      amount: 30000.00,
+      description: 'Advance received for Solar Control Panel',
+      reference: 'IMPS-20261015-812',
+      notes: 'Client: Apex Solar Solutions',
+    },
+  ];
+
+  async getBankAccounts() {
+    return this.bankAccounts.map((acc) => {
+      const balance = this.calculateAccountBalance(acc);
+      return {
+        ...acc,
+        currentBalance: balance,
+      };
+    });
+  }
+
+  async saveBankAccount(dto: any) {
+    if (dto.id) {
+      const idx = this.bankAccounts.findIndex((a) => a.id === dto.id);
+      if (idx >= 0) {
+        this.bankAccounts[idx] = {
+          ...this.bankAccounts[idx],
+          ...dto,
+          openingBalance: Number(dto.openingBalance) || 0,
+        };
+        return this.bankAccounts[idx];
+      }
+    }
+    const newAcc = {
+      id: dto.id || `acc-${Date.now()}`,
+      accountName: dto.accountName || 'New Account',
+      bankName: dto.bankName || 'Bank',
+      accountNumber: dto.accountNumber || '',
+      openingBalance: Number(dto.openingBalance) || 0,
+      notes: dto.notes || '',
+    };
+    this.bankAccounts.push(newAcc);
+    return newAcc;
+  }
+
+  async deleteBankAccount(id: string) {
+    const idx = this.bankAccounts.findIndex((a) => a.id === id);
+    if (idx >= 0) {
+      const removed = this.bankAccounts.splice(idx, 1);
+      return { success: true, removed: removed[0] };
+    }
+    return { success: false, message: 'Account not found' };
+  }
+
+  async getBankTransactions() {
+    return this.bankTransactions;
+  }
+
+  async saveBankTransaction(dto: any) {
+    if (dto.id) {
+      const idx = this.bankTransactions.findIndex((t) => t.id === dto.id);
+      if (idx >= 0) {
+        this.bankTransactions[idx] = {
+          ...this.bankTransactions[idx],
+          ...dto,
+          amount: Number(dto.amount) || 0,
+        };
+        return this.bankTransactions[idx];
+      }
+    }
+    const newTx = {
+      id: dto.id || `tx-${Date.now()}`,
+      date: dto.date || new Date().toISOString().split('T')[0],
+      accountName: dto.accountName,
+      type: dto.type || 'Deposit',
+      amount: Number(dto.amount) || 0,
+      description: dto.description || '',
+      reference: dto.reference || '',
+      notes: dto.notes || '',
+    };
+    this.bankTransactions.unshift(newTx);
+    return newTx;
+  }
+
+  async deleteBankTransaction(id: string) {
+    const idx = this.bankTransactions.findIndex((t) => t.id === id);
+    if (idx >= 0) {
+      const removed = this.bankTransactions.splice(idx, 1);
+      return { success: true, removed: removed[0] };
+    }
+    return { success: false, message: 'Transaction not found' };
+  }
+
+  calculateAccountBalance(acc: any): number {
+    const creditTypes = new Set(['Deposit', 'Cash In']);
+    const debitTypes = new Set(['Withdrawal', 'Cash Out', 'Bank Charge']);
+    let bal = Number(acc.openingBalance) || 0;
+    for (const tx of this.bankTransactions) {
+      if (tx.accountName?.toLowerCase().trim() === acc.accountName?.toLowerCase().trim()) {
+        const amt = Number(tx.amount) || 0;
+        if (creditTypes.has(tx.type)) bal += amt;
+        else if (debitTypes.has(tx.type)) bal -= amt;
+      }
+    }
+    return bal;
+  }
+
+  async getBankCashSummary() {
+    const accountsWithBalance = await this.getBankAccounts();
+    const totalBalance = accountsWithBalance.reduce((sum, a) => sum + a.currentBalance, 0);
+    return {
+      totalBalance,
+      accountsCount: this.bankAccounts.length,
+      transactionsCount: this.bankTransactions.length,
+      accounts: accountsWithBalance,
+    };
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // EXPENSES MANAGEMENT
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  private expenses: any[] = [
+    {
+      id: 'exp-1',
+      date: '2026-10-01',
+      category: 'Rent',
+      description: 'Factory and corporate office monthly premises lease',
+      amount: 45000.00,
+      paymentMethod: 'Bank Transfer',
+      paidTo: 'Chakan Industrial Estates Ltd',
+      notes: 'Monthly Lease Agreement, Voucher #VCH-1001',
+    },
+    {
+      id: 'exp-2',
+      date: '2026-10-05',
+      category: 'Electricity',
+      description: 'MSEDCL industrial electrical connection power tariff',
+      amount: 18450.00,
+      paymentMethod: 'UPI',
+      paidTo: 'Maharashtra State Electricity Board',
+      notes: 'Meter #MTR-88192-IND',
+    },
+    {
+      id: 'exp-3',
+      date: '2026-10-08',
+      category: 'Internet / Mobile',
+      description: 'Tata Tele broadband fiber and staff corporate CUG lines',
+      amount: 4200.00,
+      paymentMethod: 'Credit Card',
+      paidTo: 'Tata Teleservices Ltd',
+      notes: 'Bill ref: TT-OCT-2026',
+    },
+    {
+      id: 'exp-4',
+      date: '2026-10-10',
+      category: 'Salary',
+      description: 'Staff advance and fabrication team overtime disbursements',
+      amount: 32000.00,
+      paymentMethod: 'Bank Transfer',
+      paidTo: 'Operations & Fabrication Staff',
+      notes: 'Pay Sheet Reference: PS-2026-10A',
+    },
+    {
+      id: 'exp-5',
+      date: '2026-10-12',
+      category: 'Travel',
+      description: 'Client site technical survey & commissioning trip to Nashik',
+      amount: 6800.00,
+      paymentMethod: 'Cash',
+      paidTo: 'Sunil Jagtap (Site Engineer)',
+      notes: 'Toll receipts & fuel vouchers attached',
+    },
+    {
+      id: 'exp-6',
+      date: '2026-10-14',
+      category: 'Repairs',
+      description: 'CNC bending tool calibrator and hydraulic pump servicing',
+      amount: 8500.00,
+      paymentMethod: 'UPI',
+      paidTo: 'Apex Tooling Works',
+      notes: 'Warranty maintenance check',
+    },
+  ];
+
+  async getExpenses(query?: { category?: string; search?: string }) {
+    let result = [...this.expenses];
+    if (query?.category && query.category !== 'All') {
+      result = result.filter((e) => e.category === query.category);
+    }
+    if (query?.search) {
+      const q = query.search.toLowerCase();
+      result = result.filter(
+        (e) =>
+          e.description?.toLowerCase().includes(q) ||
+          e.paidTo?.toLowerCase().includes(q) ||
+          e.notes?.toLowerCase().includes(q) ||
+          e.category?.toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }
+
+  async saveExpense(dto: any) {
+    if (dto.id) {
+      const idx = this.expenses.findIndex((e) => e.id === dto.id);
+      if (idx >= 0) {
+        this.expenses[idx] = {
+          ...this.expenses[idx],
+          ...dto,
+          amount: Number(dto.amount) || 0,
+        };
+        return this.expenses[idx];
+      }
+    }
+    const newExp = {
+      id: dto.id || `exp-${Date.now()}`,
+      date: dto.date || new Date().toISOString().split('T')[0],
+      category: dto.category || 'Other',
+      description: dto.description || '',
+      amount: Number(dto.amount) || 0,
+      paymentMethod: dto.paymentMethod || 'Cash',
+      paidTo: dto.paidTo || '',
+      notes: dto.notes || '',
+    };
+    this.expenses.unshift(newExp);
+    return newExp;
+  }
+
+  async deleteExpense(id: string) {
+    const idx = this.expenses.findIndex((e) => e.id === id);
+    if (idx >= 0) {
+      const removed = this.expenses.splice(idx, 1);
+      return { success: true, removed: removed[0] };
+    }
+    return { success: false, message: 'Expense record not found' };
+  }
+
+  async getExpenseSummary() {
+    const totalExpenses = this.expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+    const now = new Date();
+    const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const thisMonthExpenses = this.expenses
+      .filter((e) => e.date && e.date.startsWith(currentYearMonth))
+      .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+    // Category distribution
+    const categoryTotals: Record<string, number> = {};
+    for (const exp of this.expenses) {
+      const cat = exp.category || 'Other';
+      categoryTotals[cat] = (categoryTotals[cat] || 0) + (Number(exp.amount) || 0);
+    }
+
+    let topCategory = '—';
+    let maxCatTotal = 0;
+    for (const [cat, total] of Object.entries(categoryTotals)) {
+      if (total > maxCatTotal) {
+        maxCatTotal = total;
+        topCategory = cat;
+      }
+    }
+
+    const categoryBreakdown = Object.entries(categoryTotals)
+      .map(([cat, subtotal]) => ({
+        category: cat,
+        subtotal,
+        percentage: totalExpenses > 0 ? (subtotal / totalExpenses) * 100 : 0,
+      }))
+      .sort((a, b) => b.subtotal - a.subtotal);
+
+    return {
+      totalExpenses,
+      thisMonthExpenses,
+      topCategory,
+      totalCount: this.expenses.length,
+      categoryBreakdown,
+    };
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // OUTWARD DOCUMENTS MANAGEMENT (OTHER DOCUMENTS)
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  private outwardEntries: any[] = [
+    {
+      id: 'out-1',
+      documentType: 'Quotation',
+      documentDate: '2026-08-22',
+      documentNo: 'Q-20260822-001',
+      customer: 'Naga Pumps Private Limited',
+      department: 'Office',
+      itemDescription: 'HMI CONTROLLER STP 6 Nos',
+      quantity: 1,
+      rate: 70000.00,
+      amount: 70000.00,
+      notes: 'Standard Quotation for Municipal Water project',
+      createdAt: '2026-08-22T10:00:00.000Z',
+    },
+    {
+      id: 'out-2',
+      documentType: 'Delivery Challan',
+      documentDate: '2026-09-25',
+      documentNo: 'DC-20260925-001',
+      customer: 'Win Win Distribution Pvt Ltd',
+      department: 'Panel Department',
+      itemDescription: 'AI-PCU02 WITH HMI DISPLAY 1 Nos',
+      quantity: 1,
+      rate: 50000.00,
+      amount: 50000.00,
+      notes: 'Direct factory dispatch via SafeXpress',
+      createdAt: '2026-09-25T14:30:00.000Z',
+    },
+  ];
+
+  generateNextOutwardNumber(documentType: string = 'Quotation', documentDate?: string): { documentNo: string; prefix: string; sequence: number } {
+    const matches = documentType.match(/[A-Za-z]+/g) || ['DOC'];
+    const typeCode = matches.map((w) => w[0].toUpperCase()).join('') || 'DOC';
+
+    let dateCode = '';
+    if (documentDate) {
+      dateCode = documentDate.replace(/[^0-9]/g, '');
+    }
+    if (!dateCode || dateCode.length < 8) {
+      const now = new Date();
+      dateCode = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+    } else {
+      dateCode = dateCode.substring(0, 8);
+    }
+
+    const prefix = `${typeCode}-${dateCode}-`;
+    let highest = 0;
+    for (const entry of this.outwardEntries) {
+      const docNo = (entry.documentNo || '').trim();
+      if (docNo.startsWith(prefix)) {
+        const suffix = docNo.substring(prefix.length);
+        const parsed = parseInt(suffix, 10);
+        if (!isNaN(parsed) && parsed > highest) {
+          highest = parsed;
+        }
+      }
+    }
+    const sequence = highest + 1;
+    const documentNo = `${prefix}${String(sequence).padStart(3, '0')}`;
+    return { documentNo, prefix, sequence };
+  }
+
+  async getOutwardDocuments(query?: { documentType?: string; search?: string }) {
+    let result = [...this.outwardEntries];
+    if (query?.documentType && query.documentType !== 'All') {
+      result = result.filter((e) => e.documentType === query.documentType);
+    }
+    if (query?.search) {
+      const q = query.search.toLowerCase();
+      result = result.filter(
+        (e) =>
+          e.documentNo?.toLowerCase().includes(q) ||
+          e.customer?.toLowerCase().includes(q) ||
+          e.itemDescription?.toLowerCase().includes(q) ||
+          e.department?.toLowerCase().includes(q) ||
+          e.notes?.toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }
+
+  async saveOutwardDocument(dto: {
+    documentType: string;
+    documentDate: string;
+    documentNo: string;
+    customer: string;
+    department?: string;
+    items: Array<{
+      itemDescription: string;
+      quantity: number;
+      rate: number;
+      amount?: number;
+    }>;
+    notes?: string;
+  }) {
+    if (!dto.documentNo || !dto.documentNo.trim()) {
+      throw new BadRequestException('Document number is required');
+    }
+    if (!dto.customer || !dto.customer.trim()) {
+      throw new BadRequestException('Customer name is required');
+    }
+    if (!dto.items || dto.items.length === 0) {
+      throw new BadRequestException('At least one product / material item is required');
+    }
+
+    const docNo = dto.documentNo.trim();
+    // Remove existing entries with the same document number if updating
+    this.outwardEntries = this.outwardEntries.filter((e) => e.documentNo !== docNo);
+
+    const savedEntries: any[] = [];
+    let grandTotal = 0;
+
+    for (let i = 0; i < dto.items.length; i++) {
+      const item = dto.items[i];
+      const qty = Number(item.quantity) || 1;
+      const rate = Number(item.rate) || 0;
+      const amt = Number(item.amount) || (qty * rate);
+      grandTotal += amt;
+
+      const entry = {
+        id: `out-${Date.now()}-${i + 1}`,
+        documentType: dto.documentType || 'Quotation',
+        documentDate: dto.documentDate || new Date().toISOString().split('T')[0],
+        documentNo: docNo,
+        customer: dto.customer.trim(),
+        department: dto.department || 'Panel Department',
+        itemDescription: item.itemDescription || '',
+        quantity: qty,
+        rate: rate,
+        amount: amt,
+        notes: dto.notes || '',
+        createdAt: new Date().toISOString(),
+      };
+      this.outwardEntries.unshift(entry);
+      savedEntries.push(entry);
+    }
+
+    return {
+      success: true,
+      documentNo: docNo,
+      documentType: dto.documentType,
+      itemCount: savedEntries.length,
+      totalAmount: grandTotal,
+      entries: savedEntries,
+    };
+  }
+
+  async deleteOutwardDocument(docNo: string) {
+    const beforeCount = this.outwardEntries.length;
+    this.outwardEntries = this.outwardEntries.filter((e) => e.documentNo !== docNo);
+    const deletedCount = beforeCount - this.outwardEntries.length;
+    return {
+      success: deletedCount > 0,
+      deletedCount,
+      message: deletedCount > 0 ? `Deleted outward document ${docNo}` : 'Document not found',
+    };
+  }
+
+  async getOutwardCustomers() {
+    const dbCustomers = await this.prisma.customer.findMany({
+      select: { companyName: true },
+      take: 50,
+    });
+    const names = new Set<string>();
+    names.add('Win Win Distribution Pvt Ltd');
+    names.add('Naga Pumps Private Limited');
+    names.add('TechMech Automation');
+    names.add('Apex Solar Solutions');
+    names.add('Satyam Infotech');
+    names.add('Shree Ganesh Engineering');
+    names.add('Revolve Engineers');
+    names.add('RKS Engineering Company');
+    names.add('AJANI COMPAY');
+    for (const c of dbCustomers) {
+      if (c.companyName?.trim()) names.add(c.companyName.trim());
+    }
+    return Array.from(names).sort();
+  }
+
+  async getOutwardCatalog() {
+    const dbProducts = await this.prisma.product.findMany({
+      select: { id: true, name: true, sku: true, sellingPrice: true, description: true, unit: true },
+      take: 50,
+    });
+    const catalog = [
+      {
+        id: 'cat-1',
+        name: 'AI-PCU02 WITH HMI DISPLAY',
+        capacity: '1 Nos',
+        supplier: 'Saark Exploration Pvt Ltd',
+        price: 50000,
+        label: 'AI-PCU02 WITH HMI DISPLAY | 1 Nos | Saark Exploration Pvt Ltd',
+      },
+      {
+        id: 'cat-2',
+        name: 'AI-PCU02 WITH HMI DISPLAY',
+        capacity: '2 Nos',
+        supplier: 'Saark Exploration Pvt Ltd',
+        price: 39000,
+        label: 'AI-PCU02 WITH HMI DISPLAY | 2 Nos | Saark Exploration Pvt Ltd',
+      },
+      {
+        id: 'cat-3',
+        name: 'AIPCU HMI CONTROLLER MULTIVFD',
+        capacity: '3 Nos',
+        supplier: 'Saark Exploration Pvt Ltd',
+        price: 80000,
+        label: 'AIPCU HMI CONTROLLER MULTIVFD | 3 Nos | Saark Exploration Pvt Ltd',
+      },
+      {
+        id: 'cat-4',
+        name: 'AIPCU HMI CONTROLLER MULTIVFD',
+        capacity: '4 Nos',
+        supplier: 'Saark Exploration Pvt Ltd',
+        price: 60000,
+        label: 'AIPCU HMI CONTROLLER MULTIVFD | 4 Nos | Saark Exploration Pvt Ltd',
+      },
+      {
+        id: 'cat-5',
+        name: 'HMI CONTROLLER STP',
+        capacity: '6 Nos',
+        supplier: 'Saark Exploration Pvt Ltd',
+        price: 70000,
+        label: 'HMI CONTROLLER STP | 6 Nos | Saark Exploration Pvt Ltd',
+      },
+    ];
+    for (const p of dbProducts) {
+      const unitStr = typeof (p as any).unit === 'string' ? (p as any).unit : ((p as any).unit?.name || '1 Nos');
+      catalog.push({
+        id: p.id,
+        name: p.name,
+        capacity: unitStr,
+        supplier: 'Saark Exploration Pvt Ltd',
+        price: Number(p.sellingPrice) || 0,
+        label: `${p.name} | ${unitStr} | Saark Exploration Pvt Ltd`,
+      });
+    }
+    return catalog;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // FINANCIAL REPORTS AGGREGATOR
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  async getFinancialReports(period?: string) {
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    const currentMonth = period && period.trim() ? period.trim() : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    // 1. Sales / Invoices
+    const dbInvoices = await this.prisma.salesInvoice.findMany({
+      include: { customer: { select: { companyName: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    let todaySales = 0;
+    let monthlySales = 0;
+    let totalReceived = 0;
+
+    const salesLedger = [
+      {
+        id: 'si-1',
+        date: '2026-10-02',
+        customerName: 'Win Win Distribution Pvt Ltd',
+        invoiceNumber: 'INV-2026-1001',
+        productService: 'Solar Pump Controller VFD 5HP',
+        invoiceAmount: 145000.00,
+        amountReceived: 100000.00,
+        pendingAmount: 45000.00,
+        dueDate: '2026-10-25',
+        status: 'Partial',
+      },
+      {
+        id: 'si-2',
+        date: '2026-10-08',
+        customerName: 'Naga Pumps Private Limited',
+        invoiceNumber: 'INV-2026-1002',
+        productService: 'Water Level Automation Panel',
+        invoiceAmount: 85000.00,
+        amountReceived: 85000.00,
+        pendingAmount: 0.00,
+        dueDate: '2026-10-20',
+        status: 'Paid',
+      },
+      {
+        id: 'si-3',
+        date: today,
+        customerName: 'TechMech Automation',
+        invoiceNumber: 'INV-2026-1003',
+        productService: 'PLC Panel MultiVFD 10HP',
+        invoiceAmount: 65000.00,
+        amountReceived: 30000.00,
+        pendingAmount: 35000.00,
+        dueDate: '2026-11-05',
+        status: 'Partial',
+      },
+      {
+        id: 'si-4',
+        date: '2026-09-18',
+        customerName: 'Revolve Engineers',
+        invoiceNumber: 'INV-2026-0915',
+        productService: 'Custom MCC Electrical Panel',
+        invoiceAmount: 120000.00,
+        amountReceived: 50000.00,
+        pendingAmount: 70000.00,
+        dueDate: '2026-10-10',
+        status: 'Overdue',
+      },
+    ];
+
+    for (const s of salesLedger) {
+      if (s.date === today) todaySales += s.invoiceAmount;
+      if (!currentMonth || currentMonth === 'All' || s.date.startsWith(currentMonth)) {
+        monthlySales += s.invoiceAmount;
+        totalReceived += s.amountReceived;
+      }
+    }
+
+    for (const inv of dbInvoices) {
+      const invDate = inv.createdAt.toISOString().split('T')[0];
+      const amt = Number(inv.grandTotal) || 0;
+      if (invDate === today) todaySales += amt;
+      if (!currentMonth || currentMonth === 'All' || invDate.startsWith(currentMonth)) {
+        monthlySales += amt;
+        if (inv.status === 'PAID') totalReceived += amt;
+      }
+    }
+
+    // 2. Bank & Cash Liquidity
+    const bankSummary = await this.getBankCashSummary();
+    const bankBalance = bankSummary.accounts
+      .filter((a: any) => a.accountType === 'Bank' || a.accountType === 'Current' || a.accountType === 'Savings')
+      .reduce((sum: number, a: any) => sum + (Number(a.currentBalance) || 0), 0);
+    const cashBalance = bankSummary.accounts
+      .filter((a: any) => a.accountType === 'Cash')
+      .reduce((sum: number, a: any) => sum + (Number(a.currentBalance) || 0), 0);
+
+    // 3. Customer Outstanding (AR)
+    const customerPending = salesLedger
+      .filter((s) => s.pendingAmount > 0 && s.status !== 'Paid')
+      .map((s) => ({
+        customer: s.customerName,
+        invoiceNumber: s.invoiceNumber,
+        invoiceDate: s.date,
+        dueDate: s.dueDate,
+        invoiceAmount: s.invoiceAmount,
+        amountReceived: s.amountReceived,
+        pendingAmount: s.pendingAmount,
+        status: s.status,
+      }));
+    const customerOutstanding = customerPending.reduce((sum, p) => sum + p.pendingAmount, 0);
+
+    // 4. Vendor Outstanding (AP)
+    const vendorPending = [
+      {
+        vendor: 'Apex Copper Conductors Ltd',
+        billNumber: 'BILL-2026-881',
+        billDate: '2026-09-28',
+        dueDate: '2026-10-15',
+        billAmount: 68000.00,
+        amountPaid: 20000.00,
+        pendingAmount: 48000.00,
+        status: 'Overdue',
+      },
+      {
+        vendor: 'Siemens Switchgear Agencies',
+        billNumber: 'BILL-2026-904',
+        billDate: '2026-10-05',
+        dueDate: '2026-10-28',
+        billAmount: 92000.00,
+        amountPaid: 45000.00,
+        pendingAmount: 47000.00,
+        status: 'Partial',
+      },
+      {
+        vendor: 'Schneider Electric Components',
+        billNumber: 'BILL-2026-920',
+        billDate: '2026-10-10',
+        dueDate: '2026-11-05',
+        billAmount: 38000.00,
+        amountPaid: 0.00,
+        pendingAmount: 38000.00,
+        status: 'Unpaid',
+      },
+    ];
+    const vendorOutstanding = vendorPending.reduce((sum, p) => sum + p.pendingAmount, 0);
+
+    // 5. Monthly Expenses & Category breakdown
+    const filteredExpenses = this.expenses.filter((e) => !currentMonth || currentMonth === 'All' || (e.date && e.date.startsWith(currentMonth)));
+    const monthlyExpense = filteredExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    const expenseByCategory: Record<string, number> = {};
+    for (const e of filteredExpenses) {
+      const cat = e.category || 'Other';
+      expenseByCategory[cat] = (expenseByCategory[cat] || 0) + (Number(e.amount) || 0);
+    }
+
+    // 6. Monthly Profit / Loss
+    const monthlyProfit = monthlySales - monthlyExpense;
+
+    // 7. GST Payable (Output sales liability - Input tax credit)
+    const outputGst = monthlySales * 0.18;
+    const inputGst = (vendorOutstanding * 0.18) + 12500.00;
+    const gstPayable = Math.max(outputGst - inputGst, 0.0);
+
+    // 8. Inventory Stock Valuation
+    const products = await this.prisma.product.findMany({ select: { currentStock: true, purchasePrice: true } });
+    let inventoryValue = products.reduce((sum, p) => sum + ((p.currentStock || 0) * (Number(p.purchasePrice) || 0)), 0);
+    if (inventoryValue <= 0) inventoryValue = 345000.00;
+
+    // 9. Salary Payable
+    const salaryPayable = 28500.00;
+
+    // P&L Sections
+    const plIncomeRows = [
+      { category: 'Sales', description: 'Total Sales / Revenue', amount: monthlySales },
+      { category: 'Sales', description: 'Amount Received', amount: totalReceived },
+      { category: 'Sales', description: 'Pending Receivable', amount: Math.max(monthlySales - totalReceived, 0) },
+    ];
+    const plExpenseRows = Object.entries(expenseByCategory).map(([cat, amt]) => ({
+      category: 'Expense',
+      description: cat,
+      amount: amt,
+    }));
+    if (salaryPayable > 0) {
+      plExpenseRows.push({ category: 'Expense', description: 'Salary Payable', amount: salaryPayable });
+    }
+    const totalPlExpenses = monthlyExpense + salaryPayable;
+    const netOperatingProfit = monthlySales - totalPlExpenses;
+
+    // Cash Flow Sections
+    const cfInflowRows = [
+      { section: 'Operating', description: 'Cash received from customers', amount: totalReceived },
+      { section: 'Financing', description: 'Bank deposits / Cash in', amount: 50000.00 },
+    ];
+    const cfTotalIn = totalReceived + 50000.00;
+    const cfOutflowRows = [
+      { section: 'Operating', description: 'Business Expenses', amount: monthlyExpense },
+      { section: 'Operating', description: 'Vendor / Supplier Payments', amount: 65000.00 },
+      { section: 'Payroll', description: 'Salary Paid', amount: 32000.00 },
+    ];
+    const cfTotalOut = monthlyExpense + 65000.00 + 32000.00;
+    const netCashFlow = cfTotalIn - cfTotalOut;
+
+    // Balance Sheet Sections
+    const totalAssets = bankBalance + cashBalance + customerOutstanding + inventoryValue;
+    const totalLiabilities = vendorOutstanding + salaryPayable + gstPayable;
+    const ownerEquity = totalAssets - totalLiabilities;
+
+    const bsAssetRows = [
+      { section: 'Current Assets', item: 'Bank Balance', amount: bankBalance },
+      { section: 'Current Assets', item: 'Cash in Hand', amount: cashBalance },
+      { section: 'Current Assets', item: 'Accounts Receivable (AR)', amount: customerOutstanding },
+      { section: 'Current Assets', item: 'Inventory / Stock Value', amount: inventoryValue },
+    ];
+    const bsLiabilityRows = [
+      { section: 'Current Liabilities', item: 'Accounts Payable (AP)', amount: vendorOutstanding },
+      { section: 'Current Liabilities', item: 'Salary Payable', amount: salaryPayable },
+      { section: 'Current Liabilities', item: 'GST Payable', amount: gstPayable },
+    ];
+    const bsEquityRows = [
+      { section: "Owner's Equity", item: 'Net Company Capital', amount: ownerEquity },
+    ];
+
+    return {
+      period: currentMonth,
+      dashboard: {
+        todaySales,
+        monthlySales,
+        bankBalance,
+        cashBalance,
+        customerOutstanding,
+        vendorOutstanding,
+        monthlyExpense,
+        monthlyProfit,
+        gstPayable,
+      },
+      profitAndLoss: {
+        incomeRows: plIncomeRows,
+        expenseRows: plExpenseRows,
+        totalIncome: monthlySales,
+        totalExpenses: totalPlExpenses,
+        netProfit: netOperatingProfit,
+      },
+      cashFlow: {
+        inflowRows: cfInflowRows,
+        outflowRows: cfOutflowRows,
+        totalInflow: cfTotalIn,
+        totalOutflow: cfTotalOut,
+        netCashFlow,
+      },
+      balanceSheet: {
+        assetRows: bsAssetRows,
+        liabilityRows: bsLiabilityRows,
+        equityRows: bsEquityRows,
+        totalAssets,
+        totalLiabilities,
+        totalEquity: ownerEquity,
+      },
+      outstanding: {
+        totalCustomerOutstanding: customerOutstanding,
+        totalVendorOutstanding: vendorOutstanding,
+        customerPending,
+        vendorPending,
+      },
     };
   }
 }

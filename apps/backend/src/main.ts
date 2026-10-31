@@ -9,7 +9,14 @@ dotenv.config();
 
 async function bootstrap() {
   const logger = new Logger('SaarkERPBackend');
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    bodyParser: false,
+  });
+
+  const express = require('express');
+  // Configure generous body limits (50MB) for biometric facial photos and documents
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
   // Enable CORS for Flutter Web & Mobile
   const allowedOrigins = process.env.CORS_ORIGINS
@@ -45,7 +52,6 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
 
   // Serve Flutter Web frontend directly through NestJS (at root / and all non-API paths)
-  const express = require('express');
   const path = require('path');
   const fs = require('fs');
 

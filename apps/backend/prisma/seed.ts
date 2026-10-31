@@ -121,7 +121,7 @@ async function main() {
     'MY_WORK', 'STAFF', 'ORGANIZATION', 'USERS', 'ROLES',
     'CUSTOMERS', 'CRM', 'SALES', 'PURCHASE', 'VENDORS',
     'INVENTORY', 'PRODUCTION', 'PROJECTS', 'PROJECT_TEAM',
-    'PROJECT_BUDGET', 'TASKS', 'REPORTS', 'AUDIT'
+    'PROJECT_BUDGET', 'TASKS', 'REPORTS', 'AUDIT', 'ATTENDANCE'
   ];
   const actions = ['VIEW', 'CREATE', 'EDIT', 'DELETE', 'APPROVE', 'ASSIGN', 'REVIEW', 'EXPORT', 'PRINT'];
 
@@ -212,6 +212,7 @@ async function main() {
     'STAFF:VIEW', 'STAFF:CREATE', 'STAFF:EDIT', 'STAFF:APPROVE',
     'ORGANIZATION:VIEW',
     'REPORTS:VIEW', 'REPORTS:EXPORT',
+    'ATTENDANCE:VIEW', 'ATTENDANCE:CREATE', 'ATTENDANCE:EDIT', 'ATTENDANCE:APPROVE',
   ]);
 
   // EMPLOYEE
@@ -220,14 +221,28 @@ async function main() {
     'STAFF:VIEW',
     'TASKS:VIEW', 'TASKS:EDIT',
     'PROJECTS:VIEW',
+    'ATTENDANCE:VIEW',
   ]);
 
   console.log('✅ Permissions and Role-Permissions Matrix Seeded!');
 
   // 4. Test Users & Linked Staff Profiles
   const defaultPasswordHash = await bcrypt.hash('Saark@2026', 10);
+  const bypassPasswordHash = await bcrypt.hash('12345678', 10);
 
   const testAccounts = [
+    {
+      empId: 'EMP000',
+      name: 'Saark Admin',
+      email: 'saarkadmin@saark.in',
+      username: 'Saarkadmin',
+      deptCode: 'EXECUTIVE',
+      desigCode: 'MD',
+      roleCode: 'ROLE_ADMIN',
+      phone: '+91 98200 00000',
+      location: 'Mumbai Head Office',
+      useBypassPassword: true,
+    },
     {
       empId: 'EMP001',
       name: 'Vikram Sharma',
@@ -345,7 +360,7 @@ async function main() {
       create: {
         username: acc.username,
         email: acc.email,
-        passwordHash: defaultPasswordHash,
+        passwordHash: acc.useBypassPassword ? bypassPasswordHash : defaultPasswordHash,
         fullName: acc.name,
         designation: desig?.name,
         departmentId: dept?.id,

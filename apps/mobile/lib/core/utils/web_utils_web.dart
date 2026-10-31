@@ -15,8 +15,12 @@ void pickAndUploadWebFile({
 }) {
   try {
     final uploadInput = html.FileUploadInputElement();
-    if (fieldType == 'PHOTO') {
-      uploadInput.accept = 'image/*';
+    if (fieldType == 'PHOTO' || fieldType == 'IMAGE' || fieldType == 'LOGO') {
+      uploadInput.accept = 'image/png,image/jpeg,image/webp,image/svg+xml,image/*';
+    } else if (fieldType == 'PDF' || fieldType == 'SPEC_SHEET' || fieldType == 'USER_MANUAL' || fieldType == 'CERTIFICATE' || fieldType == 'INVOICE') {
+      uploadInput.accept = '.pdf,application/pdf';
+    } else if (fieldType == 'ARTWORK') {
+      uploadInput.accept = '.pdf,.ai,.eps,.psd,.png,.jpg,application/pdf,image/*';
     } else if (fieldType == 'AUDIO') {
       uploadInput.accept = 'audio/*';
     } else if (fieldType == 'EXCEL') {

@@ -1,0 +1,215 @@
+====================================================================================================
+COMPANY MANAGEMENT SOFTWARE - PRODUCTION DISPATCH LOG DATA & FIELD STRUCTURE
+Module: Production Management & Manufacturing Execution System (MES) - Dispatch Routing
+Export Date: 2026-10-24
+====================================================================================================
+
+1. DISPATCH LOG MODULE - APPLIED FIELD STRUCTURE & SPECIFICATION
+----------------------------------------------------------------------------------------------------
+Field Key        | Field Label / Header     | Data Type | UI Control / Source | Required | Description / Options
+----------------------------------------------------------------------------------------------------
+dispatchCode     | Dispatch Code            | String    | Auto Sequence       | YES      | Unique reference voucher: DSP-YYYY-XXXX (e.g. DSP-2026-0001)
+productId        | Product ID / Serial No   | String    | Selection / Badge   | YES      | Serialized hardware unit ID (e.g. PRD-2026-VFD-0101)
+batchNumber      | Batch Number             | String    | Read-only Reference | YES      | Manufacturing batch lot (e.g. BATCH-20260917_193942)
+productName      | Product Name / Model     | String    | Read-only Reference | YES      | Product title (e.g. Automatic Triplex VFD Booster Pump Panel)
+department       | Destination Department   | String    | Dropdown Options    | YES      | Destination routing department:
+                 |                          |           |                     |          |  1. Panel Department
+                 |                          |           |                     |          |  2. Tech Support Department
+                 |                          |           |                     |          |  3. Finished Goods Warehouse
+                 |                          |           |                     |          |  4. Client Site Direct
+dispatchTime     | Dispatch Timestamp       | DateTime  | System Generated    | YES      | Sign-off date and time (YYYY-MM-DD HH:MM:SS)
+dispatchedBy     | Dispatched By / Sign-off | String    | User Profile / Text | YES      | Name of QC Inspector or Production Coordinator
+description      | Dispatch Memo / Notes    | String    | Multi-line Textarea | YES      | Functional pass notes, routing memo & packaging notes
+status           | Dispatch Status          | String    | System Badge        | YES      | DISPATCHED, IN_TRANSIT, RECEIVED_BY_DEPT, DELIVERED
+notes            | Internal / Courier Notes | String    | Text Input          | NO       | Client tag, transit precautions, or shipping airway bill
+
+
+2. TESTED OK DISPATCH LEDGER - 10 APPLIED COLUMNS (DESKTOP / TKINTER WINDOW)
+----------------------------------------------------------------------------------------------------
+Column # | Column Header        | Data Key          | Data Type | Description / Sample Value
+----------------------------------------------------------------------------------------------------
+1        | Product ID           | productId         | String    | Unit Serial ID (e.g. 1, 2, PRD-2026-VFD-0101)
+2        | User Name            | userName          | String    | Inspector name (e.g. sunny s. hapse, Vikram Sharma)
+3        | Timestamp            | timestamp         | String    | Test certification time (e.g. 2026-09-17 19:40:21)
+4        | Visual Inspection    | visualInspection  | String    | Passed / Failed
+5        | Controller Programm  | controllerProg    | String    | Complete / Incomplete
+6        | Wifi Programming     | wifiProg          | String    | Complete / Incomplete
+7        | Tested OK            | testedOk          | String    | Yes / No
+8        | Repair Status        | repairStatus      | String    | No / Repaired / Required
+9        | Dispatch Status      | dispatchStatus    | String    | Target Dept (e.g. Other Department, Panel Dept)
+10       | Description          | description       | String    | Full audit memo & handover record
+
+
+====================================================================================================
+3. LIVE PRODUCTION DISPATCH LOG RECORDS (ACTIVE SYSTEM DATA)
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+RECORD 1: DSP-2026-0008
+----------------------------------------------------------------------------------------------------
+Dispatch Code    : DSP-2026-0008
+Product ID       : PRD-BATCH-TEST-153472-01
+Batch Number     : BATCH-TEST-153472
+Product Name     : Smart Industrial Control Panel
+Destination Dept : Panel Dept
+Dispatch Time    : 2026-10-23 04:19:13
+Dispatched By    : Vikram Sharma
+Status           : DISPATCHED
+Description      : Dispatched to Panel Dept for final cable gland fitting and packaging before outward transit.
+Internal Notes   : Verify IP55 rubber beading before shipment.
+
+----------------------------------------------------------------------------------------------------
+RECORD 2: DSP-2026-0007
+----------------------------------------------------------------------------------------------------
+Dispatch Code    : DSP-2026-0007
+Product ID       : PRD-BATCH-TEST-115976-01
+Batch Number     : BATCH-TEST-115976
+Product Name     : Smart Industrial Control Panel
+Destination Dept : Panel Dept
+Dispatch Time    : 2026-10-23 04:18:36
+Dispatched By    : Vikram Sharma
+Status           : DISPATCHED
+Description      : Dispatched to Panel Dept for final cable gland fitting and packaging before outward transit.
+Internal Notes   : Pack with standard mounting bracket set.
+
+----------------------------------------------------------------------------------------------------
+RECORD 3: DSP-2026-0006
+----------------------------------------------------------------------------------------------------
+Dispatch Code    : DSP-2026-0006
+Product ID       : PRD-CTRL-8147
+Batch Number     : BATCH-20261009_110248
+Product Name     : Controller Managed Control Panel
+Destination Dept : Tech Support Department
+Dispatch Time    : 2026-10-09 05:32:48
+Dispatched By    : Chief Engineer Sachin
+Status           : DISPATCHED
+Description      : Tested OK unit PRD-CTRL-8147 certified and routed to Tech Support Department. Visual & Functional Pass.
+Internal Notes   : Pair with customer tenant MQTT broker and configure cloud SIM.
+
+----------------------------------------------------------------------------------------------------
+RECORD 4: DSP-2026-0005
+----------------------------------------------------------------------------------------------------
+Dispatch Code    : DSP-2026-0005
+Product ID       : PRD-TEST-PASS-8100
+Batch Number     : BATCH-TEST-968058
+Product Name     : Automatic Triplex VFD Booster Pump Panel
+Destination Dept : Finished Goods Warehouse
+Dispatch Time    : 2026-10-09 05:32:48
+Dispatched By    : DispatchCoordinator_Vikas
+Status           : DISPATCHED
+Description      : Tested unit PRD-TEST-PASS-8100 certified and dispatched to FG warehouse.
+Internal Notes   : Allocated for Sales Order SO-2026-0142.
+
+----------------------------------------------------------------------------------------------------
+RECORD 5: DSP-2026-0004
+----------------------------------------------------------------------------------------------------
+Dispatch Code    : DSP-2026-0004
+Product ID       : PRD-TEST-PASS-1006
+Batch Number     : BATCH-TEST-770980
+Product Name     : Automatic Triplex VFD Booster Pump Panel
+Destination Dept : Finished Goods Warehouse
+Dispatch Time    : 2026-10-09 05:29:31
+Dispatched By    : DispatchCoordinator
+Status           : DISPATCHED
+Description      : Tested unit PRD-TEST-PASS-1006 certified and dispatched to FG warehouse.
+Internal Notes   : Ready for delivery inspection.
+
+----------------------------------------------------------------------------------------------------
+RECORD 6: DSP-2026-0003
+----------------------------------------------------------------------------------------------------
+Dispatch Code    : DSP-2026-0003
+Product ID       : PRD-TEST-PASS-7510
+Batch Number     : BATCH-TEST-557490
+Product Name     : Automatic Triplex VFD Booster Pump Panel
+Destination Dept : Finished Goods Warehouse
+Dispatch Time    : 2026-10-09 05:09:17
+Dispatched By    : DispatchCoordinator
+Status           : DISPATCHED
+Description      : Tested unit PRD-TEST-PASS-7510 certified and dispatched to FG warehouse.
+Internal Notes   : Standard dispatch.
+
+----------------------------------------------------------------------------------------------------
+RECORD 7: DSP-2026-0001
+----------------------------------------------------------------------------------------------------
+Dispatch Code    : DSP-2026-0001
+Product ID       : PRD-2026-VFD-0101
+Batch Number     : BATCH-20261005_110000
+Product Name     : Automatic Triplex VFD Booster Pump Panel
+Destination Dept : Panel Department
+Dispatch Time    : 2026-10-06 17:05:00
+Dispatched By    : Pooja Sonawane
+Status           : DISPATCHED
+Description      : Unit PRD-2026-VFD-0101 Tested OK. Dispatched to Panel Department for final enclosure powder-coat inspection & gland plate fitting.
+Internal Notes   : Priority project delivery.
+
+----------------------------------------------------------------------------------------------------
+RECORD 8: DSP-2026-0002
+----------------------------------------------------------------------------------------------------
+Dispatch Code    : DSP-2026-0002
+Product ID       : PRD-2026-IOT-099
+Batch Number     : BATCH-20261004_093000
+Product Name     : Smart IoT PLC Gateway Unit
+Destination Dept : Tech Support Department
+Dispatch Time    : 2026-10-05 15:30:00
+Dispatched By    : Aditya Kulkarni
+Status           : DISPATCHED
+Description      : Unit PRD-2026-IOT-099 tested OK. Dispatched to Tech Support Department for cloud registration and client telemetry provisioning.
+Internal Notes   : Pre-configure Modbus baud rate 9600.
+
+
+====================================================================================================
+4. DISPATCH LOG TABLE (ASCII GRID VIEW)
+====================================================================================================
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Dispatch Code  | Product ID               | Batch Number          | Destination Dept        | Dispatched By        | Dispatch Time       | Status     | Description
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+DSP-2026-0008  | PRD-BATCH-TEST-153472-01 | BATCH-TEST-153472     | Panel Dept              | Vikram Sharma        | 2026-10-23 04:19:13 | DISPATCHED | Dispatched for final cable gland fitting and packaging before transit.
+DSP-2026-0007  | PRD-BATCH-TEST-115976-01 | BATCH-TEST-115976     | Panel Dept              | Vikram Sharma        | 2026-10-23 04:18:36 | DISPATCHED | Dispatched for final cable gland fitting and packaging before transit.
+DSP-2026-0006  | PRD-CTRL-8147            | BATCH-20261009_110248 | Tech Support Department | Chief Eng. Sachin    | 2026-10-09 05:32:48 | DISPATCHED | Tested OK unit certified and routed to Tech Support Dept.
+DSP-2026-0005  | PRD-TEST-PASS-8100       | BATCH-TEST-968058     | Finished Goods Whse     | Vikas (Coordinator)  | 2026-10-09 05:32:48 | DISPATCHED | Tested unit certified and dispatched to FG warehouse.
+DSP-2026-0004  | PRD-TEST-PASS-1006       | BATCH-TEST-770980     | Finished Goods Whse     | DispatchCoordinator  | 2026-10-09 05:29:31 | DISPATCHED | Tested unit certified and dispatched to FG warehouse.
+DSP-2026-0003  | PRD-TEST-PASS-7510       | BATCH-TEST-557490     | Finished Goods Whse     | DispatchCoordinator  | 2026-10-09 05:09:17 | DISPATCHED | Tested unit certified and dispatched to FG warehouse.
+DSP-2026-0001  | PRD-2026-VFD-0101        | BATCH-20261005_110000 | Panel Department        | Pooja Sonawane       | 2026-10-06 17:05:00 | DISPATCHED | Dispatched to Panel Dept for final enclosure powder-coat inspection.
+DSP-2026-0002  | PRD-2026-IOT-099         | BATCH-20261004_093000 | Tech Support Department | Aditya Kulkarni      | 2026-10-05 15:30:00 | DISPATCHED | Dispatched to Tech Support Dept for cloud registration & telemetry sync.
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+====================================================================================================
+5. RAW CSV FORMAT (DISPATCH LOG LEDGER)
+====================================================================================================
+Dispatch_Code,Product_ID,Batch_Number,Product_Name,Destination_Dept,Dispatched_By,Dispatch_Time,Status,Description
+DSP-2026-0008,PRD-BATCH-TEST-153472-01,BATCH-TEST-153472,Smart Industrial Control Panel,Panel Dept,Vikram Sharma,2026-10-23 04:19:13,DISPATCHED,Dispatched to Panel Dept for final cable gland fitting and packaging before outward transit.
+DSP-2026-0007,PRD-BATCH-TEST-115976-01,BATCH-TEST-115976,Smart Industrial Control Panel,Panel Dept,Vikram Sharma,2026-10-23 04:18:36,DISPATCHED,Dispatched to Panel Dept for final cable gland fitting and packaging before outward transit.
+DSP-2026-0006,PRD-CTRL-8147,BATCH-20261009_110248,Controller Managed Control Panel,Tech Support Department,Chief Engineer Sachin,2026-10-09 05:32:48,DISPATCHED,Tested OK unit PRD-CTRL-8147 certified and routed to Tech Support Department. Visual & Functional Pass.
+DSP-2026-0005,PRD-TEST-PASS-8100,BATCH-TEST-968058,Automatic Triplex VFD Booster Pump Panel,Finished Goods Warehouse,DispatchCoordinator_Vikas,2026-10-09 05:32:48,DISPATCHED,Tested unit PRD-TEST-PASS-8100 certified and dispatched to FG warehouse.
+DSP-2026-0004,PRD-TEST-PASS-1006,BATCH-TEST-770980,Automatic Triplex VFD Booster Pump Panel,Finished Goods Warehouse,DispatchCoordinator,2026-10-09 05:29:31,DISPATCHED,Tested unit PRD-TEST-PASS-1006 certified and dispatched to FG warehouse.
+DSP-2026-0003,PRD-TEST-PASS-7510,BATCH-TEST-557490,Automatic Triplex VFD Booster Pump Panel,Finished Goods Warehouse,DispatchCoordinator,2026-10-09 05:09:17,DISPATCHED,Tested unit PRD-TEST-PASS-7510 certified and dispatched to FG warehouse.
+DSP-2026-0001,PRD-2026-VFD-0101,BATCH-20261005_110000,Automatic Triplex VFD Booster Pump Panel,Panel Department,Pooja Sonawane,2026-10-06 17:05:00,DISPATCHED,Unit PRD-2026-VFD-0101 Tested OK. Dispatched to Panel Department for final enclosure powder-coat inspection & gland plate fitting.
+DSP-2026-0002,PRD-2026-IOT-099,BATCH-20261004_093000,Smart IoT PLC Gateway Unit,Tech Support Department,Aditya Kulkarni,2026-10-05 15:30:00,DISPATCHED,Unit PRD-2026-IOT-099 tested OK. Dispatched to Tech Support Department for cloud registration and client telemetry provisioning.
+
+
+====================================================================================================
+6. TESTED OK DISPATCH LIST (DESKTOP SCREEN RECORD FORMAT)
+====================================================================================================
+Product ID : 1
+User Name  : sunny s. hapse
+Timestamp  : 2026-09-17 19:40:21
+Visual Insp: Failed
+Controller : Complete
+Wifi Prog  : Complete
+Tested OK  : Yes
+Repair Stat: No
+Dispatch   : Other Department
+Description: User_Name: sunny s. hapse | Timestamp: 2026-09-17 19:40:21
+
+Product ID : 2
+User Name  : sunny s. hapse
+Timestamp  : 2026-09-17 19:40:37
+Visual Insp: Failed
+Controller : Complete
+Wifi Prog  : Complete
+Tested OK  : Yes
+Repair Stat: No
+Dispatch   : Other Department
+Description: User_Name: sunny s. hapse | Timestamp: 2026-09-17 19:40:37
+====================================================================================================

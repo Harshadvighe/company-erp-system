@@ -152,7 +152,7 @@ class _CrmFollowUpsPageState extends ConsumerState<CrmFollowUpsPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('CRM & Sales  /  Follow-ups',
+            Text('Sales & Marketing  /  Follow-ups',
                 style: TextStyle(fontSize: 11, color: Colors.white60)),
             Text('Follow-ups & Next Actions',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),

@@ -1281,35 +1281,85 @@ export class CrmService {
   // ─── ENQUIRIES ────────────────────────────────────────────────────────────
   async getEnquiries(query?: any, user?: any) {
     const page = Number(query?.page) || 1;
-    const limit = Number(query?.limit) || 25;
+    const limit = Number(query?.limit) || 100;
     const skip = (page - 1) * limit;
 
     const where: any = {};
     if (query?.customerId) where.customerId = query.customerId;
-    if (query?.status && query.status !== 'ALL') where.status = query.status;
+    if (query?.status && query.status !== 'ALL') {
+      const s = String(query.status).toUpperCase();
+      if (s === 'COMPLETE' || s === 'COMPLETED') {
+        where.status = { in: ['COMPLETE', 'COMPLETED', 'CLOSED_WON'] };
+      } else if (s === 'NOT_COMPLETE' || s === 'NOT COMPLETE') {
+        where.status = { in: ['NOT_COMPLETE', 'NOT COMPLETE', 'CLOSED_LOST'] };
+      } else if (s === 'PENDING') {
+        where.status = { in: ['PENDING', 'QUOTED'] };
+      } else {
+        where.status = query.status;
+      }
+    }
     if (query?.search) {
       where.OR = [
         { enquiryNumber: { contains: query.search } },
         { productInterest: { contains: query.search } },
         { requirement: { contains: query.search } },
         { customer: { companyName: { contains: query.search } } },
+        { customer: { contactPerson: { contains: query.search } } },
+        { customer: { phone: { contains: query.search } } },
       ];
     }
 
-    const [data, total] = await Promise.all([
+    const [data, total, totalAll, completeCount, notCompleteCount, pendingCount] = await Promise.all([
       this.prisma.enquiry.findMany({
         where,
         skip,
         take: limit,
         include: {
-          customer: { select: { id: true, companyName: true, customerCode: true, phone: true } },
+          customer: { select: { id: true, companyName: true, customerCode: true, phone: true, contactPerson: true } },
         },
         orderBy: { enquiryDate: 'desc' },
       }),
       this.prisma.enquiry.count({ where }),
+      this.prisma.enquiry.count(),
+      this.prisma.enquiry.count({ where: { status: { in: ['COMPLETE', 'COMPLETED', 'CLOSED_WON'] } } }),
+      this.prisma.enquiry.count({ where: { status: { in: ['NOT_COMPLETE', 'NOT COMPLETE', 'CLOSED_LOST'] } } }),
+      this.prisma.enquiry.count({ where: { status: { in: ['PENDING', 'QUOTED'] } } }),
     ]);
 
-    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+    return {
+      data,
+      summary: {
+        total: totalAll,
+        complete: completeCount,
+        notComplete: notCompleteCount,
+        pending: pendingCount,
+      },
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  async getEnquiriesSummary(user?: any) {
+    const [totalAll, completeCount, notCompleteCount, pendingCount] = await Promise.all([
+      this.prisma.enquiry.count(),
+      this.prisma.enquiry.count({ where: { status: { in: ['COMPLETE', 'COMPLETED', 'CLOSED_WON'] } } }),
+      this.prisma.enquiry.count({ where: { status: { in: ['NOT_COMPLETE', 'NOT COMPLETE', 'CLOSED_LOST'] } } }),
+      this.prisma.enquiry.count({ where: { status: { in: ['PENDING', 'QUOTED'] } } }),
+    ]);
+    return {
+      total: totalAll,
+      complete: completeCount,
+      notComplete: notCompleteCount,
+      pending: pendingCount,
+    };
+  }
+
+  async batchUpdateEnquiryStatus(ids: string[], status: string, user?: any) {
+    if (!ids || !ids.length) return { count: 0 };
+    const result = await this.prisma.enquiry.updateMany({
+      where: { id: { in: ids } },
+      data: { status },
+    });
+    return result;
   }
 
   async getEnquiry(id: string) {
@@ -1328,7 +1378,7 @@ export class CrmService {
       data: {
         enquiryNumber,
         customerId: dto.customerId,
-        productInterest: dto.productInterest,
+        productInterest: dto.productInterest || dto.productRequirement || 'General Equipment',
         quantity: Number(dto.quantity || 1),
         requirement: dto.requirement,
         expectedValue: Number(dto.expectedValue || 0),
@@ -1822,7 +1872,7 @@ export class CrmService {
     const contactPhone = dto.phone || dto.contacts?.[0]?.mobile || '9999999999';
     const contactEmail = dto.email || dto.contacts?.[0]?.email || `${customerCode.toLowerCase()}@saark.in`;
 
-    return this.prisma.$transaction(async (tx) => {
+    const customer = await this.prisma.$transaction(async (tx) => {
       const customer = await tx.customer.create({
         data: {
           customerCode,
@@ -1960,18 +2010,20 @@ export class CrmService {
         },
       });
 
-      await this.auditService.log({
-        userId: user?.id,
-        userEmail: user?.email,
-        action: 'CREATE',
-        module: 'CRM',
-        entityType: 'Company',
-        entityId: customer.id,
-        details: `Created Company Master: ${customer.customerCode} — ${customer.companyName}`,
-      });
-
       return customer;
+    }, { maxWait: 10000, timeout: 20000 });
+
+    await this.auditService.log({
+      userId: user?.id,
+      userEmail: user?.email,
+      action: 'CREATE',
+      module: 'CRM',
+      entityType: 'Company',
+      entityId: customer.id,
+      details: `Created Company Master: ${customer.customerCode} — ${customer.companyName}`,
     });
+
+    return customer;
   }
 
   async updateCompany(id: string, dto: any, user?: any) {

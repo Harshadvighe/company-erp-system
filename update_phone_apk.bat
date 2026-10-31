@@ -7,15 +7,33 @@ echo        Saark ERP - Direct USB Phone APK Installer
 echo ========================================================
 
 :: 1. Setup Environment Paths
-set "PATH=D:\saark\flutter\bin;C:\Users\HP\AppData\Local\Android\sdk\platform-tools;C:\Program Files\nodejs;%PATH%"
+if exist "C:\Users\dell\develop\flutter_windows_3.47.5-stable\flutter\bin" (
+    set "PATH=C:\Users\dell\develop\flutter_windows_3.47.5-stable\flutter\bin;!PATH!"
+)
+if exist "D:\saark\flutter\bin" (
+    set "PATH=D:\saark\flutter\bin;!PATH!"
+)
+if exist "C:\Users\dell\AppData\Local\Android\Sdk\platform-tools" (
+    set "PATH=C:\Users\dell\AppData\Local\Android\Sdk\platform-tools;!PATH!"
+)
+if exist "C:\Users\HP\AppData\Local\Android\sdk\platform-tools" (
+    set "PATH=C:\Users\HP\AppData\Local\Android\sdk\platform-tools;!PATH!"
+)
+if exist "C:\Program Files\nodejs" (
+    set "PATH=C:\Program Files\nodejs;!PATH!"
+)
 
 set "FLUTTER_CMD=flutter"
-if exist "D:\saark\flutter\bin\flutter.bat" (
+if exist "C:\Users\dell\develop\flutter_windows_3.47.5-stable\flutter\bin\flutter.bat" (
+    set "FLUTTER_CMD=C:\Users\dell\develop\flutter_windows_3.47.5-stable\flutter\bin\flutter.bat"
+) else if exist "D:\saark\flutter\bin\flutter.bat" (
     set "FLUTTER_CMD=D:\saark\flutter\bin\flutter.bat"
 )
 
 set "ADB_CMD=adb"
-if exist "C:\Users\HP\AppData\Local\Android\sdk\platform-tools\adb.exe" (
+if exist "C:\Users\dell\AppData\Local\Android\Sdk\platform-tools\adb.exe" (
+    set "ADB_CMD=C:\Users\dell\AppData\Local\Android\Sdk\platform-tools\adb.exe"
+) else if exist "C:\Users\HP\AppData\Local\Android\sdk\platform-tools\adb.exe" (
     set "ADB_CMD=C:\Users\HP\AppData\Local\Android\sdk\platform-tools\adb.exe"
 )
 
@@ -32,7 +50,7 @@ echo.
 :: 3. Build Fresh APK
 echo [2/3] Compiling latest Saark ERP APK...
 cd /d "%~dp0apps\mobile"
-call !FLUTTER_CMD! build apk --debug
+call "!FLUTTER_CMD!" build apk --debug --no-pub
 if %errorlevel% neq 0 (
     echo.
     echo [ERROR] Flutter compilation failed!

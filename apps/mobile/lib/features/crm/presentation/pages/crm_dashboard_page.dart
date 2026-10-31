@@ -6,6 +6,7 @@ import 'package:saark_erp_mobile/core/theme/app_theme.dart';
 import 'package:saark_erp_mobile/core/auth/auth_provider.dart';
 import 'package:saark_erp_mobile/features/crm/data/crm_repository.dart';
 import 'package:saark_erp_mobile/core/widgets/bulk_import_modal.dart';
+import 'package:saark_erp_mobile/core/widgets/back_to_dashboard_button.dart';
 
 class CrmDashboardPage extends ConsumerStatefulWidget {
   const CrmDashboardPage({super.key});
@@ -85,15 +86,10 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
         backgroundColor: AppTheme.darkSurface,
         elevation: 0,
         titleSpacing: 16,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.go('/dashboard');
-            }
-          },
+        leadingWidth: 175,
+        leading: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: BackToDashboardButton(compact: true),
         ),
         title: Row(
           children: [
@@ -110,7 +106,7 @@ class _CrmDashboardPageState extends ConsumerState<CrmDashboardPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'CRM & Sales Workspace',
+                  'Sales & Marketing Workspace',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 0.3),
                 ),
                 Text(

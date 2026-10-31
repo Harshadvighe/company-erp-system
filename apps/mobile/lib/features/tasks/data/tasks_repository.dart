@@ -7,14 +7,27 @@ class TaskItem {
   final String taskNumber;
   final String title;
   final String? description;
+  final String? projectId;
   final String? projectName;
   final String? projectNumber;
+  final String? milestoneId;
+  final String? milestoneTitle;
+  final String? departmentId;
   final String? departmentName;
+  final String? teamId;
   final String? teamName;
   final String? assigneeName;
+  final String? assigneeEmployeeId;
+  final String? assigneeDesignation;
+  final String? assigneeDepartment;
   final String? assigneeStaffId;
   final String? assignedByStaffId;
+  final String? assignerName;
+  final String? assignerEmployeeId;
+  final String? assignerDesignation;
   final String? createdByStaffId;
+  final String? creatorName;
+  final String? creatorDesignation;
   final String assignmentScope;
   final String? teamRole;
   final bool isTaskAssigner;
@@ -31,14 +44,27 @@ class TaskItem {
     required this.taskNumber,
     required this.title,
     this.description,
+    this.projectId,
     this.projectName,
     this.projectNumber,
+    this.milestoneId,
+    this.milestoneTitle,
+    this.departmentId,
     this.departmentName,
+    this.teamId,
     this.teamName,
     this.assigneeName,
+    this.assigneeEmployeeId,
+    this.assigneeDesignation,
+    this.assigneeDepartment,
     this.assigneeStaffId,
     this.assignedByStaffId,
+    this.assignerName,
+    this.assignerEmployeeId,
+    this.assignerDesignation,
     this.createdByStaffId,
+    this.creatorName,
+    this.creatorDesignation,
     this.assignmentScope = '',
     this.teamRole,
     this.isTaskAssigner = false,
@@ -53,24 +79,51 @@ class TaskItem {
 
   factory TaskItem.fromJson(Map<String, dynamic> json) {
     final project = json['project'] is Map ? json['project'] as Map : const {};
+    final milestone = json['milestone'] is Map ? json['milestone'] as Map : const {};
     final team = json['team'] is Map ? json['team'] as Map : const {};
     final department =
         json['department'] is Map ? json['department'] as Map : const {};
     final assignee =
         json['assignee'] is Map ? json['assignee'] as Map : const {};
+    final assigner =
+        json['assigner'] is Map ? json['assigner'] as Map : const {};
+    final creator =
+        json['creator'] is Map ? json['creator'] as Map : const {};
+
     return TaskItem(
       id: json['id'] ?? '',
       taskNumber: json['taskNumber'] ?? '',
       title: json['title'] ?? '',
       description: json['description'],
+      projectId: json['projectId']?.toString() ?? project['id']?.toString(),
       projectName: project['name']?.toString(),
       projectNumber: project['projectNumber']?.toString(),
+      milestoneId: json['milestoneId']?.toString() ?? milestone['id']?.toString(),
+      milestoneTitle: milestone['title']?.toString(),
+      departmentId: json['departmentId']?.toString() ?? department['id']?.toString(),
       departmentName: department['name']?.toString(),
+      teamId: json['teamId']?.toString() ?? team['id']?.toString(),
       teamName: team['name']?.toString(),
       assigneeName: assignee['fullName']?.toString(),
-      assigneeStaffId: json['assigneeStaffId'],
+      assigneeEmployeeId: assignee['employeeId']?.toString(),
+      assigneeDesignation: (assignee['designation'] is Map)
+          ? assignee['designation']['name']?.toString()
+          : null,
+      assigneeDepartment: (assignee['department'] is Map)
+          ? assignee['department']['name']?.toString()
+          : null,
+      assigneeStaffId: json['assigneeStaffId']?.toString(),
       assignedByStaffId: json['assignedByStaffId']?.toString(),
+      assignerName: assigner['fullName']?.toString(),
+      assignerEmployeeId: assigner['employeeId']?.toString(),
+      assignerDesignation: (assigner['designation'] is Map)
+          ? assigner['designation']['name']?.toString()
+          : null,
       createdByStaffId: json['createdByStaffId']?.toString(),
+      creatorName: creator['fullName']?.toString(),
+      creatorDesignation: (creator['designation'] is Map)
+          ? creator['designation']['name']?.toString()
+          : null,
       assignmentScope: json['assignmentScope']?.toString() ?? 'DIRECT',
       teamRole: json['teamRole']?.toString(),
       isTaskAssigner: json['isTaskAssigner'] == true,
@@ -195,6 +248,46 @@ class TasksRepository {
   Future<void> addComment(String id, String comment) async {
     await _dio.post('/tasks/$id/comments', data: {'comment': comment});
   }
+
+  Future<TaskItem> updateTask(String id, Map<String, dynamic> payload) async {
+    final response = await _dio.put('/tasks/$id', data: payload);
+    final data = _payload(response.data);
+    if (data is! Map) {
+      throw const FormatException('Unexpected update task response');
+    }
+    return TaskItem.fromJson(Map<String, dynamic>.from(data));
+  }
+
+  Future<void> logWorkHours(String id, double hours, {String? notes}) async {
+    await _dio.post('/tasks/$id/log-hours', data: {
+      'hours': hours,
+      if (notes != null && notes.isNotEmpty) 'notes': notes,
+    });
+  }
+
+  Future<void> deleteTask(String id) async {
+    await _dio.delete('/tasks/$id');
+  }
+
+  Future<Map<String, dynamic>> getTaskStats() async {
+    try {
+      final response = await _dio.get('/tasks/stats/summary');
+      final data = _payload(response.data);
+      if (data is! Map) return {};
+      return Map<String, dynamic>.from(data);
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<Map<String, dynamic>> getFormOptions() async {
+    try {
+      final response = await _dio.get('/tasks/form-options');
+      final data = _payload(response.data);
+      if (data is Map) return Map<String, dynamic>.from(data);
+    } catch (_) {}
+    return {};
+  }
 }
 
 final tasksRepositoryProvider = Provider<TasksRepository>((ref) {
@@ -208,4 +301,13 @@ final allTasksProvider =
 
 final myTasksProvider = FutureProvider<List<TaskItem>>((ref) async {
   return ref.watch(tasksRepositoryProvider).getMyTasks();
+});
+
+final taskStatsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  return ref.watch(tasksRepositoryProvider).getTaskStats();
+});
+
+final taskFormOptionsProvider =
+    FutureProvider<Map<String, dynamic>>((ref) async {
+  return ref.watch(tasksRepositoryProvider).getFormOptions();
 });

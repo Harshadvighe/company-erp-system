@@ -23,7 +23,7 @@ class CrmAnalyticsPage extends ConsumerWidget {
             }
           },
         ),
-        title: const Text('CRM & Sales Intelligence'),
+        title: const Text('Sales & Marketing Intelligence'),
         backgroundColor: AppTheme.darkSurface,
         actions: [
           IconButton(

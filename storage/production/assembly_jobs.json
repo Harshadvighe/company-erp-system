@@ -1,0 +1,245 @@
+[
+  {
+    "id": "job-1792834606330",
+    "jobId": "JOB-2026-013",
+    "panelType": "Controller Triplex Panel",
+    "stage": "Final QC",
+    "assignedTech": "Sunil Pawar (Panel Wireman)",
+    "status": "Completed",
+    "targetDate": "2026-10-29",
+    "panelSerialNo": "PNL-CTRL-6328",
+    "createdAt": "2026-10-24T09:36:46.330Z",
+    "qcRecord": {
+      "id": "qc-1792834606332",
+      "panelSerialNo": "PNL-CTRL-6328",
+      "inspector": "Chief Engineer Sachin",
+      "insulationResistancePassed": true,
+      "wiringContinuityTorquePassed": true,
+      "status": "APPROVED_PASS",
+      "signoffDate": "2026-10-24 09:36:46",
+      "certificateCode": "QC-CERT-PNL-CTRL-6328"
+    }
+  },
+  {
+    "id": "job-1792834606245",
+    "jobId": "JOB-2026-012",
+    "panelType": "Dewatering Starter Panel",
+    "stage": "Rework",
+    "assignedTech": "Amit Deshmukh",
+    "status": "QA Hold",
+    "targetDate": "2026-10-29",
+    "panelSerialNo": "PNL-FAIL-6244",
+    "createdAt": "2026-10-24T09:36:46.245Z",
+    "qcRecord": {
+      "id": "qc-1792834606247",
+      "panelSerialNo": "PNL-FAIL-6244",
+      "inspector": "SeniorQC_Deepak",
+      "insulationResistancePassed": false,
+      "wiringContinuityTorquePassed": true,
+      "status": "REJECTED_FAIL",
+      "signoffDate": "2026-10-24 09:36:46",
+      "certificateCode": null
+    }
+  },
+  {
+    "id": "job-1792834606233",
+    "jobId": "JOB-2026-011",
+    "panelType": "VFD Automation Triplex Panel",
+    "stage": "Final QC",
+    "assignedTech": "Sunil Pawar (Wireman)",
+    "status": "Completed",
+    "targetDate": "2026-10-29",
+    "panelSerialNo": "PNL-TEST-6229",
+    "createdAt": "2026-10-24T09:36:46.233Z",
+    "qcRecord": {
+      "id": "qc-1792834606238",
+      "panelSerialNo": "PNL-TEST-6229",
+      "inspector": "SeniorQC_Deepak",
+      "insulationResistancePassed": true,
+      "wiringContinuityTorquePassed": true,
+      "status": "APPROVED_PASS",
+      "signoffDate": "2026-10-24 09:36:46",
+      "certificateCode": "QC-CERT-PNL-TEST-6229"
+    }
+  },
+  {
+    "id": "job-1791523968159",
+    "jobId": "JOB-2026-010",
+    "panelType": "Controller Triplex Panel",
+    "stage": "Final QC",
+    "assignedTech": "Sunil Pawar (Panel Wireman)",
+    "status": "Completed",
+    "targetDate": "2026-10-14",
+    "panelSerialNo": "PNL-CTRL-8157",
+    "createdAt": "2026-10-09T05:32:48.159Z",
+    "qcRecord": {
+      "id": "qc-1791523968161",
+      "panelSerialNo": "PNL-CTRL-8157",
+      "inspector": "Chief Engineer Sachin",
+      "insulationResistancePassed": true,
+      "wiringContinuityTorquePassed": true,
+      "status": "APPROVED_PASS",
+      "signoffDate": "2026-10-09 05:32:48",
+      "certificateCode": "QC-CERT-PNL-CTRL-8157"
+    }
+  },
+  {
+    "id": "job-1791523968093",
+    "jobId": "JOB-2026-009",
+    "panelType": "Dewatering Starter Panel",
+    "stage": "Rework",
+    "assignedTech": "Amit Deshmukh",
+    "status": "QA Hold",
+    "targetDate": "2026-10-14",
+    "panelSerialNo": "PNL-FAIL-8092",
+    "createdAt": "2026-10-09T05:32:48.094Z",
+    "qcRecord": {
+      "id": "qc-1791523968095",
+      "panelSerialNo": "PNL-FAIL-8092",
+      "inspector": "SeniorQC_Deepak",
+      "insulationResistancePassed": false,
+      "wiringContinuityTorquePassed": true,
+      "status": "REJECTED_FAIL",
+      "signoffDate": "2026-10-09 05:32:48",
+      "certificateCode": null
+    }
+  },
+  {
+    "id": "job-1791523968082",
+    "jobId": "JOB-2026-008",
+    "panelType": "VFD Automation Triplex Panel",
+    "stage": "Final QC",
+    "assignedTech": "Sunil Pawar (Wireman)",
+    "status": "Completed",
+    "targetDate": "2026-10-14",
+    "panelSerialNo": "PNL-TEST-8079",
+    "createdAt": "2026-10-09T05:32:48.082Z",
+    "qcRecord": {
+      "id": "qc-1791523968086",
+      "panelSerialNo": "PNL-TEST-8079",
+      "inspector": "SeniorQC_Deepak",
+      "insulationResistancePassed": true,
+      "wiringContinuityTorquePassed": true,
+      "status": "APPROVED_PASS",
+      "signoffDate": "2026-10-09 05:32:48",
+      "certificateCode": "QC-CERT-PNL-TEST-8079"
+    }
+  },
+  {
+    "id": "job-1791523771040",
+    "jobId": "JOB-2026-007",
+    "panelType": "Dewatering Starter Panel",
+    "stage": "Rework",
+    "assignedTech": "Amit Deshmukh",
+    "status": "QA Hold",
+    "targetDate": "2026-10-14",
+    "panelSerialNo": "PNL-FAIL-1039",
+    "createdAt": "2026-10-09T05:29:31.041Z",
+    "qcRecord": {
+      "id": "qc-1791523771042",
+      "panelSerialNo": "PNL-FAIL-1039",
+      "inspector": "SeniorQC_Deepak",
+      "insulationResistancePassed": false,
+      "wiringContinuityTorquePassed": true,
+      "status": "REJECTED_FAIL",
+      "signoffDate": "2026-10-09 05:29:31",
+      "certificateCode": null
+    }
+  },
+  {
+    "id": "job-1791523771032",
+    "jobId": "JOB-2026-006",
+    "panelType": "VFD Automation Triplex Panel",
+    "stage": "Final QC",
+    "assignedTech": "Sunil Pawar",
+    "status": "Completed",
+    "targetDate": "2026-10-14",
+    "panelSerialNo": "PNL-TEST-1030",
+    "createdAt": "2026-10-09T05:29:31.032Z",
+    "qcRecord": {
+      "id": "qc-1791523771034",
+      "panelSerialNo": "PNL-TEST-1030",
+      "inspector": "SeniorQC_Deepak",
+      "insulationResistancePassed": true,
+      "wiringContinuityTorquePassed": true,
+      "status": "APPROVED_PASS",
+      "signoffDate": "2026-10-09 05:29:31",
+      "certificateCode": "QC-CERT-PNL-TEST-1030"
+    }
+  },
+  {
+    "id": "job-1791522557533",
+    "jobId": "JOB-2026-005",
+    "panelType": "Dewatering Starter Panel",
+    "stage": "Rework",
+    "assignedTech": "Amit Deshmukh",
+    "status": "QA Hold",
+    "targetDate": "2026-10-14",
+    "panelSerialNo": "PNL-FAIL-7532",
+    "createdAt": "2026-10-09T05:09:17.533Z",
+    "qcRecord": {
+      "id": "qc-1791522557535",
+      "panelSerialNo": "PNL-FAIL-7532",
+      "inspector": "SeniorQC_Deepak",
+      "insulationResistancePassed": false,
+      "wiringContinuityTorquePassed": true,
+      "status": "REJECTED_FAIL",
+      "signoffDate": "2026-10-09 05:09:17",
+      "certificateCode": null
+    }
+  },
+  {
+    "id": "job-1791522557527",
+    "jobId": "JOB-2026-004",
+    "panelType": "VFD Automation Triplex Panel",
+    "stage": "Final QC",
+    "assignedTech": "Sunil Pawar",
+    "status": "Completed",
+    "targetDate": "2026-10-14",
+    "panelSerialNo": "PNL-TEST-7525",
+    "createdAt": "2026-10-09T05:09:17.527Z",
+    "qcRecord": {
+      "id": "qc-1791522557528",
+      "panelSerialNo": "PNL-TEST-7525",
+      "inspector": "SeniorQC_Deepak",
+      "insulationResistancePassed": true,
+      "wiringContinuityTorquePassed": true,
+      "status": "APPROVED_PASS",
+      "signoffDate": "2026-10-09 05:09:17",
+      "certificateCode": "QC-CERT-PNL-TEST-7525"
+    }
+  },
+  {
+    "id": "job-1",
+    "jobId": "JOB-2026-001",
+    "panelType": "Triplex VFD Booster Control Panel",
+    "stage": "Assembly",
+    "assignedTech": "Sunil Pawar (Senior Wireman)",
+    "status": "In Progress",
+    "targetDate": "2026-10-12",
+    "panelSerialNo": "PNL-2026-0081",
+    "createdAt": "2026-10-05T10:00:00.000Z"
+  },
+  {
+    "id": "job-2",
+    "jobId": "JOB-2026-002",
+    "panelType": "Submersible Sewage Pump Automation Panel",
+    "stage": "Wiring",
+    "assignedTech": "Amit Deshmukh (Wireman)",
+    "status": "In Progress",
+    "targetDate": "2026-10-14",
+    "panelSerialNo": "PNL-2026-0082",
+    "createdAt": "2026-10-06T11:00:00.000Z"
+  },
+  {
+    "id": "job-3",
+    "jobId": "JOB-2026-003",
+    "panelType": "HVAC Air Handling Unit Control Panel",
+    "stage": "FAT Testing",
+    "assignedTech": "Deepak Patil (QC Engineer)",
+    "status": "In Progress",
+    "targetDate": "2026-10-10",
+    "panelSerialNo": "PNL-2026-0083",
+    "createdAt": "2026-10-04T09:00:00.000Z"
+  }
+]

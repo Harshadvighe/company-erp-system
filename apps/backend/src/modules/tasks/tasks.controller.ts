@@ -4,6 +4,7 @@ import {
   Post,
   Put,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -46,6 +47,18 @@ export class TasksController {
   @ApiOperation({ summary: 'List active staff available for task assignment' })
   getAssignableStaff(@Req() req: any) {
     return this.tasksService.getAssignableStaff(req.user?.staffId);
+  }
+
+  @Get('stats/summary')
+  @ApiOperation({ summary: 'Get task analytics: total, active, review, completed, overdue, and personal stats' })
+  getTaskStats(@Req() req: any) {
+    return this.tasksService.getTaskStats(req.user?.staffId);
+  }
+
+  @Get('form-options')
+  @ApiOperation({ summary: 'Get task creation metadata options (staff, projects, milestones, departments, teams)' })
+  getFormOptions(@Req() req: any) {
+    return this.tasksService.getFormOptions(req.user?.staffId, req.user);
   }
 
   @Get(':id')
@@ -91,12 +104,30 @@ export class TasksController {
     @Body('progress') progress: number,
     @Req() req: any,
   ) {
-    return this.tasksService.updateProgress(id, progress, req.user?.staffId);
+    return this.tasksService.updateProgress(id, progress, req.user?.staffId, req.user);
   }
 
   @Post(':id/comments')
   @ApiOperation({ summary: 'Add progress comment or feedback to task' })
   addComment(@Param('id') id: string, @Body('comment') comment: string, @Req() req: any) {
-    return this.tasksService.addComment(id, comment, req.user?.staffId);
+    return this.tasksService.addComment(id, comment, req.user?.staffId, req.user);
+  }
+
+  @Post(':id/log-hours')
+  @ApiOperation({ summary: 'Log hours worked on task with optional notes' })
+  logHours(
+    @Param('id') id: string,
+    @Body('hours') hours: number,
+    @Body('notes') notes: string,
+    @Req() req: any,
+  ) {
+    return this.tasksService.logHours(id, hours, notes, req.user?.staffId, req.user);
+  }
+
+  @Delete(':id')
+  @RequirePermissions('TASKS:DELETE')
+  @ApiOperation({ summary: 'Delete task (Admins or Task Creators/Assigners)' })
+  remove(@Param('id') id: string, @Req() req: any) {
+    return this.tasksService.remove(id, req.user?.staffId, req.user);
   }
 }

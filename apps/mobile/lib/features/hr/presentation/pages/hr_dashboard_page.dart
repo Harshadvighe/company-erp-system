@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:saark_erp_mobile/features/hr/presentation/widgets/employee_profile_view.dart';
 import 'package:saark_erp_mobile/features/hr/presentation/widgets/hr_sub_views.dart';
+import 'package:saark_erp_mobile/core/widgets/back_to_dashboard_button.dart';
 
 class _HrMenuItem {
   final String id;
@@ -373,18 +373,7 @@ class _HrDashboardPageState extends ConsumerState<HrDashboardPage> {
                 tooltip: 'Open HR Navigation Menu',
               ),
             ),
-          OutlinedButton.icon(
-            onPressed: () => context.go('/dashboard'),
-            icon: const Icon(Icons.arrow_back, size: 14),
-            label: const Text('Back to Menu'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.white,
-              side: const BorderSide(color: Colors.white24),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-              textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-            ),
-          ),
+          const BackToDashboardButton(),
           const SizedBox(width: 8),
           OutlinedButton.icon(
             onPressed: _showHelpDialog,

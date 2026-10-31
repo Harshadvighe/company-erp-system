@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
@@ -5,12 +7,14 @@ import 'package:saark_erp_mobile/features/hr/data/hr_repository.dart';
 import 'package:saark_erp_mobile/features/admin/data/admin_repository.dart';
 import 'package:saark_erp_mobile/features/hr/models/hr_models.dart';
 import 'package:saark_erp_mobile/core/utils/web_utils.dart';
+import 'package:saark_erp_mobile/core/biometrics/face_camera_modal.dart';
 /// Data class representing an Employee record matching the enterprise HR UI
 class EmployeeProfileRecord {
   String dbId;
   String id;
   String firstName;
   String middleName;
+  String lastName;
   String fullName;
   String workEmail;
   String dateOfBirth;
@@ -26,12 +30,17 @@ class EmployeeProfileRecord {
   String departmentName;
   String designation;
   String status; // 'PENDING_APPROVAL', 'ACTIVE', 'REJECTED'
+  bool hasBiometric;
+  bool faceVerificationEnabled;
+  String? avatarUrl;
+  String? username;
 
   EmployeeProfileRecord({
     this.dbId = '',
     required this.id,
     required this.firstName,
     required this.middleName,
+    this.lastName = '',
     required this.fullName,
     required this.workEmail,
     required this.dateOfBirth,
@@ -47,6 +56,10 @@ class EmployeeProfileRecord {
     this.departmentName = 'General',
     this.designation = 'Employee',
     this.status = 'PENDING_APPROVAL',
+    this.hasBiometric = false,
+    this.faceVerificationEnabled = false,
+    this.avatarUrl,
+    this.username,
   });
 
   factory EmployeeProfileRecord.fromEmployee(Employee emp) {
@@ -54,7 +67,8 @@ class EmployeeProfileRecord {
       dbId: emp.id,
       id: emp.employeeCode.isNotEmpty ? emp.employeeCode : emp.id,
       firstName: emp.firstName,
-      middleName: '',
+      middleName: emp.middleName ?? '',
+      lastName: emp.lastName,
       fullName: emp.fullName,
       workEmail: emp.email,
       dateOfBirth: emp.joiningDate.toIso8601String().split('T').first,
@@ -70,6 +84,10 @@ class EmployeeProfileRecord {
       departmentName: emp.departmentName ?? 'Unassigned',
       designation: emp.designation,
       status: emp.status,
+      hasBiometric: emp.hasBiometric,
+      faceVerificationEnabled: false,
+      avatarUrl: emp.avatarUrl,
+      username: emp.username,
     );
   }
 }
@@ -88,7 +106,34 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
   final _empIdController = TextEditingController(text: 'EMP-2026-001');
   final _firstNameController = TextEditingController();
   final _middleNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
   final _fullNameController = TextEditingController();
+
+  void _syncFullNameFromParts() {
+    final f = _firstNameController.text.trim();
+    final m = _middleNameController.text.trim();
+    final l = _lastNameController.text.trim();
+    final parts = [f, if (m.isNotEmpty) m, if (l.isNotEmpty) l];
+    _fullNameController.text = parts.join(' ');
+  }
+
+  void _showValidationError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white, size: 16),
+            const SizedBox(width: 8),
+            Expanded(child: Text(message, style: const TextStyle(fontWeight: FontWeight.w600))),
+          ],
+        ),
+        backgroundColor: const Color(0xFFD32F2F),
+        duration: const Duration(seconds: 4),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
   final _workEmailController = TextEditingController();
   final _dobController = TextEditingController(text: '2026-10-05');
   final _emergencyContactController = TextEditingController();
@@ -97,6 +142,16 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
   final _addressController = TextEditingController();
   final _designationController = TextEditingController(text: 'Junior Design Engineer');
 
+  // Biometrics & Identity state
+  String? _passportPhotoBase64;
+  String? _livePhotoBase64;
+  bool _enableFaceAuth = true;
+  bool _createUserAccount = true;
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController(text: 'Saark@2026');
+  String _selectedRole = 'ROLE_EMPLOYEE';
+  bool _isBiometricEnrolled = false;
+
   // Dropdown values
   String _selectedGender = '';
   String _selectedMaritalStatus = '';
@@ -104,6 +159,41 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
   String _selectedBloodGroup = '';
   String? _selectedDepartmentId;
   String _tableFilter = 'ALL'; // 'ALL', 'PENDING_APPROVAL', 'ACTIVE'
+
+  // Designation dropdown options
+  static const List<String> _defaultDesignations = [
+    'Junior Design Engineer',
+    'Senior Design Engineer',
+    'Electrical Design Engineer',
+    'Lead Design Engineer',
+    'Panel Wiring Technician',
+    'Senior Panel Wiring Technician',
+    'Electrical Assembly Technician',
+    'PLC / Automation Systems Specialist',
+    'Testing & QC Engineer',
+    'Quality Control & Testing Inspector',
+    'FAT Testing Engineer',
+    'Production Engineer',
+    'Production Supervisor',
+    'Shopfloor Lead',
+    'Busbar Specialist & Fabricator',
+    'Certified Wireman (Control Panels)',
+    'ITI Apprentice Electrician',
+    'Store & Inventory Executive',
+    'Purchase Executive',
+    'Purchase Manager',
+    'Sales Executive',
+    'Sales Manager',
+    'Project Engineer',
+    'Project Manager',
+    'Maintenance Technician',
+    'Accountant',
+    'HR Executive',
+    'Managing Director',
+    'Employee',
+  ];
+  late final List<String> _designations = List.from(_defaultDesignations);
+  String _selectedDesignation = 'Junior Design Engineer';
 
   // Master Data
   List<DepartmentItem> _departments = [];
@@ -131,6 +221,34 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
 
       final depts = await adminRepo.getDepartments();
       final employees = await hrRepo.getEmployees();
+
+      // Master designations
+      try {
+        final apiDesigs = await adminRepo.getDesignations();
+        for (final d in apiDesigs) {
+          final name = d.name.trim();
+          if (name.isNotEmpty && !_designations.contains(name)) {
+            _designations.add(name);
+          }
+        }
+      } catch (_) {
+        try {
+          final hrDesigs = await hrRepo.getDesignations();
+          for (final name in hrDesigs) {
+            final trimmed = name.trim();
+            if (trimmed.isNotEmpty && !_designations.contains(trimmed)) {
+              _designations.add(trimmed);
+            }
+          }
+        } catch (_) {}
+      }
+
+      for (final emp in employees) {
+        final des = emp.designation.trim();
+        if (des.isNotEmpty && !_designations.contains(des)) {
+          _designations.add(des);
+        }
+      }
 
       if (mounted) {
         setState(() {
@@ -174,6 +292,7 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
     _empIdController.dispose();
     _firstNameController.dispose();
     _middleNameController.dispose();
+    _lastNameController.dispose();
     _fullNameController.dispose();
     _workEmailController.dispose();
     _dobController.dispose();
@@ -182,6 +301,8 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
     _phoneController.dispose();
     _addressController.dispose();
     _designationController.dispose();
+    _usernameController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
@@ -191,6 +312,7 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
       _empIdController.text = record.id;
       _firstNameController.text = record.firstName;
       _middleNameController.text = record.middleName;
+      _lastNameController.text = record.lastName;
       _fullNameController.text = record.fullName;
       _workEmailController.text = record.workEmail;
       _dobController.text = record.dateOfBirth;
@@ -201,12 +323,197 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
       _emergencyContactController.text = record.emergencyContact;
       _personalEmailController.text = record.personalEmail;
       _phoneController.text = record.phone;
-      _addressController.text = record.address;
-      _designationController.text = record.designation;
+      final recDesig = record.designation.trim();
+      if (recDesig.isNotEmpty && !_designations.contains(recDesig)) {
+        _designations.insert(0, recDesig);
+      }
+      _selectedDesignation = recDesig.isNotEmpty ? recDesig : 'Junior Design Engineer';
+      _designationController.text = _selectedDesignation;
+      _usernameController.text = (record.username != null && record.username!.isNotEmpty)
+          ? record.username!
+          : record.workEmail.split('@').first;
       if (record.departmentId != null && _departments.any((d) => d.id == record.departmentId)) {
         _selectedDepartmentId = record.departmentId;
       }
     });
+
+    _loadBiometricStatus(record.dbId.isNotEmpty ? record.dbId : record.id);
+  }
+
+  Future<void> _loadBiometricStatus(String id) async {
+    try {
+      final hrRepo = ref.read(hrRepositoryProvider);
+      final status = await hrRepo.getFaceStatus(id);
+      if (mounted) {
+        setState(() {
+          _isBiometricEnrolled = status['hasBiometric'] == true && status['isActive'] == true;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isBiometricEnrolled = false);
+    }
+  }
+
+  Uint8List? _safeDecodeBase64(String? base64Str) {
+    if (base64Str == null || base64Str.isEmpty) return null;
+    try {
+      final clean = base64Str.contains(',') ? base64Str.split(',').last : base64Str;
+      return base64Decode(clean);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _openLiveCameraModal() async {
+    final imageBase64 = await FaceCameraModal.show(
+      context,
+      title: 'HR Live Biometric Enrollment',
+      subtitle: 'Position employee face inside the guide frame to capture registration biometric descriptor.',
+      actionButtonText: 'Accept Biometric',
+      isVerificationMode: false,
+    );
+
+    if (imageBase64 != null && mounted) {
+      setState(() {
+        _livePhotoBase64 = imageBase64;
+        _isBiometricEnrolled = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('📸 Live biometric photo captured successfully! Biometric descriptor ready for enrollment.'),
+          backgroundColor: Color(0xFF2E7D32),
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  Future<void> _pickPassportPhoto() async {
+    final passportFrame = await FaceCameraModal.show(
+      context,
+      title: 'Capture / Select Passport Photo',
+      subtitle: 'Capture or align official employee passport / badge photo with clear plain background.',
+      actionButtonText: 'Use as Passport Photo',
+      isVerificationMode: false,
+    );
+    if (passportFrame != null && mounted) {
+      setState(() {
+        _passportPhotoBase64 = passportFrame;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('👤 Passport profile photo attached.'),
+          backgroundColor: Color(0xFF2E7D32),
+        ),
+      );
+    }
+  }
+
+  Future<void> _reEnrollFace() async {
+    if (_selectedRecordId == null) return;
+    final imageBase64 = await FaceCameraModal.show(
+      context,
+      title: 'Re-enroll Face Biometric',
+      subtitle: 'Capture a fresh live face photo to recalculate and update the 128-d biometric descriptor.',
+      actionButtonText: 'Update Biometric',
+      isVerificationMode: false,
+    );
+
+    if (imageBase64 != null && mounted) {
+      setState(() => _isSaving = true);
+      try {
+        final hrRepo = ref.read(hrRepositoryProvider);
+        await hrRepo.enrollFace(
+          _selectedRecordId!,
+          livePhotoBase64: imageBase64,
+          passportPhotoBase64: _passportPhotoBase64,
+          enableFaceAuth: _enableFaceAuth,
+        );
+        setState(() {
+          _livePhotoBase64 = imageBase64;
+          _isBiometricEnrolled = true;
+          _isSaving = false;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Biometric re-enrolled and updated successfully!'),
+              backgroundColor: Color(0xFF2E7D32),
+            ),
+          );
+        }
+      } catch (e) {
+        setState(() => _isSaving = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to re-enroll biometric: $e'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _disableBiometrics() async {
+    if (_selectedRecordId == null) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E2024),
+        title: const Text('Disable Face Authentication?', style: TextStyle(color: Colors.white, fontSize: 16)),
+        content: const Text(
+          'This will deactivate face recognition login for this employee. The user will be required to authenticate using password credentials only.',
+          style: TextStyle(color: Colors.white70, fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white60)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Disable Face Auth'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      setState(() => _isSaving = true);
+      try {
+        final hrRepo = ref.read(hrRepositoryProvider);
+        await hrRepo.disableFace(_selectedRecordId!);
+        setState(() {
+          _isBiometricEnrolled = false;
+          _enableFaceAuth = false;
+          _isSaving = false;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('🔒 Face authentication disabled for employee.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      } catch (e) {
+        setState(() => _isSaving = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to disable biometric: $e'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+      }
+    }
   }
 
   void _clearForm() {
@@ -224,6 +531,7 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
       _empIdController.text = 'EMP-2026-${(maxNum + 1).toString().padLeft(3, '0')}';
       _firstNameController.clear();
       _middleNameController.clear();
+      _lastNameController.clear();
       _fullNameController.clear();
       _workEmailController.clear();
       _dobController.text = '2026-10-05';
@@ -231,11 +539,18 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
       _personalEmailController.clear();
       _phoneController.clear();
       _addressController.clear();
+      _selectedDesignation = 'Junior Design Engineer';
       _designationController.text = 'Junior Design Engineer';
       _selectedGender = '';
       _selectedMaritalStatus = '';
       _selectedNationality = 'Indian';
       _selectedBloodGroup = '';
+      _passportPhotoBase64 = null;
+      _livePhotoBase64 = null;
+      _isBiometricEnrolled = false;
+      _usernameController.clear();
+      _passwordController.text = 'Saark@2026';
+      _enableFaceAuth = true;
       if (_departments.isNotEmpty) {
         final rndDept = _departments.firstWhere(
           (d) => d.code == 'RND' || d.name.toLowerCase().contains('research') || d.name.toLowerCase().contains('r&d'),
@@ -248,44 +563,84 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
 
   Future<void> _saveRecord() async {
     final code = _empIdController.text.trim();
-    String firstName = _firstNameController.text.trim();
+    final firstName = _firstNameController.text.trim();
     final middleName = _middleNameController.text.trim();
+    final lastName = _lastNameController.text.trim();
     String fullName = _fullNameController.text.trim();
     final workEmail = _workEmailController.text.trim();
     final phone = _phoneController.text.trim();
     final designation = _designationController.text.trim();
 
-    if (fullName.isEmpty && firstName.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter employee name'), backgroundColor: Colors.orange),
-      );
+    // ─── Front-end Validations with immediate feedback ───────────────────────
+    if (firstName.isEmpty) {
+      _showValidationError('First Name is required');
+      return;
+    }
+    if (firstName.length < 2) {
+      _showValidationError('First Name must contain at least 2 characters');
+      return;
+    }
+    if (!RegExp(r"^[a-zA-Z\s.'-]+$").hasMatch(firstName)) {
+      _showValidationError('First Name must contain letters only');
+      return;
+    }
+
+    if (middleName.isNotEmpty && !RegExp(r"^[a-zA-Z\s.'-]+$").hasMatch(middleName)) {
+      _showValidationError('Middle Name must contain letters only');
+      return;
+    }
+
+    if (lastName.isEmpty) {
+      _showValidationError('Last Name is required');
+      return;
+    }
+    if (!RegExp(r"^[a-zA-Z\s.'-]+$").hasMatch(lastName)) {
+      _showValidationError('Last Name must contain letters only');
       return;
     }
 
     if (workEmail.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Work email is required'), backgroundColor: Colors.orange),
-      );
+      _showValidationError('Work email is required');
+      return;
+    }
+    if (!RegExp(r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,253}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,253}[a-zA-Z0-9])?)+$").hasMatch(workEmail)) {
+      _showValidationError('Please enter a valid work email address (e.g. employee@saark.in)');
       return;
     }
 
-    // Derive names
-    if (firstName.isEmpty && fullName.isNotEmpty) {
-      final parts = fullName.split(' ');
-      firstName = parts.first;
+    if (phone.isEmpty) {
+      _showValidationError('Phone number is required');
+      return;
     }
-    String lastName = '';
-    if (fullName.isNotEmpty) {
-      final parts = fullName.split(' ');
-      if (parts.length > 1) {
-        lastName = parts.sublist(1).join(' ');
-      }
+    if (phone.replaceAll(RegExp(r'[\s\-\+\(\)]'), '').length < 10) {
+      _showValidationError('Phone number must contain at least 10 digits');
+      return;
     }
-    if (lastName.isEmpty) {
-      lastName = middleName.isNotEmpty ? middleName : 'Staff';
+
+    if (_selectedDepartmentId == null || _selectedDepartmentId!.isEmpty) {
+      _showValidationError('Please select a Department');
+      return;
     }
+
+    if (designation.isEmpty) {
+      _showValidationError('Designation is required');
+      return;
+    }
+
+    final personalEmail = _personalEmailController.text.trim();
+    if (personalEmail.isNotEmpty && !RegExp(r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,253}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,253}[a-zA-Z0-9])?)+$").hasMatch(personalEmail)) {
+      _showValidationError('Please enter a valid Personal Email address');
+      return;
+    }
+
+    final emergencyPhone = _emergencyContactController.text.trim();
+    if (emergencyPhone.isNotEmpty && emergencyPhone.replaceAll(RegExp(r'[\s\-\+\(\)]'), '').length < 7) {
+      _showValidationError('Emergency Contact must contain a valid phone number');
+      return;
+    }
+
     if (fullName.isEmpty) {
-      fullName = '$firstName $middleName $lastName'.replaceAll('  ', ' ').trim();
+      fullName = [firstName, if (middleName.isNotEmpty) middleName, lastName].join(' ');
     }
 
     setState(() => _isSaving = true);
@@ -293,17 +648,37 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
     try {
       final hrRepo = ref.read(hrRepositoryProvider);
 
+      final isNew = _selectedRecordId == null;
+      final existingStatus = !isNew
+          ? (_records.firstWhere(
+              (r) => r.dbId == _selectedRecordId || r.id == _selectedRecordId,
+              orElse: () => EmployeeProfileRecord(id: '', firstName: '', middleName: '', fullName: '', workEmail: '', dateOfBirth: ''),
+            ).status)
+          : 'PENDING_APPROVAL';
+
       final payload = {
         'firstName': firstName,
+        'middleName': middleName.isNotEmpty ? middleName : null,
         'lastName': lastName,
         'email': workEmail,
         'phone': phone.isNotEmpty ? phone : '+91 98200 00000',
         'designation': designation.isNotEmpty ? designation : 'Staff Member',
         'departmentId': _selectedDepartmentId,
-        'status': 'PENDING_APPROVAL',
+        'status': isNew ? 'PENDING_APPROVAL' : (existingStatus.isNotEmpty ? existingStatus : 'ACTIVE'),
         'bloodGroup': _selectedBloodGroup.isNotEmpty ? _selectedBloodGroup : null,
         'emergencyPhone': _emergencyContactController.text.trim(),
         'address': _addressController.text.trim(),
+        if (_passportPhotoBase64 != null) 'passportPhotoBase64': _passportPhotoBase64,
+        if (_livePhotoBase64 != null) 'livePhotoBase64': _livePhotoBase64,
+        'enableFaceAuth': _enableFaceAuth,
+        if (!isNew) ...{
+          if (_usernameController.text.trim().isNotEmpty)
+            'username': _usernameController.text.trim(),
+          if (_passwordController.text.trim().isNotEmpty)
+            'password': _passwordController.text.trim(),
+          'roleId': _selectedRole,
+          'createUserAccount': _createUserAccount,
+        },
       };
 
       // Find department name
@@ -316,11 +691,23 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
         // UPDATE EXISTING RECORD
         final updated = await hrRepo.updateEmployee(_selectedRecordId!, payload);
 
+        // If a new live face was captured during update, enroll it
+        if (_livePhotoBase64 != null) {
+          await hrRepo.enrollFace(
+            _selectedRecordId!,
+            livePhotoBase64: _livePhotoBase64!,
+            passportPhotoBase64: _passportPhotoBase64,
+            enableFaceAuth: _enableFaceAuth,
+          );
+          _isBiometricEnrolled = true;
+        }
+
         final updatedRec = EmployeeProfileRecord(
           dbId: updated.id,
           id: updated.employeeCode.isNotEmpty ? updated.employeeCode : code,
           firstName: firstName,
           middleName: middleName,
+          lastName: lastName,
           fullName: fullName,
           workEmail: workEmail,
           dateOfBirth: _dobController.text.trim(),
@@ -336,6 +723,12 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
           departmentName: deptName,
           designation: designation,
           status: updated.status,
+          hasBiometric: _isBiometricEnrolled,
+          faceVerificationEnabled: _enableFaceAuth,
+          avatarUrl: updated.avatarUrl,
+          username: _usernameController.text.trim().isNotEmpty
+              ? _usernameController.text.trim()
+              : updated.username,
         );
 
         setState(() {
@@ -350,21 +743,23 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('✅ Employee "$fullName" (${updated.employeeCode}) updated successfully!'),
+              content: Text('✅ Employee "$fullName" (${updated.employeeCode}) updated! Login credentials synced & security notice dispatched to $workEmail.'),
               backgroundColor: const Color(0xFF2E7D32),
               duration: const Duration(seconds: 4),
             ),
           );
         }
       } else {
-        // CREATE NEW EMPLOYEE RECORD
+        // CREATE NEW EMPLOYEE RECORD (SUBMITS TO ADMIN APPROVAL QUEUE)
         final created = await hrRepo.createEmployee(payload);
+        final enrolled = _livePhotoBase64 != null;
 
         final newRec = EmployeeProfileRecord(
           dbId: created.id,
           id: created.employeeCode,
           firstName: firstName,
           middleName: middleName,
+          lastName: lastName,
           fullName: fullName,
           workEmail: workEmail,
           dateOfBirth: _dobController.text.trim(),
@@ -379,13 +774,17 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
           departmentId: _selectedDepartmentId,
           departmentName: deptName,
           designation: designation,
-          status: created.status,
+          status: created.status.isNotEmpty ? created.status : 'PENDING_APPROVAL',
+          hasBiometric: enrolled,
+          faceVerificationEnabled: _enableFaceAuth,
+          avatarUrl: created.avatarUrl,
         );
 
         setState(() {
           _records.insert(0, newRec);
           _selectedRecordId = created.id;
           _empIdController.text = created.employeeCode;
+          _isBiometricEnrolled = enrolled;
           _isSaving = false;
         });
 
@@ -393,11 +792,11 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                '✅ Employee record for "$fullName" (${created.employeeCode}) saved in $deptName!\n'
-                '📨 Onboarding request submitted to Admin for username, password & role assignment.',
+                '✅ Employee "$fullName" (${created.employeeCode}) submitted to Admin for approval!\n'
+                '📋 Status: PENDING ADMIN APPROVAL | 🔐 Face Biometrics: ${enrolled ? "Enrolled & Ready (2FA)" : "Not Enrolled"}',
               ),
               backgroundColor: const Color(0xFFF26522),
-              duration: const Duration(seconds: 4),
+              duration: const Duration(seconds: 5),
             ),
           );
         }
@@ -830,33 +1229,37 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
           _buildRow(
             leftLabel: 'Employee ID:',
             leftInput: _buildTextInput(controller: _empIdController),
-            rightLabel: 'First Name:',
+            rightLabel: 'First Name *:',
             rightInput: _buildTextInput(
               controller: _firstNameController,
-              onChanged: (val) {
-                if (_fullNameController.text.isEmpty || _fullNameController.text.startsWith(val)) {
-                  _fullNameController.text = '$val ${_middleNameController.text}'.trim();
-                }
-              },
+              onChanged: (_) => _syncFullNameFromParts(),
             ),
             isWide: isWide,
           ),
           const SizedBox(height: 6),
 
-          // Row 2: Middle Name & Full Name
+          // Row 2: Middle Name & Last Name
           _buildRow(
             leftLabel: 'Middle Name:',
-            leftInput: _buildTextInput(controller: _middleNameController),
-            rightLabel: 'Full Name:',
-            rightInput: _buildTextInput(controller: _fullNameController),
+            leftInput: _buildTextInput(
+              controller: _middleNameController,
+              onChanged: (_) => _syncFullNameFromParts(),
+            ),
+            rightLabel: 'Last Name *:',
+            rightInput: _buildTextInput(
+              controller: _lastNameController,
+              onChanged: (_) => _syncFullNameFromParts(),
+            ),
             isWide: isWide,
           ),
           const SizedBox(height: 6),
 
-          // Row 3: Department (Key requirement!) & Designation
+          // Row 3: Full Name & Department
           _buildRow(
-            leftLabel: 'Department:',
-            leftInput: Container(
+            leftLabel: 'Full Name:',
+            leftInput: _buildTextInput(controller: _fullNameController),
+            rightLabel: 'Department *:',
+            rightInput: Container(
               height: 28,
               padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
@@ -887,18 +1290,24 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
                 ),
               ),
             ),
-            rightLabel: 'Designation:',
-            rightInput: _buildTextInput(controller: _designationController),
             isWide: isWide,
           ),
           const SizedBox(height: 6),
 
-          // Row 4: Work Email & Date of Birth / Joining
+          // Row 4: Designation & Work Email
           _buildRow(
-            leftLabel: 'Work Email:',
-            leftInput: _buildTextInput(controller: _workEmailController),
-            rightLabel: 'Date of Birth:',
-            rightInput: InkWell(
+            leftLabel: 'Designation *:',
+            leftInput: _buildDesignationDropdown(),
+            rightLabel: 'Work Email *:',
+            rightInput: _buildTextInput(controller: _workEmailController),
+            isWide: isWide,
+          ),
+          const SizedBox(height: 6),
+
+          // Row 5: Date of Birth & Gender
+          _buildRow(
+            leftLabel: 'Date of Birth:',
+            leftInput: InkWell(
               onTap: _pickDate,
               child: IgnorePointer(
                 child: _buildTextInput(
@@ -907,64 +1316,70 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
                 ),
               ),
             ),
-            isWide: isWide,
-          ),
-          const SizedBox(height: 6),
-
-          // Row 5: Gender & Marital Status
-          _buildRow(
-            leftLabel: 'Gender:',
-            leftInput: _buildDropdown(
+            rightLabel: 'Gender:',
+            rightInput: _buildDropdown(
               value: _selectedGender,
               items: const ['', 'Male', 'Female', 'Other'],
               onChanged: (v) => setState(() => _selectedGender = v ?? ''),
             ),
-            rightLabel: 'Marital Status:',
-            rightInput: _buildDropdown(
+            isWide: isWide,
+          ),
+          const SizedBox(height: 6),
+
+          // Row 6: Marital Status & Nationality
+          _buildRow(
+            leftLabel: 'Marital Status:',
+            leftInput: _buildDropdown(
               value: _selectedMaritalStatus,
               items: const ['', 'Single', 'Married', 'Divorced', 'Widowed'],
               onChanged: (v) => setState(() => _selectedMaritalStatus = v ?? ''),
             ),
-            isWide: isWide,
-          ),
-          const SizedBox(height: 6),
-
-          // Row 6: Nationality & Blood Group
-          _buildRow(
-            leftLabel: 'Nationality:',
-            leftInput: _buildDropdown(
+            rightLabel: 'Nationality:',
+            rightInput: _buildDropdown(
               value: _selectedNationality,
               items: const ['', 'Indian', 'Other'],
               onChanged: (v) => setState(() => _selectedNationality = v ?? ''),
             ),
-            rightLabel: 'Blood Group:',
-            rightInput: _buildDropdown(
+            isWide: isWide,
+          ),
+          const SizedBox(height: 6),
+
+          // Row 7: Blood Group & Emergency Contact
+          _buildRow(
+            leftLabel: 'Blood Group:',
+            leftInput: _buildDropdown(
               value: _selectedBloodGroup,
               items: const ['', 'A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'],
               onChanged: (v) => setState(() => _selectedBloodGroup = v ?? ''),
             ),
+            rightLabel: 'Emergency Contact:',
+            rightInput: _buildTextInput(controller: _emergencyContactController),
             isWide: isWide,
           ),
           const SizedBox(height: 6),
 
-          // Row 7: Emergency Contact & Personal Email
+          // Row 8: Personal Email & Phone Number
           _buildRow(
-            leftLabel: 'Emergency Contact:',
-            leftInput: _buildTextInput(controller: _emergencyContactController),
-            rightLabel: 'Personal Email:',
-            rightInput: _buildTextInput(controller: _personalEmailController),
+            leftLabel: 'Personal Email:',
+            leftInput: _buildTextInput(controller: _personalEmailController),
+            rightLabel: 'Phone Number *:',
+            rightInput: _buildTextInput(controller: _phoneController),
             isWide: isWide,
           ),
           const SizedBox(height: 6),
 
-          // Row 8: Phone Number & Current Address
+          // Row 9: Current Address
           _buildRow(
-            leftLabel: 'Phone Number:',
-            leftInput: _buildTextInput(controller: _phoneController),
-            rightLabel: 'Current Address:',
-            rightInput: _buildTextInput(controller: _addressController),
+            leftLabel: 'Current Address:',
+            leftInput: _buildTextInput(controller: _addressController),
+            rightLabel: '',
+            rightInput: const SizedBox.shrink(),
             isWide: isWide,
           ),
+          const SizedBox(height: 8),
+
+          // Identity & Face Recognition Biometrics (2FA) Section
+          _buildIdentityAndFaceVerificationSection(isWide: isWide),
           const SizedBox(height: 10),
 
           // Action buttons row (Right-aligned Save & Clear)
@@ -1019,6 +1434,468 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  // ─── Identity & Face Recognition Biometrics (2FA) Section ───────────────────
+  Widget _buildIdentityAndFaceVerificationSection({required bool isWide}) {
+    final passportBytes = _safeDecodeBase64(_passportPhotoBase64);
+    final liveBytes = _safeDecodeBase64(_livePhotoBase64);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF16181B),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: _isBiometricEnrolled ? const Color(0xFF00E676).withOpacity(0.3) : const Color(0xFFF26522).withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header Row
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF26522).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Icon(Icons.face_retouching_natural_rounded, color: Color(0xFFF26522), size: 18),
+              ),
+              const SizedBox(width: 8),
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Identity & Face Recognition Biometrics (2FA)',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    'Live face capture generates a 128-d descriptor vector encrypted at rest (AES-256-GCM).',
+                    style: TextStyle(color: Colors.white54, fontSize: 10.5),
+                  ),
+                ],
+              ),
+              const Spacer(),
+              // Status Pill
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: _isBiometricEnrolled ? const Color(0xFF00E676).withOpacity(0.15) : Colors.orange.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(3),
+                  border: Border.all(
+                    color: _isBiometricEnrolled ? const Color(0xFF00E676).withOpacity(0.4) : Colors.orange.withOpacity(0.4),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _isBiometricEnrolled ? Icons.verified_user_rounded : Icons.pending_rounded,
+                      size: 12,
+                      color: _isBiometricEnrolled ? const Color(0xFF00E676) : Colors.orangeAccent,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _isBiometricEnrolled ? 'Biometrics Enrolled' : 'Biometrics Pending',
+                      style: TextStyle(
+                        color: _isBiometricEnrolled ? const Color(0xFF00E676) : Colors.orangeAccent,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Two Photo Cards: Passport Photo & Live Face Capture
+          isWide
+              ? Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: _buildPassportPhotoCard(passportBytes)),
+                    const SizedBox(width: 12),
+                    Expanded(child: _buildLiveBiometricCard(liveBytes)),
+                  ],
+                )
+              : Column(
+                  children: [
+                    _buildPassportPhotoCard(passportBytes),
+                    const SizedBox(height: 8),
+                    _buildLiveBiometricCard(liveBytes),
+                  ],
+                ),
+          const SizedBox(height: 12),
+
+          // Biometric Login & User Account Configuration Row
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A1C20),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: const Color(0xFF2C2E33)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    // Face Verification Toggle
+                    InkWell(
+                      onTap: () => setState(() => _enableFaceAuth = !_enableFaceAuth),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: Checkbox(
+                              value: _enableFaceAuth,
+                              activeColor: const Color(0xFFF26522),
+                              onChanged: (v) => setState(() => _enableFaceAuth = v ?? true),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Text(
+                            'Enforce Face Recognition Login (2FA)',
+                            style: TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 20),
+                    // Create User Account Toggle
+                    InkWell(
+                      onTap: () => setState(() => _createUserAccount = !_createUserAccount),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: Checkbox(
+                              value: _createUserAccount,
+                              activeColor: const Color(0xFFF26522),
+                              onChanged: (v) => setState(() => _createUserAccount = v ?? true),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Text(
+                            'Provision ERP Login Account',
+                            style: TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                if (_createUserAccount) ...[
+                  const SizedBox(height: 8),
+                  const Divider(color: Color(0xFF2C2E33), height: 1),
+                  const SizedBox(height: 8),
+                  // Username, Password, Role row
+                  isWide
+                      ? Row(
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: _buildInlineField(
+                                label: 'Login Username:',
+                                input: _buildTextInput(
+                                  controller: _usernameController,
+                                  onChanged: null,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              flex: 3,
+                              child: _buildInlineField(
+                                label: 'Initial Password:',
+                                input: _buildTextInput(
+                                  controller: _passwordController,
+                                  onChanged: null,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              flex: 3,
+                              child: _buildInlineField(
+                                label: 'ERP Role:',
+                                input: _buildRoleDropdown(),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          children: [
+                            _buildInlineField(label: 'Username:', input: _buildTextInput(controller: _usernameController)),
+                            const SizedBox(height: 6),
+                            _buildInlineField(label: 'Password:', input: _buildTextInput(controller: _passwordController)),
+                            const SizedBox(height: 6),
+                            _buildInlineField(label: 'ERP Role:', input: _buildRoleDropdown()),
+                          ],
+                        ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPassportPhotoCard(Uint8List? passportBytes) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1C20),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: const Color(0xFF2C2E33)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 70,
+            height: 85,
+            decoration: BoxDecoration(
+              color: const Color(0xFF141517),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: const Color(0xFF33373E)),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: passportBytes != null
+                ? Image.memory(passportBytes, fit: BoxFit.cover)
+                : const Center(
+                    child: Icon(Icons.account_box_outlined, color: Colors.white24, size: 36),
+                  ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Passport / Profile Photo',
+                  style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  passportBytes != null ? 'Official photo attached' : 'Upload or capture employee photo',
+                  style: const TextStyle(color: Colors.white54, fontSize: 10.5),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: _pickPassportPhoto,
+                      icon: const Icon(Icons.camera_alt_outlined, size: 12),
+                      label: Text(passportBytes != null ? 'Retake Photo' : 'Capture Photo'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2A2D33),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        textStyle: const TextStyle(fontSize: 11),
+                        elevation: 0,
+                      ),
+                    ),
+                    if (passportBytes != null)
+                      OutlinedButton(
+                        onPressed: () => setState(() => _passportPhotoBase64 = null),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.redAccent,
+                          side: const BorderSide(color: Colors.redAccent, width: 0.8),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          textStyle: const TextStyle(fontSize: 11),
+                        ),
+                        child: const Text('Clear'),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLiveBiometricCard(Uint8List? liveBytes) {
+    final hasBiometrics = liveBytes != null || _isBiometricEnrolled;
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1C20),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: hasBiometrics ? const Color(0xFF00E676).withOpacity(0.4) : const Color(0xFF2C2E33),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 70,
+            height: 85,
+            decoration: BoxDecoration(
+              color: const Color(0xFF141517),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                color: hasBiometrics ? const Color(0xFF00E676) : const Color(0xFF33373E),
+              ),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: liveBytes != null
+                ? Image.memory(liveBytes, fit: BoxFit.cover)
+                : Center(
+                    child: Icon(
+                      _isBiometricEnrolled ? Icons.verified_user_rounded : Icons.face_rounded,
+                      color: _isBiometricEnrolled ? const Color(0xFF00E676) : Colors.white24,
+                      size: 36,
+                    ),
+                  ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Text(
+                      'Live Camera Face Capture',
+                      style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(width: 6),
+                    if (hasBiometrics)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00E676).withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                        child: const Text('128-d Ready', style: TextStyle(color: Color(0xFF00E676), fontSize: 9.5, fontWeight: FontWeight.bold)),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  hasBiometrics
+                      ? 'Live biometric descriptor active'
+                      : 'Camera capture required for 2FA login',
+                  style: TextStyle(
+                    color: hasBiometrics ? const Color(0xFF00E676) : Colors.white54,
+                    fontSize: 10.5,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: _openLiveCameraModal,
+                      icon: const Icon(Icons.videocam_rounded, size: 12),
+                      label: Text(_isBiometricEnrolled ? 'Re-capture Face' : 'Capture Live Face'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFF26522),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                        elevation: 0,
+                      ),
+                    ),
+                    if (_selectedRecordId != null && _isBiometricEnrolled) ...[
+                      OutlinedButton.icon(
+                        onPressed: _reEnrollFace,
+                        icon: const Icon(Icons.sync_rounded, size: 11),
+                        label: const Text('Re-enroll'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF00E5FF),
+                          side: const BorderSide(color: Color(0xFF00E5FF), width: 0.8),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          textStyle: const TextStyle(fontSize: 11),
+                        ),
+                      ),
+                      OutlinedButton(
+                        onPressed: _disableBiometrics,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.redAccent,
+                          side: const BorderSide(color: Colors.redAccent, width: 0.8),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          textStyle: const TextStyle(fontSize: 11),
+                        ),
+                        child: const Text('Disable Face Auth'),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInlineField({required String label, required Widget input}) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 95,
+          child: Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11.5)),
+        ),
+        Expanded(child: input),
+      ],
+    );
+  }
+
+  Widget _buildRoleDropdown() {
+    return Container(
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF141517),
+        borderRadius: BorderRadius.circular(2),
+        border: Border.all(color: const Color(0xFF2C2E33)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _selectedRole,
+          dropdownColor: const Color(0xFF1E2024),
+          icon: const Icon(Icons.arrow_drop_down, color: Colors.white70, size: 18),
+          isDense: true,
+          isExpanded: true,
+          style: const TextStyle(color: Colors.white, fontSize: 11.5),
+          items: const [
+            DropdownMenuItem(value: 'ROLE_EMPLOYEE', child: Text('Employee (Staff)')),
+            DropdownMenuItem(value: 'ROLE_PM', child: Text('Project Manager')),
+            DropdownMenuItem(value: 'ROLE_HR', child: Text('HR Manager')),
+            DropdownMenuItem(value: 'ROLE_ADMIN', child: Text('System Administrator')),
+          ],
+          onChanged: (v) {
+            if (v != null) setState(() => _selectedRole = v);
+          },
+        ),
       ),
     );
   }
@@ -1125,6 +2002,165 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
         ),
       ),
     );
+  }
+
+  // ─── Designation Dropdown with Predefined Options & Custom Entry ─────────────
+  Widget _buildDesignationDropdown() {
+    final currentVal = _designationController.text.trim();
+    if (currentVal.isNotEmpty && !_designations.contains(currentVal)) {
+      _designations.insert(0, currentVal);
+    }
+    final effectiveValue = _designations.contains(_selectedDesignation)
+        ? _selectedDesignation
+        : (currentVal.isNotEmpty && _designations.contains(currentVal)
+            ? currentVal
+            : (_designations.isNotEmpty ? _designations.first : 'Junior Design Engineer'));
+
+    return Container(
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF141517),
+        borderRadius: BorderRadius.circular(2),
+        border: Border.all(color: const Color(0xFF2C2E33)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: effectiveValue,
+          dropdownColor: const Color(0xFF1E2024),
+          hint: const Text('Select Designation', style: TextStyle(color: Colors.white38, fontSize: 12)),
+          icon: const Icon(Icons.arrow_drop_down, color: Color(0xFFF26522), size: 20),
+          isDense: true,
+          isExpanded: true,
+          style: const TextStyle(color: Colors.white, fontSize: 12),
+          items: [
+            ..._designations.map((desig) {
+              return DropdownMenuItem<String>(
+                value: desig,
+                child: Text(
+                  desig,
+                  style: const TextStyle(fontSize: 12),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              );
+            }),
+            const DropdownMenuItem<String>(
+              value: '__ADD_CUSTOM__',
+              child: Row(
+                children: [
+                  Icon(Icons.add_circle_outline, color: Color(0xFFF26522), size: 14),
+                  SizedBox(width: 6),
+                  Text(
+                    '+ Add Custom Designation...',
+                    style: TextStyle(
+                      color: Color(0xFFF26522),
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          onChanged: (val) {
+            if (val == '__ADD_CUSTOM__') {
+              _showAddCustomDesignationDialog();
+            } else if (val != null) {
+              setState(() {
+                _selectedDesignation = val;
+                _designationController.text = val;
+              });
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showAddCustomDesignationDialog() async {
+    final customCtrl = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E2024),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        title: const Row(
+          children: [
+            Icon(Icons.badge_outlined, color: Color(0xFFF26522), size: 20),
+            SizedBox(width: 8),
+            Text(
+              'Add Custom Designation',
+              style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Enter the new designation / role title for this employee:',
+              style: TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              height: 36,
+              decoration: BoxDecoration(
+                color: const Color(0xFF141517),
+                borderRadius: BorderRadius.circular(3),
+                border: Border.all(color: const Color(0xFFF26522)),
+              ),
+              child: TextField(
+                controller: customCtrl,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+                decoration: const InputDecoration(
+                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  border: InputBorder.none,
+                  hintText: 'e.g. Lead PLC Automation Engineer',
+                  hintStyle: TextStyle(color: Colors.white38, fontSize: 12),
+                ),
+                onSubmitted: (val) {
+                  if (val.trim().isNotEmpty) {
+                    Navigator.of(ctx).pop(val.trim());
+                  }
+                },
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white60)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final text = customCtrl.text.trim();
+              if (text.isNotEmpty) {
+                Navigator.of(ctx).pop(text);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFF26522),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            ),
+            child: const Text('Add & Select'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null && result.isNotEmpty) {
+      setState(() {
+        if (!_designations.contains(result)) {
+          _designations.insert(0, result);
+        }
+        _selectedDesignation = result;
+        _designationController.text = result;
+      });
+    }
   }
 
   // ─── Saved Records Table with Status Badges ─────────────────────────────────

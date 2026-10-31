@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -23,6 +24,26 @@ class _TaskDetailPageState extends ConsumerState<TaskDetailPage>
   String? _error;
   final _commentController = TextEditingController();
   bool _isSubmittingComment = false;
+
+  String _extractErrorMessage(dynamic e) {
+    if (e is DioException) {
+      final res = e.response;
+      if (res?.data != null) {
+        if (res!.data is Map && res.data['message'] != null) {
+          final msg = res.data['message'];
+          if (msg is List) return msg.join(', ');
+          return msg.toString();
+        }
+        if (res.data is String && (res.data as String).isNotEmpty) {
+          return res.data as String;
+        }
+      }
+      if (e.message != null && e.message!.isNotEmpty) {
+        return e.message!;
+      }
+    }
+    return e.toString().replaceAll('Exception: ', '');
+  }
 
   @override
   void initState() {
@@ -54,7 +75,7 @@ class _TaskDetailPageState extends ConsumerState<TaskDetailPage>
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _error = e.toString();
+        _error = _extractErrorMessage(e);
       });
     }
   }
@@ -66,16 +87,23 @@ class _TaskDetailPageState extends ConsumerState<TaskDetailPage>
           .updateTaskStatus(widget.taskId, status, notes: notes);
       ref.invalidate(allTasksProvider(null));
       ref.invalidate(myTasksProvider);
+      ref.invalidate(taskStatsProvider);
       _loadTask();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Task status updated to $status')),
+          SnackBar(
+            content: Text('✅ Task status updated to ${status.replaceAll('_', ' ')}'),
+            backgroundColor: AppTheme.success,
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update status: $e')),
+          SnackBar(
+            content: Text('Failed to update status: ${_extractErrorMessage(e)}'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -95,7 +123,10 @@ class _TaskDetailPageState extends ConsumerState<TaskDetailPage>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to add comment: $e')),
+          SnackBar(
+            content: Text('Failed to add comment: ${_extractErrorMessage(e)}'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -216,6 +247,433 @@ class _TaskDetailPageState extends ConsumerState<TaskDetailPage>
     }
   }
 
+  void _showLogHoursDialog() {
+    final hoursController = TextEditingController(text: '1.0');
+    final notesController = TextEditingController();
+    final messenger = ScaffoldMessenger.of(context);
+    final taskNumber = _task?['taskNumber'] ?? '';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.darkSurface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Text('Log Work Hours ($taskNumber)'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Current: ${_task?['actualHours'] ?? 0} hrs logged (Est: ${_task?['estimatedHours'] ?? 0} hrs)',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: hoursController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Hours spent (e.g. 2.5) *',
+                prefixIcon: Icon(Icons.timer),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: notesController,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                labelText: 'Activity notes (optional)',
+                hintText: 'e.g. Completed wiring and panel load tests',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final h = double.tryParse(hoursController.text.trim());
+              if (h == null || h <= 0) {
+                messenger.showSnackBar(
+                  const SnackBar(content: Text('Please enter valid positive hours')),
+                );
+                return;
+              }
+              final notes = notesController.text.trim();
+              Navigator.pop(ctx);
+              try {
+                await ref.read(tasksRepositoryProvider).logWorkHours(
+                      widget.taskId,
+                      h,
+                      notes: notes,
+                    );
+                ref.invalidate(allTasksProvider(null));
+                ref.invalidate(myTasksProvider);
+                ref.invalidate(taskStatsProvider);
+                _loadTask();
+                if (mounted) {
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text('✅ Logged $h hours successfully!'),
+                      backgroundColor: AppTheme.success,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to log hours: ${_extractErrorMessage(e)}'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Log Hours'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showProgressSliderDialog() {
+    var current = (_task?['progress'] as num?)?.toDouble() ?? 0.0;
+    var newProgress = current;
+    final messenger = ScaffoldMessenger.of(context);
+    final taskNumber = _task?['taskNumber'] ?? '';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (dialogCtx, setDialogState) => AlertDialog(
+          backgroundColor: AppTheme.darkSurface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: Text('Update Progress: $taskNumber'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${newProgress.round()}%',
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.primary,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Slider(
+                value: newProgress,
+                min: 0,
+                max: 100,
+                divisions: 20,
+                activeColor: AppTheme.primary,
+                label: '${newProgress.round()}%',
+                onChanged: (val) => setDialogState(() => newProgress = val),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [0, 25, 50, 75, 100].map((preset) {
+                  return InkWell(
+                    onTap: () => setDialogState(() => newProgress = preset.toDouble()),
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: newProgress.round() == preset
+                            ? AppTheme.primary
+                            : Colors.white10,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '$preset%',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: newProgress.round() == preset
+                              ? Colors.white
+                              : Colors.grey,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final rounded = newProgress.round();
+                Navigator.pop(ctx);
+                try {
+                  await ref
+                      .read(tasksRepositoryProvider)
+                      .updateTaskProgress(widget.taskId, rounded);
+                  ref.invalidate(allTasksProvider(null));
+                  ref.invalidate(myTasksProvider);
+                  ref.invalidate(taskStatsProvider);
+                  _loadTask();
+                  if (mounted) {
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text('✅ Progress set to $rounded%'),
+                        backgroundColor: AppTheme.success,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to update progress: ${_extractErrorMessage(e)}'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('Save Progress'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmDeleteTask() {
+    final messenger = ScaffoldMessenger.of(context);
+    final taskNumber = _task?['taskNumber'] ?? '';
+    final title = _task?['title'] ?? '';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.darkSurface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Row(
+          children: [
+            const Icon(Icons.delete_forever, color: Colors.redAccent),
+            const SizedBox(width: 8),
+            Text('Delete $taskNumber?'),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to permanently delete task "$title"? All associated comments and activity logs will also be removed.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await ref.read(tasksRepositoryProvider).deleteTask(widget.taskId);
+                ref.invalidate(allTasksProvider(null));
+                ref.invalidate(myTasksProvider);
+                ref.invalidate(taskStatsProvider);
+                if (mounted) {
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text('✅ Task deleted successfully'),
+                      backgroundColor: AppTheme.success,
+                    ),
+                  );
+                  context.pop();
+                }
+              } catch (e) {
+                if (mounted) {
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to delete: ${_extractErrorMessage(e)}'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Delete Permanently'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLifecyclePipeline(String status) {
+    final stages = [
+      {'key': 'ASSIGNED', 'label': 'Assigned', 'icon': Icons.assignment_ind_outlined},
+      {'key': 'ACCEPTED', 'label': 'Accepted', 'icon': Icons.thumb_up_alt_outlined},
+      {'key': 'IN_PROGRESS', 'label': 'In Progress', 'icon': Icons.engineering_outlined},
+      {'key': 'REVIEW', 'label': 'Review', 'icon': Icons.rate_review_outlined},
+      {'key': 'COMPLETED', 'label': 'Completed', 'icon': Icons.task_alt_outlined},
+    ];
+
+    final statusOrder = {
+      'CREATED': 0,
+      'ASSIGNED': 1,
+      'ACCEPTED': 2,
+      'IN_PROGRESS': 3,
+      'REVIEW': 4,
+      'COMPLETED': 5,
+    };
+
+    final isReturned = status.toUpperCase() == 'RETURNED';
+    final isCancelled = status.toUpperCase() == 'CANCELLED';
+    final currentIdx = statusOrder[status.toUpperCase()] ?? 1;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppTheme.darkSurface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isReturned
+              ? Colors.red.withValues(alpha: 0.5)
+              : isCancelled
+                  ? Colors.blueGrey.withValues(alpha: 0.5)
+                  : AppTheme.darkBorder,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.timeline_rounded, size: 18, color: AppTheme.primary),
+                  SizedBox(width: 8),
+                  Text(
+                    'Lifecycle Pipeline',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                ],
+              ),
+              if (isReturned)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.red.withValues(alpha: 0.4)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded, size: 14, color: Colors.red),
+                      SizedBox(width: 4),
+                      Text(
+                        'RETURNED FOR CHANGES',
+                        style: TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red),
+                      ),
+                    ],
+                  ),
+                )
+              else if (isCancelled)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text(
+                    'CANCELLED',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: List.generate(stages.length, (idx) {
+                final stage = stages[idx];
+                final stageIdx = idx + 1;
+                final isDone = currentIdx > stageIdx && !isReturned;
+                final isCurrent = currentIdx == stageIdx && !isReturned;
+
+                Color stageColor;
+                if (isDone) {
+                  stageColor = AppTheme.success;
+                } else if (isCurrent) {
+                  stageColor = AppTheme.primary;
+                } else {
+                  stageColor = Colors.grey.shade600;
+                }
+
+                return Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isCurrent
+                            ? AppTheme.primary.withValues(alpha: 0.15)
+                            : isDone
+                                ? AppTheme.success.withValues(alpha: 0.1)
+                                : Colors.transparent,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isCurrent
+                              ? AppTheme.primary
+                              : isDone
+                                  ? AppTheme.success.withValues(alpha: 0.4)
+                                  : Colors.white12,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isDone ? Icons.check_circle_rounded : (stage['icon'] as IconData),
+                            size: 16,
+                            color: stageColor,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            stage['label'] as String,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                              color: isCurrent
+                                  ? Colors.white
+                                  : isDone
+                                      ? Colors.white70
+                                      : Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (idx < stages.length - 1)
+                      Container(
+                        width: 20,
+                        height: 2,
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        color: isDone ? AppTheme.success : Colors.white12,
+                      ),
+                  ],
+                );
+              }),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
@@ -279,9 +737,12 @@ class _TaskDetailPageState extends ConsumerState<TaskDetailPage>
                         (membership['staff'] as Map?)?['id'] == currentStaffId)
                 ? 'Team Member'
                 : 'Team Assignment';
+    final isCreator =
+        user?.staffId != null && task['createdByStaffId'] == user!.staffId;
     final canManage = user?.isProjectManager == true ||
         user?.isAdmin == true ||
         teamRole == 'Team Leader';
+    final canDelete = canManage || isCreator || user?.isAdmin == true;
 
     DateTime? dueDate;
     if (task['dueDate'] != null) {
@@ -291,8 +752,49 @@ class _TaskDetailPageState extends ConsumerState<TaskDetailPage>
     return Scaffold(
       backgroundColor: AppTheme.darkBackground,
       appBar: AppBar(
-        title: Text(taskNumber),
+        automaticallyImplyLeading: false,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            InkWell(
+              onTap: () {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/tasks');
+                }
+              },
+              borderRadius: BorderRadius.circular(6),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.format_list_bulleted_rounded, size: 16, color: AppTheme.primary),
+                    SizedBox(width: 6),
+                    Text('Tasks', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500)),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right, size: 16, color: Colors.grey),
+            const SizedBox(width: 4),
+            Text(taskNumber, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
+        ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.more_time_rounded),
+            tooltip: 'Log Work Hours',
+            onPressed: _showLogHoursDialog,
+          ),
+          if (canDelete)
+            IconButton(
+              icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+              tooltip: 'Delete Task',
+              onPressed: _confirmDeleteTask,
+            ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Reload',
@@ -347,19 +849,22 @@ class _TaskDetailPageState extends ConsumerState<TaskDetailPage>
       String status, bool isAssignee, bool canManage) {
     final actions = <Widget>[];
 
-    if (isAssignee && status == 'ASSIGNED') {
-      actions.add(
-        ElevatedButton.icon(
-          icon: const Icon(Icons.check_circle_outline, size: 18),
-          label: const Text('Accept Task'),
-          style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primary, foregroundColor: Colors.white),
-          onPressed: () => _updateStatus('ACCEPTED'),
-        ),
-      );
+    // For tasks in CREATED or ASSIGNED status:
+    if (status == 'CREATED' || status == 'ASSIGNED') {
+      if (isAssignee || canManage) {
+        actions.add(
+          ElevatedButton.icon(
+            icon: const Icon(Icons.play_arrow_rounded, size: 18),
+            label: const Text('Start Work'),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primary, foregroundColor: Colors.white),
+            onPressed: () => _updateStatus('IN_PROGRESS'),
+          ),
+        );
+      }
     }
 
-    if (isAssignee && status == 'ACCEPTED') {
+    if ((isAssignee || canManage) && status == 'ACCEPTED') {
       actions.add(
         ElevatedButton.icon(
           icon: const Icon(Icons.play_arrow_outlined, size: 18),
@@ -371,7 +876,7 @@ class _TaskDetailPageState extends ConsumerState<TaskDetailPage>
       );
     }
 
-    if (isAssignee && (status == 'IN_PROGRESS' || status == 'RETURNED')) {
+    if ((isAssignee || canManage) && (status == 'IN_PROGRESS' || status == 'RETURNED')) {
       actions.add(
         ElevatedButton.icon(
           icon: const Icon(Icons.send_outlined, size: 18),
@@ -401,6 +906,18 @@ class _TaskDetailPageState extends ConsumerState<TaskDetailPage>
               backgroundColor: AppTheme.success, foregroundColor: Colors.white),
           onPressed: () =>
               _updateStatus('COMPLETED', notes: 'Approved by Manager'),
+        ),
+      );
+    } else if (canManage && (status == 'IN_PROGRESS' || status == 'CREATED' || status == 'ASSIGNED')) {
+      actions.add(const SizedBox(width: 12));
+      actions.add(
+        ElevatedButton.icon(
+          icon: const Icon(Icons.check_circle_rounded, size: 18),
+          label: const Text('Complete Task'),
+          style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.success, foregroundColor: Colors.white),
+          onPressed: () =>
+              _updateStatus('COMPLETED', notes: 'Completed by Manager'),
         ),
       );
     }
@@ -450,6 +967,9 @@ class _TaskDetailPageState extends ConsumerState<TaskDetailPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ─── Task Lifecycle Pipeline ───────────────────────────
+          _buildLifecyclePipeline(status),
+
           Text(
             title,
             style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
@@ -515,11 +1035,42 @@ class _TaskDetailPageState extends ConsumerState<TaskDetailPage>
                             color: AppTheme.darkText,
                             fontWeight: FontWeight.w600,
                             fontSize: 13)),
-                    Text('$progress%',
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: statusColor,
-                            fontSize: 14)),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('$progress%',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: statusColor,
+                                fontSize: 14)),
+                        const SizedBox(width: 8),
+                        InkWell(
+                          onTap: _showProgressSliderDialog,
+                          borderRadius: BorderRadius.circular(6),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primary.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.edit,
+                                    size: 12, color: AppTheme.primary),
+                                SizedBox(width: 4),
+                                Text('Update',
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppTheme.primary,
+                                        fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -584,7 +1135,8 @@ class _TaskDetailPageState extends ConsumerState<TaskDetailPage>
                 Icons.timer_outlined,
                 'Work Hours',
                 '$actualHours / $estimatedHours hrs',
-                subtitle: 'Actual vs Estimated',
+                subtitle: 'Tap to log hours',
+                onTap: _showLogHoursDialog,
               ),
               if (department != null)
                 _buildInfoCard(

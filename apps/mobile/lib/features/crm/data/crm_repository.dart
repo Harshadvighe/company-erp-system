@@ -97,6 +97,23 @@ class CrmRepository {
     return response.data as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> updateEnquiryStatus(
+      String id, String status) async {
+    final response = await _dio.patch('/crm/enquiries/$id/status', data: {'status': status});
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> batchUpdateEnquiryStatus(
+      List<String> ids, String status) async {
+    final response = await _dio.post('/crm/enquiries/batch-status', data: {'ids': ids, 'status': status});
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getEnquiriesSummary() async {
+    final response = await _dio.get('/crm/enquiries-summary');
+    return response.data as Map<String, dynamic>;
+  }
+
   // ─── Opportunities & Pipeline ───────────────────────────────────────────
 
   Future<Map<String, dynamic>> getOpportunities(

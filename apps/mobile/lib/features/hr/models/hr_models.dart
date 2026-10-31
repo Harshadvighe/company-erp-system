@@ -5,6 +5,7 @@ class Employee {
   final String employeeCode;
   final String? userId;
   final String firstName;
+  final String? middleName;
   final String lastName;
   final String email;
   final String phone;
@@ -29,15 +30,18 @@ class Employee {
   final String? emergencyPhone;
   final String? address;
   final String? avatarUrl;
+  final bool hasBiometric;
+  final String? username;
   final DateTime joiningDate;
 
-  String get fullName => '$firstName $lastName'.trim();
+  String get fullName => [firstName, if (middleName != null && middleName!.isNotEmpty) middleName, lastName].join(' ').trim();
 
   const Employee({
     required this.id,
     required this.employeeCode,
     this.userId,
     required this.firstName,
+    this.middleName,
     required this.lastName,
     required this.email,
     required this.phone,
@@ -62,6 +66,8 @@ class Employee {
     this.emergencyPhone,
     this.address,
     this.avatarUrl,
+    this.hasBiometric = false,
+    this.username,
     required this.joiningDate,
   });
 
@@ -71,6 +77,7 @@ class Employee {
       employeeCode: json['employeeCode'] ?? '',
       userId: json['userId'],
       firstName: json['firstName'] ?? '',
+      middleName: json['middleName'],
       lastName: json['lastName'] ?? '',
       email: json['email'] ?? '',
       phone: json['phone'] ?? '',
@@ -95,6 +102,8 @@ class Employee {
       emergencyPhone: json['emergencyPhone'],
       address: json['address'],
       avatarUrl: json['avatarUrl'],
+      hasBiometric: json['faceBiometric'] != null || json['hasBiometric'] == true,
+      username: json['user']?['username'] ?? json['username'],
       joiningDate: json['joiningDate'] != null
           ? DateTime.tryParse(json['joiningDate']) ?? DateTime.now()
           : DateTime.now(),

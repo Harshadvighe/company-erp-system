@@ -1,6 +1,10 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, UnauthorizedException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
 import { SequenceService } from '../../core/database/sequence.service';
+import { AuditService } from '../../core/audit/audit.service';
+import { FaceRecognitionService } from '../../core/biometrics/face-recognition.service';
+import { MailService } from '../../core/notifications/mail.service';
+import * as bcrypt from 'bcryptjs';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { CreateLeaveDto, UpdateLeaveStatusDto } from './dto/create-leave.dto';
 import { ClockInDto, ClockOutDto } from './dto/clock-in.dto';
@@ -8,9 +12,14 @@ import { AllocateWorkstationDto, LogOvertimeDto, ReportSafetyIncidentDto } from 
 
 @Injectable()
 export class HrService {
+  private readonly logger = new Logger(HrService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly sequenceService: SequenceService,
+    private readonly auditService: AuditService,
+    private readonly faceRecognitionService: FaceRecognitionService,
+    private readonly mailService: MailService,
   ) {}
 
   // -------------------------------------------------------------
@@ -63,7 +72,7 @@ export class HrService {
       },
       include: {
         employee: {
-          select: { firstName: true, lastName: true, designation: true, employeeCode: true, skillLevel: true },
+          select: { firstName: true, middleName: true, lastName: true, designation: true, employeeCode: true, skillLevel: true },
         },
       },
     });
@@ -108,7 +117,7 @@ export class HrService {
       orderBy: { createdAt: 'desc' },
       include: {
         employee: {
-          select: { firstName: true, lastName: true, designation: true, employeeCode: true },
+          select: { firstName: true, middleName: true, lastName: true, designation: true, employeeCode: true },
         },
       },
     });
@@ -120,7 +129,7 @@ export class HrService {
       orderBy: { punchIn: 'desc' },
       include: {
         employee: {
-          select: { firstName: true, lastName: true, designation: true, employeeCode: true, assignedBay: true, shiftCode: true },
+          select: { firstName: true, middleName: true, lastName: true, designation: true, employeeCode: true, assignedBay: true, shiftCode: true },
         },
       },
     });
@@ -357,7 +366,7 @@ export class HrService {
       return {
         id: emp.id,
         employeeCode: emp.employeeCode,
-        fullName: `${emp.firstName} ${emp.lastName}`,
+        fullName: [emp.firstName, emp.middleName, emp.lastName].filter(Boolean).join(' '),
         designation: emp.designation,
         department: emp.department?.name || 'Plant Ops',
         workerCategory: emp.workerCategory,
@@ -375,6 +384,15 @@ export class HrService {
   }
 
   // -------------------------------------------------------------
+  // 6.5 DESIGNATIONS MASTER
+  // -------------------------------------------------------------
+  async getDesignations() {
+    return this.prisma.designation.findMany({
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  // -------------------------------------------------------------
   // 7. EMPLOYEES DIRECTORY & PROFILE
   // -------------------------------------------------------------
   async getEmployees(search?: string, departmentId?: string, status?: string, workerCategory?: string) {
@@ -385,6 +403,7 @@ export class HrService {
     if (search) {
       where.OR = [
         { firstName: { contains: search } },
+        { middleName: { contains: search } },
         { lastName: { contains: search } },
         { email: { contains: search } },
         { employeeCode: { contains: search } },
@@ -398,6 +417,19 @@ export class HrService {
       where,
       include: {
         department: true,
+        faceBiometric: {
+          select: { id: true, isActive: true, enrolledAt: true },
+        },
+        user: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            status: true,
+            faceVerificationEnabled: true,
+            faceVerificationStatus: true,
+          },
+        },
       },
       orderBy: { employeeCode: 'asc' },
     });
@@ -410,6 +442,31 @@ export class HrService {
       },
       include: {
         department: true,
+        faceBiometric: {
+          select: {
+            id: true,
+            isActive: true,
+            enrolledAt: true,
+            updatedAt: true,
+            faceModel: true,
+            embeddingVersion: true,
+            passportPhotoPath: true,
+            enrollmentPhotoPath: true,
+          },
+        },
+        user: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            status: true,
+            faceVerificationEnabled: true,
+            faceVerificationStatus: true,
+            faceEnrolledAt: true,
+            failedFaceAttempts: true,
+            faceLockoutUntil: true,
+          },
+        },
         attendances: {
           take: 30,
           orderBy: { punchDate: 'desc' },
@@ -433,7 +490,26 @@ export class HrService {
     return employee;
   }
 
-  async createEmployee(dto: CreateEmployeeDto) {
+  async createEmployee(
+    dto: CreateEmployeeDto,
+    actorId?: string,
+    actorEmail?: string,
+    ipAddress?: string,
+  ) {
+    // Comprehensive Validation for First Name, Middle Name, Last Name & Critical Fields
+    if (!dto.firstName || dto.firstName.trim().length < 2) {
+      throw new BadRequestException('First Name is required and must contain at least 2 characters.');
+    }
+    if (!dto.lastName || dto.lastName.trim().length < 1) {
+      throw new BadRequestException('Last Name is required.');
+    }
+    if (!dto.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(dto.email.trim())) {
+      throw new BadRequestException('A valid corporate work email address is required.');
+    }
+    if (!dto.phone || dto.phone.trim().length < 7) {
+      throw new BadRequestException('A valid phone number is required.');
+    }
+
     const normalizedEmail = dto.email.trim();
 
     // Check for existing employee with the same email
@@ -448,11 +524,119 @@ export class HrService {
 
     const employeeCode = await this.sequenceService.nextEmployeeCode();
 
-    return this.prisma.employee.create({
+    // Process Passport/Profile Photo if supplied
+    let avatarUrl: string | undefined = undefined;
+    let passportStoragePath: string | undefined = undefined;
+    let passportDescriptor: number[] | null = null;
+    if (dto.passportPhotoBase64) {
+      const parsedPassport = this.faceRecognitionService.parseBase64Image(dto.passportPhotoBase64);
+      // Validate that passport photo contains a valid face and extract descriptor
+      const extractedPassport = await this.faceRecognitionService.validateAndExtractFace(parsedPassport.buffer);
+      passportDescriptor = extractedPassport.descriptor;
+      const savedPassport = await this.faceRecognitionService.saveBiometricPhoto(
+        parsedPassport.buffer,
+        employeeCode,
+        'passport',
+      );
+      avatarUrl = savedPassport.publicUrl;
+      passportStoragePath = savedPassport.relativePath;
+    }
+
+    // Process Live Biometric Photo if supplied
+    let liveBiometricDescriptor: number[] | null = null;
+    let liveStoragePath: string | undefined = undefined;
+    if (dto.livePhotoBase64) {
+      const parsedLive = this.faceRecognitionService.parseBase64Image(dto.livePhotoBase64);
+      const extractedLive = await this.faceRecognitionService.validateAndExtractFace(parsedLive.buffer);
+      liveBiometricDescriptor = extractedLive.descriptor;
+
+      const savedLive = await this.faceRecognitionService.saveBiometricPhoto(
+        parsedLive.buffer,
+        employeeCode,
+        'live',
+      );
+      liveStoragePath = savedLive.relativePath;
+    }
+
+    // AUTO-VERIFICATION AT PROFILE CREATION:
+    // If BOTH Live Photo and Passport Photo are supplied, verify that they belong to the same person!
+    if (liveBiometricDescriptor && passportDescriptor) {
+      const settings = await this.faceRecognitionService.getFaceAuthSettings();
+      const match = this.faceRecognitionService.compareFaces(
+        liveBiometricDescriptor,
+        passportDescriptor,
+        settings.matchThreshold || 0.55,
+      );
+      if (!match.isMatch) {
+        throw new BadRequestException(
+          `Face Verification Failed: Captured live face does not match the uploaded passport photo (Distance: ${match.distance}, Threshold: ${match.threshold}). Please ensure both photos belong to the same employee.`,
+        );
+      }
+      this.logger.log(
+        `Auto-verified employee face at profile creation: Live Photo matches Passport Photo (Distance: ${match.distance}, Similarity: ${match.similarity})`,
+      );
+    }
+
+    // Optional: Create linked User Account concurrently
+    let linkedUserId: string | null = null;
+    const shouldCreateUser = dto.createUserAccount || Boolean(dto.username && dto.password);
+    if (shouldCreateUser && dto.username && dto.password) {
+      const existingUser = await this.prisma.user.findFirst({
+        where: { OR: [{ email: normalizedEmail }, { username: dto.username.trim() }] },
+      });
+      if (existingUser) {
+        throw new ConflictException(`User with username '${dto.username}' or email '${normalizedEmail}' already exists.`);
+      }
+
+      const passwordHash = await bcrypt.hash(dto.password, 10);
+      const hasBiometric = Boolean(liveBiometricDescriptor);
+      const newUser = await this.prisma.user.create({
+        data: {
+          username: dto.username.trim(),
+          email: normalizedEmail,
+          fullName: [dto.firstName.trim(), dto.middleName?.trim(), dto.lastName.trim()].filter(Boolean).join(' '),
+          phone: dto.phone,
+          designation: dto.designation,
+          departmentId: dto.departmentId,
+          passwordHash,
+          status: 'ACTIVE',
+          faceVerificationEnabled: hasBiometric ? (dto.enableFaceAuth ?? true) : false,
+          faceVerificationStatus: hasBiometric ? 'ENROLLED' : 'NOT_ENROLLED',
+          faceEnrolledAt: hasBiometric ? new Date() : null,
+        },
+      });
+
+      // Role assignment
+      const targetRoleId = dto.roleId;
+      if (targetRoleId) {
+        const role = await this.prisma.role.findFirst({
+          where: { OR: [{ id: targetRoleId }, { code: targetRoleId }] },
+        });
+        if (role) {
+          await this.prisma.userRole.create({
+            data: { userId: newUser.id, roleId: role.id },
+          });
+        }
+      } else {
+        const empRole = await this.prisma.role.findFirst({ where: { code: 'ROLE_EMPLOYEE' } });
+        if (empRole) {
+          await this.prisma.userRole.create({
+            data: { userId: newUser.id, roleId: empRole.id },
+          });
+        }
+      }
+
+      linkedUserId = newUser.id;
+    }
+
+    // Create Employee record
+    const employee = await this.prisma.employee.create({
       data: {
         employeeCode,
-        firstName: dto.firstName,
-        lastName: dto.lastName,
+        userId: linkedUserId,
+        firstName: dto.firstName.trim(),
+        middleName: dto.middleName ? dto.middleName.trim() : null,
+        lastName: dto.lastName.trim(),
         email: normalizedEmail,
         phone: dto.phone,
         designation: dto.designation,
@@ -474,15 +658,274 @@ export class HrService {
         bloodGroup: dto.bloodGroup,
         emergencyPhone: dto.emergencyPhone,
         address: dto.address,
+        avatarUrl: avatarUrl || undefined,
       },
       include: { department: true },
     });
+
+    // Save Biometrics record if live biometric was captured
+    if (liveBiometricDescriptor) {
+      const encrypted = this.faceRecognitionService.encryptEmbedding(liveBiometricDescriptor);
+      await this.prisma.employeeFaceBiometric.create({
+        data: {
+          employeeId: employee.id,
+          userId: linkedUserId,
+          encryptedEmbedding: encrypted.encryptedEmbedding,
+          embeddingIv: encrypted.embeddingIv,
+          embeddingAuthTag: encrypted.embeddingAuthTag,
+          embeddingVersion: encrypted.embeddingVersion,
+          faceModel: encrypted.faceModel,
+          passportPhotoPath: passportStoragePath || null,
+          enrollmentPhotoPath: liveStoragePath || null,
+          isActive: true,
+        },
+      });
+
+      await this.auditService.log({
+        userId: actorId,
+        userEmail: actorEmail,
+        action: 'FACE_ENROLLMENT',
+        module: 'HR',
+        entityType: 'Employee',
+        entityId: employee.id,
+        details: `Face biometric successfully enrolled for employee ${employee.employeeCode} (${employee.firstName} ${employee.lastName})`,
+        ipAddress,
+      });
+    }
+
+    return employee;
+  }
+
+  async enrollEmployeeFace(
+    idOrCode: string,
+    dto: { livePhotoBase64: string; passportPhotoBase64?: string; enableFaceAuth?: boolean },
+    actorId?: string,
+    actorEmail?: string,
+    ipAddress?: string,
+  ) {
+    const employee = await this.prisma.employee.findFirst({
+      where: { OR: [{ id: idOrCode }, { employeeCode: idOrCode }] },
+      include: { faceBiometric: true },
+    });
+
+    if (!employee) {
+      throw new NotFoundException(`Employee record '${idOrCode}' not found`);
+    }
+
+    if (!dto.livePhotoBase64) {
+      throw new BadRequestException('Live face photograph is required for biometric enrollment.');
+    }
+
+    const parsedLive = this.faceRecognitionService.parseBase64Image(dto.livePhotoBase64);
+    const extractedLive = await this.faceRecognitionService.validateAndExtractFace(parsedLive.buffer);
+    const liveBiometricDescriptor = extractedLive.descriptor;
+
+    const savedLive = await this.faceRecognitionService.saveBiometricPhoto(
+      parsedLive.buffer,
+      employee.employeeCode,
+      'live',
+    );
+
+    let passportPath = employee.faceBiometric?.passportPhotoPath;
+    let avatarUrl = employee.avatarUrl;
+    let passportDescriptor: number[] | null = null;
+    if (dto.passportPhotoBase64) {
+      const parsedPassport = this.faceRecognitionService.parseBase64Image(dto.passportPhotoBase64);
+      const extractedPassport = await this.faceRecognitionService.validateAndExtractFace(parsedPassport.buffer);
+      passportDescriptor = extractedPassport.descriptor;
+      const savedPassport = await this.faceRecognitionService.saveBiometricPhoto(
+        parsedPassport.buffer,
+        employee.employeeCode,
+        'passport',
+      );
+      passportPath = savedPassport.relativePath;
+      avatarUrl = savedPassport.publicUrl;
+      await this.prisma.employee.update({
+        where: { id: employee.id },
+        data: { avatarUrl },
+      });
+    }
+
+    // AUTO-VERIFICATION ON ENROLLMENT:
+    if (liveBiometricDescriptor && passportDescriptor) {
+      const settings = await this.faceRecognitionService.getFaceAuthSettings();
+      const match = this.faceRecognitionService.compareFaces(
+        liveBiometricDescriptor,
+        passportDescriptor,
+        settings.matchThreshold || 0.55,
+      );
+      if (!match.isMatch) {
+        throw new BadRequestException(
+          `Face Verification Failed: Captured live face does not match the uploaded passport photo (Distance: ${match.distance}, Threshold: ${match.threshold}). Please ensure both photos belong to the same employee.`,
+        );
+      }
+    }
+
+    const encrypted = this.faceRecognitionService.encryptEmbedding(liveBiometricDescriptor);
+    const isReEnrollment = Boolean(employee.faceBiometric);
+
+    await this.prisma.employeeFaceBiometric.upsert({
+      where: { employeeId: employee.id },
+      update: {
+        encryptedEmbedding: encrypted.encryptedEmbedding,
+        embeddingIv: encrypted.embeddingIv,
+        embeddingAuthTag: encrypted.embeddingAuthTag,
+        enrollmentPhotoPath: savedLive.relativePath,
+        passportPhotoPath: passportPath,
+        isActive: true,
+        updatedAt: new Date(),
+      },
+      create: {
+        employeeId: employee.id,
+        userId: employee.userId,
+        encryptedEmbedding: encrypted.encryptedEmbedding,
+        embeddingIv: encrypted.embeddingIv,
+        embeddingAuthTag: encrypted.embeddingAuthTag,
+        embeddingVersion: encrypted.embeddingVersion,
+        faceModel: encrypted.faceModel,
+        passportPhotoPath: passportPath || null,
+        enrollmentPhotoPath: savedLive.relativePath,
+        isActive: true,
+      },
+    });
+
+    if (employee.userId) {
+      await this.prisma.user.update({
+        where: { id: employee.userId },
+        data: {
+          faceVerificationEnabled: dto.enableFaceAuth ?? true,
+          faceVerificationStatus: 'ENROLLED',
+          faceEnrolledAt: new Date(),
+          failedFaceAttempts: 0,
+          faceLockoutUntil: null,
+        },
+      });
+    }
+
+    await this.auditService.log({
+      userId: actorId,
+      userEmail: actorEmail,
+      action: isReEnrollment ? 'FACE_RE_ENROLLMENT' : 'FACE_ENROLLMENT',
+      module: 'HR',
+      entityType: 'Employee',
+      entityId: employee.id,
+      details: `Face biometric ${isReEnrollment ? 're-enrolled' : 'enrolled'} for employee ${employee.employeeCode} (${employee.firstName} ${employee.lastName})`,
+      ipAddress,
+    });
+
+    return {
+      success: true,
+      message: `Face biometric successfully ${isReEnrollment ? 're-enrolled' : 'enrolled'} for ${employee.employeeCode}`,
+      employeeId: employee.id,
+      employeeCode: employee.employeeCode,
+      avatarUrl,
+      faceVerificationEnabled: dto.enableFaceAuth ?? true,
+      enrolledAt: new Date(),
+    };
+  }
+
+  async disableEmployeeFace(
+    idOrCode: string,
+    actorId?: string,
+    actorEmail?: string,
+    ipAddress?: string,
+  ) {
+    const employee = await this.prisma.employee.findFirst({
+      where: { OR: [{ id: idOrCode }, { employeeCode: idOrCode }] },
+      include: { faceBiometric: true },
+    });
+
+    if (!employee) throw new NotFoundException(`Employee record '${idOrCode}' not found`);
+
+    if (employee.faceBiometric) {
+      await this.prisma.employeeFaceBiometric.update({
+        where: { id: employee.faceBiometric.id },
+        data: { isActive: false },
+      });
+    }
+
+    if (employee.userId) {
+      await this.prisma.user.update({
+        where: { id: employee.userId },
+        data: {
+          faceVerificationEnabled: false,
+          faceVerificationStatus: 'DISABLED',
+        },
+      });
+    }
+
+    await this.auditService.log({
+      userId: actorId,
+      userEmail: actorEmail,
+      action: 'FACE_VERIFICATION_DISABLED',
+      module: 'HR',
+      entityType: 'Employee',
+      entityId: employee.id,
+      details: `Face biometric verification disabled for ${employee.employeeCode}`,
+      ipAddress,
+    });
+
+    return {
+      success: true,
+      message: `Face verification disabled for ${employee.employeeCode}`,
+    };
+  }
+
+  async getEmployeeFaceStatus(idOrCode: string) {
+    const employee = await this.prisma.employee.findFirst({
+      where: { OR: [{ id: idOrCode }, { employeeCode: idOrCode }] },
+      include: {
+        faceBiometric: {
+          select: {
+            id: true,
+            isActive: true,
+            enrolledAt: true,
+            updatedAt: true,
+            faceModel: true,
+            embeddingVersion: true,
+            passportPhotoPath: true,
+            enrollmentPhotoPath: true,
+          },
+        },
+        user: {
+          select: {
+            id: true,
+            username: true,
+            faceVerificationEnabled: true,
+            faceVerificationStatus: true,
+            faceEnrolledAt: true,
+            failedFaceAttempts: true,
+            faceLockoutUntil: true,
+          },
+        },
+      },
+    });
+
+    if (!employee) throw new NotFoundException(`Employee record '${idOrCode}' not found`);
+
+    return {
+      employeeId: employee.id,
+      employeeCode: employee.employeeCode,
+      fullName: [employee.firstName, employee.middleName, employee.lastName].filter(Boolean).join(' ').trim(),
+      hasBiometric: Boolean(employee.faceBiometric),
+      isActive: employee.faceBiometric?.isActive ?? false,
+      enrolledAt: employee.faceBiometric?.enrolledAt ?? null,
+      faceModel: employee.faceBiometric?.faceModel ?? 'None',
+      faceVerificationEnabled: employee.user?.faceVerificationEnabled ?? false,
+      verificationStatus: employee.user?.faceVerificationStatus ?? (employee.faceBiometric ? 'ENROLLED' : 'NOT_ENROLLED'),
+      isLocked: Boolean(employee.user?.faceLockoutUntil && new Date(employee.user.faceLockoutUntil) > new Date()),
+      avatarUrl: employee.avatarUrl,
+    };
   }
 
   async updateEmployee(idOrCode: string, dto: Partial<CreateEmployeeDto>) {
     const existing = await this.prisma.employee.findFirst({
       where: {
         OR: [{ id: idOrCode }, { employeeCode: idOrCode }],
+      },
+      include: {
+        faceBiometric: true,
+        user: true,
       },
     });
     if (!existing) {
@@ -502,11 +945,153 @@ export class HrService {
       }
     }
 
+    // ─── SYNC USER ACCOUNT CREDENTIALS (USERNAME / PASSWORD / ROLE) ─────────────
+    let updatedUserId = existing.userId;
+    let credentialsChanged = false;
+    let finalUsername = existing.user?.username || '';
+    const newPassword = dto.password && dto.password.trim().length > 0 ? dto.password : undefined;
+
+    if (existing.userId && existing.user) {
+      const userUpdates: any = {};
+      const newUsername = dto.username?.trim();
+
+      if (newUsername && newUsername !== existing.user.username) {
+        const uConflict = await this.prisma.user.findFirst({
+          where: { username: newUsername, id: { not: existing.user.id } },
+        });
+        if (uConflict) {
+          throw new ConflictException(`Username '${newUsername}' is already taken by another account`);
+        }
+        userUpdates.username = newUsername;
+        finalUsername = newUsername;
+        credentialsChanged = true;
+      }
+
+      if (newPassword) {
+        userUpdates.passwordHash = await bcrypt.hash(newPassword, 10);
+        credentialsChanged = true;
+      }
+
+      if (dto.email && dto.email.trim() !== existing.user.email) {
+        userUpdates.email = dto.email.trim();
+      }
+
+      if (dto.firstName || dto.lastName || dto.middleName !== undefined) {
+        userUpdates.fullName = [
+          dto.firstName ?? existing.firstName,
+          dto.middleName !== undefined ? dto.middleName : existing.middleName,
+          dto.lastName ?? existing.lastName,
+        ].filter(Boolean).join(' ').trim();
+      }
+
+      if (dto.phone) userUpdates.phone = dto.phone;
+      if (dto.designation) userUpdates.designation = dto.designation;
+      if (dto.departmentId) userUpdates.departmentId = dto.departmentId;
+
+      if (Object.keys(userUpdates).length > 0) {
+        await this.prisma.user.update({
+          where: { id: existing.user.id },
+          data: userUpdates,
+        });
+      }
+
+      // Re-assign role if provided
+      if (dto.roleId) {
+        const targetRole = await this.prisma.role.findFirst({
+          where: { OR: [{ id: dto.roleId }, { code: dto.roleId }] },
+        });
+        if (targetRole) {
+          await this.prisma.userRole.deleteMany({ where: { userId: existing.user.id } });
+          await this.prisma.userRole.create({
+            data: { userId: existing.user.id, roleId: targetRole.id },
+          });
+        }
+      }
+
+      // If credentials (username or password) changed, dispatch notification email
+      if (credentialsChanged) {
+        try {
+          await this.mailService.sendCredentialsUpdatedEmail({
+            to: (dto.email || existing.email).trim(),
+            fullName: `${dto.firstName ?? existing.firstName} ${dto.lastName ?? existing.lastName}`.trim(),
+            username: finalUsername || existing.user.username,
+            newPassword: newPassword,
+          });
+        } catch (mErr: any) {
+          console.warn(`Could not dispatch credential change email: ${mErr.message}`);
+        }
+      }
+    } else if (dto.createUserAccount || (dto.username && dto.password)) {
+      // Provision user account for an employee without one
+      const reqUsername = dto.username?.trim() || (dto.email || existing.email).split('@')[0];
+      const existingUser = await this.prisma.user.findFirst({
+        where: { OR: [{ email: (dto.email || existing.email).trim() }, { username: reqUsername }] },
+      });
+      if (existingUser) {
+        throw new ConflictException(`User with username '${reqUsername}' or email already exists.`);
+      }
+
+      const rawPass = dto.password || 'Saark@2026';
+      const passwordHash = await bcrypt.hash(rawPass, 10);
+      const newUser = await this.prisma.user.create({
+        data: {
+          username: reqUsername,
+          email: (dto.email || existing.email).trim(),
+          fullName: `${dto.firstName ?? existing.firstName} ${dto.lastName ?? existing.lastName}`.trim(),
+          phone: dto.phone ?? existing.phone,
+          designation: dto.designation ?? existing.designation,
+          departmentId: dto.departmentId ?? existing.departmentId,
+          passwordHash,
+          status: 'ACTIVE',
+          faceVerificationEnabled: Boolean(existing.faceBiometric?.isActive),
+          faceVerificationStatus: existing.faceBiometric?.isActive ? 'ENROLLED' : 'NOT_ENROLLED',
+          faceEnrolledAt: existing.faceBiometric?.enrolledAt ?? null,
+        },
+      });
+
+      // Role
+      const targetRoleId = dto.roleId;
+      const role = await this.prisma.role.findFirst({
+        where: targetRoleId ? { OR: [{ id: targetRoleId }, { code: targetRoleId }] } : { code: 'ROLE_EMPLOYEE' },
+      });
+      if (role) {
+        await this.prisma.userRole.create({
+          data: { userId: newUser.id, roleId: role.id },
+        });
+      }
+
+      updatedUserId = newUser.id;
+
+      // Link biometric if exists
+      if (existing.faceBiometric) {
+        await this.prisma.employeeFaceBiometric.update({
+          where: { id: existing.faceBiometric.id },
+          data: { userId: newUser.id },
+        });
+      }
+
+      // Send welcome email
+      try {
+        await this.mailService.sendWelcomeEmployeeEmail({
+          to: (dto.email || existing.email).trim(),
+          fullName: `${dto.firstName ?? existing.firstName} ${dto.lastName ?? existing.lastName}`.trim(),
+          username: reqUsername,
+          password: rawPass,
+          employeeCode: existing.employeeCode,
+          designation: dto.designation ?? existing.designation,
+        });
+      } catch (mErr: any) {
+        console.warn(`Could not dispatch welcome email: ${mErr.message}`);
+      }
+    }
+
     return this.prisma.employee.update({
       where: { id: existing.id },
       data: {
-        ...(dto.firstName !== undefined && { firstName: dto.firstName }),
-        ...(dto.lastName !== undefined && { lastName: dto.lastName }),
+        userId: updatedUserId,
+        ...(dto.firstName !== undefined && { firstName: dto.firstName.trim() }),
+        ...(dto.middleName !== undefined && { middleName: dto.middleName ? dto.middleName.trim() : null }),
+        ...(dto.lastName !== undefined && { lastName: dto.lastName.trim() }),
         ...(dto.email !== undefined && { email: dto.email.trim() }),
         ...(dto.phone !== undefined && { phone: dto.phone }),
         ...(dto.designation !== undefined && { designation: dto.designation }),
@@ -529,7 +1114,20 @@ export class HrService {
         ...(dto.emergencyPhone !== undefined && { emergencyPhone: dto.emergencyPhone }),
         ...(dto.address !== undefined && { address: dto.address }),
       },
-      include: { department: true },
+      include: {
+        department: true,
+        faceBiometric: true,
+        user: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            status: true,
+            faceVerificationEnabled: true,
+            faceVerificationStatus: true,
+          },
+        },
+      },
     });
   }
 
@@ -600,7 +1198,9 @@ export class HrService {
     const now = new Date();
 
     const emp = await this.prisma.employee.findUnique({ where: { id: dto.employeeId } });
-    if (!emp) throw new NotFoundException('Employee not found');
+    if (!emp) {
+      throw new NotFoundException(`Employee record '${dto.employeeId}' not found`);
+    }
 
     // Determine late status from shift-specific start time
     const shiftCode = emp.shiftCode || 'SHIFT_G';
@@ -617,25 +1217,86 @@ export class HrService {
       isLate = now.getHours() > 9 || (now.getHours() === 9 && now.getMinutes() > 45);
     }
 
+    let isBiometricFaceVerified = false;
+    if (dto.livePhotoBase64) {
+      const biometric = await this.prisma.employeeFaceBiometric.findUnique({
+        where: { employeeId: dto.employeeId },
+      });
+
+      if (!biometric || !biometric.isActive) {
+        throw new BadRequestException('No active face biometric profile enrolled for this employee');
+      }
+
+      // Extract descriptor from live capture
+      const extraction = await this.faceRecognitionService.validateAndExtractFace(dto.livePhotoBase64);
+      if (!extraction.faceDetected) {
+        throw new BadRequestException('No face detected in live photo capture');
+      }
+
+      // Decrypt enrolled biometric template
+      const enrolledVector = this.faceRecognitionService.decryptEmbedding(
+        biometric.encryptedEmbedding,
+        biometric.embeddingIv,
+        biometric.embeddingAuthTag,
+      );
+
+      // Compare vectors
+      const matchResult = this.faceRecognitionService.compareFaces(
+        extraction.descriptor,
+        enrolledVector,
+        0.55,
+      );
+
+      if (!matchResult.isMatch) {
+        if (emp.userId) {
+          await this.auditService.log({
+            userId: emp.userId,
+            action: 'ATTENDANCE_FACE_MISMATCH',
+            module: 'HR_ATTENDANCE',
+            entityType: 'Attendance',
+            entityId: dto.employeeId,
+            details: `Face verification rejected during clock-in: distance ${matchResult.distance.toFixed(4)} exceeds threshold 0.55`,
+          });
+        }
+        throw new UnauthorizedException('Biometric face verification failed. Identity does not match enrolled employee.');
+      }
+
+      isBiometricFaceVerified = true;
+      if (emp.userId) {
+        await this.auditService.log({
+          userId: emp.userId,
+          action: 'ATTENDANCE_FACE_VERIFIED',
+          module: 'HR_ATTENDANCE',
+          entityType: 'Attendance',
+          entityId: dto.employeeId,
+          details: `Biometric clock-in verified successfully: distance ${matchResult.distance.toFixed(4)}`,
+        });
+      }
+    }
+
+    const noteText = isBiometricFaceVerified
+      ? `${dto.note ? dto.note + ' | ' : ''}Biometric Face Verified`
+      : (dto.note || 'Biometric / Mobile Punch');
+
     return this.prisma.attendance.upsert({
       where: { employeeId_punchDate: { employeeId: dto.employeeId, punchDate: today } },
       update: {
         punchIn: now,
         status: isLate ? 'LATE' : 'PRESENT',
-        shiftCode: emp?.shiftCode || 'SHIFT_G',
-        assignedBay: emp?.assignedBay || 'BAY_4_WIRING',
+        shiftCode: emp.shiftCode || 'SHIFT_G',
+        assignedBay: emp.assignedBay || 'BAY_4_WIRING',
         location: dto.location || 'MIDC Industrial Unit',
-        checkInNote: dto.note || 'Biometric / Mobile Punch',
+        checkInNote: noteText,
       },
       create: {
         employeeId: dto.employeeId,
         punchDate: today,
         punchIn: now,
         status: isLate ? 'LATE' : 'PRESENT',
-        shiftCode: emp?.shiftCode || 'SHIFT_G',
-        assignedBay: emp?.assignedBay || 'BAY_4_WIRING',
+        shiftCode: emp.shiftCode || 'SHIFT_G',
+        assignedBay: emp.assignedBay || 'BAY_4_WIRING',
         location: dto.location || 'MIDC Industrial Unit',
-        checkInNote: dto.note || 'Biometric / Mobile Punch',
+        checkInNote: noteText,
       },
       include: { employee: true },
     });

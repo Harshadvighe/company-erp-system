@@ -161,6 +161,40 @@ class HrRepository {
     final list = response.data['data'] as List? ?? [];
     return list.map((i) => PayrollItem.fromJson(i)).toList();
   }
+
+  // Biometric Face Authentication
+  Future<Map<String, dynamic>> enrollFace(String employeeId, {
+    required String livePhotoBase64,
+    String? passportPhotoBase64,
+    bool enableFaceAuth = true,
+  }) async {
+    final response = await _dio.post('/hr/employees/$employeeId/face/enroll', data: {
+      'livePhotoBase64': livePhotoBase64,
+      if (passportPhotoBase64 != null) 'passportPhotoBase64': passportPhotoBase64,
+      'enableFaceAuth': enableFaceAuth,
+    });
+    return response.data['data'] ?? response.data;
+  }
+
+  Future<Map<String, dynamic>> disableFace(String employeeId) async {
+    final response = await _dio.delete('/hr/employees/$employeeId/face');
+    return response.data['data'] ?? response.data;
+  }
+
+  Future<Map<String, dynamic>> getFaceStatus(String employeeId) async {
+    final response = await _dio.get('/hr/employees/$employeeId/face/status');
+    return response.data['data'] ?? response.data;
+  }
+
+  Future<List<String>> getDesignations() async {
+    try {
+      final response = await _dio.get('/hr/designations');
+      final list = response.data['data'] as List? ?? (response.data as List? ?? []);
+      return list.map((i) => i['name']?.toString() ?? '').where((s) => s.isNotEmpty).toList();
+    } catch (_) {
+      return [];
+    }
+  }
 }
 
 final hrRepositoryProvider = Provider<HrRepository>((ref) {

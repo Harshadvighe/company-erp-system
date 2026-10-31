@@ -193,6 +193,27 @@ export class CrmController {
     return this.crmService.getEnquiries(query, req.user);
   }
 
+  @Get('enquiries-summary')
+  @RequirePermissions('CRM:VIEW')
+  @ApiOperation({ summary: 'Get summary counts of enquiries' })
+  getEnquiriesSummary(@Req() req: any) {
+    return this.crmService.getEnquiriesSummary(req.user);
+  }
+
+  @Patch('enquiries/:id/status')
+  @RequirePermissions('CRM:EDIT')
+  @ApiOperation({ summary: 'Update enquiry status' })
+  updateEnquiryStatus(@Param('id') id: string, @Body() body: { status: string }, @Req() req: any) {
+    return this.crmService.updateEnquiry(id, { status: body.status }, req.user);
+  }
+
+  @Post('enquiries/batch-status')
+  @RequirePermissions('CRM:EDIT')
+  @ApiOperation({ summary: 'Batch update enquiry statuses' })
+  batchUpdateEnquiryStatus(@Body() body: { ids: string[]; status: string }, @Req() req: any) {
+    return this.crmService.batchUpdateEnquiryStatus(body.ids, body.status, req.user);
+  }
+
   @Get('enquiries/:id')
   @RequirePermissions('CRM:VIEW')
   @ApiOperation({ summary: 'Get enquiry detail' })

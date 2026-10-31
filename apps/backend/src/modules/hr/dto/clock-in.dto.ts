@@ -16,6 +16,11 @@ export class ClockInDto {
   @IsOptional()
   @IsString()
   note?: string;
+
+  @ApiPropertyOptional({ description: 'Live camera capture JPEG/PNG base64 image for biometric face recognition verification' })
+  @IsOptional()
+  @IsString()
+  livePhotoBase64?: string;
 }
 
 export class ClockOutDto {

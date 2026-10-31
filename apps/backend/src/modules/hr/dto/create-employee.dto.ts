@@ -7,6 +7,11 @@ export class CreateEmployeeDto {
   @IsString()
   firstName: string;
 
+  @ApiPropertyOptional({ example: 'Ramesh' })
+  @IsOptional()
+  @IsString()
+  middleName?: string;
+
   @ApiProperty({ example: 'Kulkarni' })
   @IsNotEmpty()
   @IsString()
@@ -115,4 +120,44 @@ export class CreateEmployeeDto {
   @IsOptional()
   @IsString()
   address?: string;
+
+  // -------------------------------------------------------------
+  // IDENTITY & BIOMETRIC VERIFICATION
+  // -------------------------------------------------------------
+  @ApiPropertyOptional({ description: 'Passport/profile photo Base64 data URI' })
+  @IsOptional()
+  @IsString()
+  passportPhotoBase64?: string;
+
+  @ApiPropertyOptional({ description: 'Live camera capture Base64 data URI for biometric enrollment' })
+  @IsOptional()
+  @IsString()
+  livePhotoBase64?: string;
+
+  @ApiPropertyOptional({ description: 'Whether face recognition is required for employee login' })
+  @IsOptional()
+  enableFaceAuth?: boolean;
+
+  // -------------------------------------------------------------
+  // LINKED USER ACCOUNT SETUP
+  // -------------------------------------------------------------
+  @ApiPropertyOptional({ description: 'Create linked user login account concurrently' })
+  @IsOptional()
+  createUserAccount?: boolean;
+
+  @ApiPropertyOptional({ example: 'aditya.k' })
+  @IsOptional()
+  @IsString()
+  username?: string;
+
+  @ApiPropertyOptional({ example: 'Saark@2026' })
+  @IsOptional()
+  @IsString()
+  password?: string;
+
+  @ApiPropertyOptional({ example: 'ROLE_EMPLOYEE' })
+  @IsOptional()
+  @IsString()
+  roleId?: string;
 }
+

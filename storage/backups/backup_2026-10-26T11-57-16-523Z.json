@@ -1,0 +1,15 @@
+{
+  "backupId": "BK-1793015837974",
+  "createdDate": "2026-10-26T11:57:17.974Z",
+  "initiatedBy": "admin@saark.in",
+  "databaseEngine": "PostgreSQL 16",
+  "totalRecords": 578,
+  "tableBreakdown": {
+    "users": 39,
+    "employees": 45,
+    "departments": 15,
+    "auditLogs": 479
+  },
+  "status": "VERIFIED_SNAPSHOT",
+  "sizeEstimatedKb": 2048
+}

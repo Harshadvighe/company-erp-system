@@ -27,4 +27,8 @@ export class ApproveEmployeeRequestDto {
   @IsOptional()
   @IsArray()
   roleIds?: string[];
+
+  @ApiPropertyOptional({ example: true, description: 'Whether to dispatch welcome email with login credentials' })
+  @IsOptional()
+  sendWelcomeEmail?: boolean;
 }

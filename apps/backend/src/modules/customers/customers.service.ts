@@ -478,32 +478,39 @@ export class CustomersService {
       }
     }
 
+    const companyName = (dto.companyName || 'New Customer').trim();
+    const contactPerson = dto.contactPerson || companyName;
+    const phone = dto.phone || '9876543210';
+    const email = dto.email || `${customerCode.toLowerCase()}@saark.in`;
+    const address = dto.address || 'Industrial Area';
+    const state = dto.state || 'Gujarat';
+    const district = dto.district || 'Ahmedabad';
+    const city = dto.city || 'Ahmedabad';
+    const pincode = dto.pincode || '380001';
+
     const customer = await tx.customer.create({
       data: {
         customerCode,
-        companyName: dto.companyName,
-        legalName: dto.legalName || dto.companyName,
+        companyName,
+        legalName: dto.legalName || companyName,
         tradeName: dto.tradeName,
         gstin: dto.gstin,
         pan: dto.pan,
         customerType: dto.customerType || 'END_CUSTOMER',
         customerCategory: dto.customerCategory || 'STANDARD',
         customerSegment: dto.customerSegment ?? 'VFD_PANEL',
-        contactPerson: dto.contactPerson,
+        contactPerson,
         designation: dto.designation,
-        email:
-          dto.source === 'EXCEL_IMPORT'
-            ? dto.email ?? ''
-            : dto.email,
-        phone: dto.phone,
+        email,
+        phone,
         alternatePhone: dto.alternatePhone,
         website: dto.website,
-        address: dto.address,
+        address,
         country: dto.country || 'India',
-        state: dto.state,
-        district: dto.district,
-        city: dto.city,
-        pincode: dto.pincode,
+        state,
+        district,
+        city,
+        pincode,
         ownerName: ownerName,
         assignedStaffId: assignedStaffId,
         createdByUserId: userId,
@@ -520,7 +527,7 @@ export class CustomersService {
         industry: dto.industry,
         creditLimit: Number(dto.creditLimit || 0),
         paymentTerms: dto.paymentTerms || 'NET_30',
-        source: dto.source || 'DIRECT',
+        customerRating: Number(dto.customerRating ?? 5.0),
         status: 'ACTIVE',
       },
     });
@@ -529,26 +536,74 @@ export class CustomersService {
     await tx.customerContact.create({
       data: {
         customerId: customer.id,
-        name: dto.contactPerson,
+        name: contactPerson,
         designation: dto.designation,
-        mobile: dto.phone,
-        email: dto.email,
-        whatsapp: dto.whatsapp || dto.phone,
+        mobile: phone,
+        email: email,
+        whatsapp: dto.whatsapp || phone,
         isPrimary: true,
       },
     });
 
-    // Initialize valuation record
+    // Initialize valuation record with supplied valuation & rating
+    const valuablePct = Number(dto.valuablePercentage ?? dto.valuationPercentage ?? dto.percentage ?? 0.0);
+    const ratingScore = Number(dto.customerRating ?? 5.0);
     await tx.customerValuation.create({
       data: {
         customerId: customer.id,
         isDealer: dto.customerType === 'DEALER',
         isDistributor: dto.customerType === 'DISTRIBUTOR',
-        ratingScore: 5.0,
-        valuablePercentage: 50.0,
+        ratingScore,
+        valuablePercentage: valuablePct,
         activityCount: 0,
       },
     });
+
+    // Link products
+    const productNames = dto.products || dto.productNames;
+    if (Array.isArray(productNames) && productNames.length > 0) {
+      for (const prod of productNames) {
+        if (!prod || typeof prod !== 'string') continue;
+        const normalized = prod.trim();
+        const code = normalized.toUpperCase().replace(/\s+/g, '_');
+        let sys = await tx.productSystem.findFirst({
+          where: { OR: [{ code }, { name: { equals: normalized } }] },
+        });
+        if (!sys) {
+          try {
+            sys = await tx.productSystem.create({
+              data: { code, name: normalized },
+            });
+          } catch (_) {
+            sys = await tx.productSystem.findFirst({ where: { code } });
+          }
+        }
+        if (sys) {
+          try {
+            await tx.companyProductInterest.create({
+              data: { customerId: customer.id, productSystemId: sys.id },
+            });
+          } catch (_) {}
+        }
+      }
+    }
+
+    // Auto-record interaction if remark or communication details provided
+    if (dto.callRemark || dto.communicationDetails || dto.nextMeetingDatetime) {
+      try {
+        await tx.customerInteraction.create({
+          data: {
+            customerId: customer.id,
+            interactionType: dto.callRemark ? 'CALL' : 'MEETING',
+            subject: dto.meetingAgenda || dto.callRemark || 'Customer Discussion',
+            description: dto.communicationDetails || dto.meetingCompletedDetails || '',
+            outcome: dto.callRemark || 'COMPLETED',
+            nextFollowUp: dto.nextMeetingDatetime ? new Date(dto.nextMeetingDatetime) : null,
+            recordedBy: dto.ownerName || 'Sales Coordinator',
+          },
+        });
+      } catch (_) {}
+    }
 
     return customer;
   }
@@ -585,6 +640,23 @@ export class CustomersService {
       },
     });
 
+    if (dto.valuablePercentage !== undefined || dto.valuationPercentage !== undefined || dto.customerRating !== undefined) {
+      const valPct = Number(dto.valuablePercentage ?? dto.valuationPercentage ?? 50.0);
+      const ratingScore = Number(dto.customerRating ?? 5.0);
+      await this.prisma.customerValuation.upsert({
+        where: { customerId: id },
+        create: {
+          customerId: id,
+          valuablePercentage: valPct,
+          ratingScore,
+        },
+        update: {
+          valuablePercentage: valPct,
+          ratingScore,
+        },
+      });
+    }
+
     if (dto.productSystemIds && Array.isArray(dto.productSystemIds)) {
       await this.prisma.companyProductInterest.deleteMany({ where: { customerId: id } });
       for (const sysId of dto.productSystemIds) {
@@ -594,6 +666,48 @@ export class CustomersService {
           });
         } catch (_) {}
       }
+    } else if (Array.isArray(dto.products) && dto.products.length > 0) {
+      await this.prisma.companyProductInterest.deleteMany({ where: { customerId: id } });
+      for (const prod of dto.products) {
+        if (!prod || typeof prod !== 'string') continue;
+        const normalized = prod.trim();
+        const code = normalized.toUpperCase().replace(/\s+/g, '_');
+        let sys = await this.prisma.productSystem.findFirst({
+          where: { OR: [{ code }, { name: { equals: normalized } }] },
+        });
+        if (!sys) {
+          try {
+            sys = await this.prisma.productSystem.create({
+              data: { code, name: normalized },
+            });
+          } catch (_) {
+            sys = await this.prisma.productSystem.findFirst({ where: { code } });
+          }
+        }
+        if (sys) {
+          try {
+            await this.prisma.companyProductInterest.create({
+              data: { customerId: id, productSystemId: sys.id },
+            });
+          } catch (_) {}
+        }
+      }
+    }
+
+    if (dto.callRemark || dto.communicationDetails || dto.nextMeetingDatetime) {
+      try {
+        await this.prisma.customerInteraction.create({
+          data: {
+            customerId: id,
+            interactionType: dto.callRemark ? 'CALL' : 'MEETING',
+            subject: dto.meetingAgenda || dto.callRemark || 'Customer Discussion',
+            description: dto.communicationDetails || dto.meetingCompletedDetails || '',
+            outcome: dto.callRemark || 'COMPLETED',
+            nextFollowUp: dto.nextMeetingDatetime ? new Date(dto.nextMeetingDatetime) : null,
+            recordedBy: userEmail || 'Sales Coordinator',
+          },
+        });
+      } catch (_) {}
     }
 
     await this.auditService.log({

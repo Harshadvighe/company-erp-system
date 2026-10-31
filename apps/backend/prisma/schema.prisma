@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // -------------------------------------------------------------
@@ -23,19 +24,27 @@ model User {
   phone        String?
   designation  String?
   departmentId String?
-  status       String     @default("ACTIVE") // ACTIVE, INACTIVE, LOCKED
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  status                  String     @default("ACTIVE") // ACTIVE, INACTIVE, LOCKED
+  faceVerificationEnabled Boolean    @default(false)
+  faceVerificationStatus  String     @default("NOT_ENROLLED") // NOT_ENROLLED, ENROLLED, LOCKED, DISABLED
+  faceEnrolledAt          DateTime?
+  failedFaceAttempts      Int        @default(0)
+  faceLockoutUntil        DateTime?
+  createdAt               DateTime   @default(now())
+  updatedAt               DateTime   @updatedAt
 
-  department   Department? @relation(fields: [departmentId], references: [id])
-  userRoles    UserRole[]
-  auditLogs    AuditLog[]
-  notifications Notification[]
-  staff        Staff?
-  createdCustomers Customer[] @relation("CustomerCreator")
-  updatedCustomers Customer[] @relation("CustomerUpdater")
-  createdVendors   Vendor[]   @relation("VendorCreator")
-  updatedVendors   Vendor[]   @relation("VendorUpdater")
+  department              Department? @relation(fields: [departmentId], references: [id])
+  userRoles               UserRole[]
+  auditLogs               AuditLog[]
+  notifications           Notification[]
+  staff                   Staff?
+  employee                Employee?
+  faceBiometric           EmployeeFaceBiometric?
+  createdCustomers        Customer[] @relation("CustomerCreator")
+  updatedCustomers        Customer[] @relation("CustomerUpdater")
+  createdVendors          Vendor[]   @relation("VendorCreator")
+  updatedVendors          Vendor[]   @relation("VendorUpdater")
+  sessions                UserSession[]
 
   @@map("users")
   @@index([status])
@@ -1684,6 +1693,35 @@ model AuditLog {
   @@index([timestamp])
 }
 
+model UserSession {
+  id              String    @id @default(uuid())
+  userId          String
+  username        String
+  fullName        String
+  email           String
+  department      String?
+  role            String?
+  ipAddress       String?
+  clientType      String?
+  loginTime       DateTime  @default(now())
+  logoutTime      DateTime?
+  lastHeartbeat   DateTime  @default(now())
+  durationSeconds Int?
+  status          String    @default("ACTIVE") // ACTIVE, LOGGED_OUT, REVOKED, EXPIRED
+  loginMethod     String    @default("CREDENTIALS_AND_BIOMETRIC_2FA")
+  faceVerified    Boolean   @default(false)
+  logoutReason    String?   // USER_LOGOUT, ADMIN_REVOKED, TIMEOUT, SYSTEM
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_sessions")
+  @@index([userId])
+  @@index([status])
+  @@index([loginTime])
+}
+
 // -------------------------------------------------------------
 // 9. STAFF, PROJECTS & TASK MANAGEMENT
 // -------------------------------------------------------------
@@ -1943,6 +1981,7 @@ model Employee {
   employeeCode        String   @unique // EMP-2026-001
   userId              String?  @unique
   firstName           String
+  middleName          String?
   lastName            String
   email               String   @unique
   phone               String
@@ -1971,11 +2010,13 @@ model Employee {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
+  user                   User?                    @relation(fields: [userId], references: [id])
   department             Department?              @relation(fields: [departmentId], references: [id])
   attendances            Attendance[]
   leaveRequests          LeaveRequest[]
   payrollRecords         PayrollRecord[]
   workstationAllocations WorkstationAllocation[]
+  faceBiometric          EmployeeFaceBiometric?
 
   @@map("employees")
   @@index([status])
@@ -1999,6 +2040,9 @@ model Attendance {
   checkInNote      String?
   checkOutNote     String?
   location         String?   @default("MIDC Industrial Unit")
+  deviceId         String?   // Biometric device that captured this punch
+  devicePunchId    String?   // Original punch ID from biometric device
+  source           String    @default("MANUAL") // MANUAL, DEVICE, API, KIOSK
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -2009,6 +2053,73 @@ model Attendance {
   @@index([employeeId])
   @@index([punchDate])
   @@index([status])
+  @@index([deviceId])
+  @@index([source])
+}
+
+// -------------------------------------------------------------
+// 9. BIOMETRIC PUNCHING DEVICE INTEGRATION
+// -------------------------------------------------------------
+model BiometricDevice {
+  id                    String   @id @default(uuid())
+  deviceCode            String   @unique // TM-2026-0001
+  deviceName            String   // Main Gate, Plant Entry, Assembly Bay
+  deviceType            String   @default("FINGERPRINT_FACE") // FINGERPRINT, FACE, RFID, FINGERPRINT_FACE, CARD
+  manufacturer          String   @default("TeamOffice") // TeamOffice, ZKTeco, Suprema, etc.
+  model                 String?  // TM-700, UFace, etc.
+  serialNumber          String?
+  ipAddress             String?  // 192.168.1.100
+  port                  Int      @default(4370) // Default ZK TCP port
+  connectionType        String   @default("TCP_IP") // TCP_IP, HTTP, USB, SERIAL, CLOUD
+  apiEndpoint           String?  // HTTP API base URL if connectionType=HTTP
+  apiKey                String?  // API key for HTTP/Cloud devices
+  apiSecret             String?  // API secret for HTTP/Cloud devices
+  communicationKey      String?  // Device communication key (ZKLib etc.)
+  isActive              Boolean  @default(true)
+  lastSyncAt            DateTime?
+  lastSyncStatus        String?  // SUCCESS, FAILED, PARTIAL, PENDING
+  lastSyncRecordCount   Int      @default(0)
+  lastSyncError         String?
+  syncIntervalMinutes   Int      @default(15) // Auto-sync interval
+  autoSyncEnabled       Boolean  @default(true)
+  timezone              String   @default("Asia/Kolkata")
+  location              String?  // Plant location description
+  notes                 String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  syncLogs              DeviceSyncLog[]
+  attendances           Attendance[]
+
+  @@map("biometric_devices")
+  @@index([ipAddress])
+  @@index([isActive])
+  @@index([connectionType])
+}
+
+model DeviceSyncLog {
+  id             String   @id @default(uuid())
+  deviceId       String
+  deviceCode     String   // Denormalized for quick lookup
+  syncType       String   // MANUAL, AUTO, WEBHOOK
+  syncStatus     String   // SUCCESS, FAILED, PARTIAL
+  recordsFetched Int      @default(0)
+  recordsInserted Int     @default(0)
+  recordsSkipped Int      @default(0)
+  recordsUpdated Int      @default(0)
+  errorMessage   String?
+  errorDetails   String?  // JSON stack trace or error details
+  startedAt      DateTime @default(now())
+  completedAt    DateTime?
+  durationMs     Int?
+  createdAt      DateTime @default(now())
+
+  device         BiometricDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@map("device_sync_logs")
+  @@index([deviceId])
+  @@index([syncStatus])
+  @@index([startedAt])
 }
 
 model WorkstationAllocation {
@@ -2099,3 +2210,264 @@ model SafetyIncident {
 
   @@map("safety_incidents")
 }
+
+// -------------------------------------------------------------
+// 12. BIOMETRIC FACE AUTHENTICATION & SECURITY
+// -------------------------------------------------------------
+
+model EmployeeFaceBiometric {
+  id                  String    @id @default(uuid())
+  employeeId          String?   @unique
+  userId              String?   @unique
+  encryptedEmbedding  String    // AES-256-GCM encrypted biometric vector JSON
+  embeddingIv         String    // Initialization Vector (Hex)
+  embeddingAuthTag    String    // GCM authentication tag (Hex)
+  embeddingVersion    String    @default("v1.0")
+  faceModel           String    @default("ssd-mobilenetv1-128d")
+  passportPhotoPath   String?
+  enrollmentPhotoPath String?
+  isActive            Boolean   @default(true)
+  enrolledAt          DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  employee            Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  user                User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("employee_face_biometrics")
+}
+
+model FaceAuthSetting {
+  id                   String   @id @default(uuid())
+  isEnabled            Boolean  @default(true)
+  matchThreshold       Float    @default(0.55) // Euclidean distance threshold (lower = stricter)
+  maxFailedAttempts    Int      @default(3)
+  lockoutMinutes       Int      @default(15)
+  livenessCheckEnabled Boolean  @default(true)
+  enforceForRoles      String   @default("ALL") // ALL, ROLE_ADMIN, ROLE_HR, ROLE_EMPLOYEE
+  updatedAt            DateTime @updatedAt
+
+  @@map("face_auth_settings")
+}
+
+// -------------------------------------------------------------
+// 13. SAARK PRODUCT SECTOR & TECHNICAL SPECIFICATIONS (38 FIELDS)
+// -------------------------------------------------------------
+
+model SaarkProductSector {
+  id                          String   @id @default(uuid())
+  // SECTION 1: Basic Identity & Description
+  productSector               String   // Booster Pump Control Panel, STP Panel, Water Meter, BMS, Other, etc.
+  productName                 String   // Product Name / Title
+  skuModelNumber              String   @unique // SKU / Model Number (e.g. SAARK-BP-200, VCDA01)
+  productCategory             String?  // Control Panel, Pump, Water Treatment, Water Metering, Automation, Other
+  shortDescriptionFile        String?  // File path or summary description
+  detailedDescriptionFile     String?  // Technical document path or full description
+  targetApplicationsFile      String?  // Target applications document path
+
+  // SECTION 2: Electrical & Power Specifications
+  inputVoltage                String?  // 230V 1-Phase, 415V 3-Phase, 110V
+  ratedFrequency              String?  // 50 Hz, 60 Hz, 50/60 Hz Dual
+  minPowerRating              Float?   // e.g. 0.5, 3.0, 5.0
+  maxPowerRating              Float?   // e.g. 10.0, 20.0, 30.0
+  powerRatingUnit             String?  @default("HP") // HP, kW
+  starterDriveType            String?  // DOL, Star-Delta, Integrated VFD, Soft Starter
+  enclosureIpRating           String?  // IP54, IP55, IP65, NEMA 4X
+
+  // SECTION 3: Pump Configuration & Control Parameters
+  pumpSupportCapacity         String?  // 1 Pump, 2 Pumps [1W+1S], 3 Pumps, 4+ Multi-Cascade
+  controlModes                String?  // Multi-checklist: Constant Pressure; Auto-Alternation; Duty/Assist/Standby; Manual Override
+  pressureSensorCompatibility String?  // Multi-checklist: 4-20 mA; 0-10V; RS-485 Digital; Pressure Switch
+  minPressure                 Float?   // e.g. 0.5, 1.0
+  maxPressure                 Float?   // e.g. 6.0, 16.0
+  pressureUnit                String?  @default("bar") // bar, PSI
+  levelSensorInputs           String?  // Multi-checklist: Float Switch; Ultrasonic; Conductive Probes; Dry Run Float
+
+  // SECTION 4: Smart Features, Display & Connectivity
+  userInterfaceDisplay        String?  // Touchscreen HMI, Multi-line LCD, 7-Segment LED, Indicator LEDs
+  communicationProtocols      String?  // Multi-checklist: RS-485 Modbus RTU; Modbus TCP/IP; BACnet; Ethernet
+  iotCloudFeatures            String?  // Multi-checklist: GSM/4G Remote Telemetry; Wi-Fi Dashboard; Mobile App Support; SMS Alerts
+  dataLogging                 String?  // Multi-checklist: Historical Fault Log; Run-Hour Meter; Pressure Trends
+
+  // SECTION 5: Protections & Alarms
+  electricalProtections       String?  // Multi-checklist: Overload; Under/Over-Voltage; Phase Failure; Phase Reversal; Short Circuit
+  hydraulicProtections        String?  // Multi-checklist: Dry Run Protection (Auto-Reset); High/Low Pressure Cutoff; Pipe Burst / Leakage Detection; Anti-Seize Cycling
+
+  // SECTION 6: Media, Documents & Compliance
+  productImages               String?  // Pipe-delimited file paths (e.g. img1.png | img2.png)
+  datasheetManual             String?  // Single PDF document path
+  wiringSld                   String?  // Single Line Diagram path
+  certifications              String?  // Multi-checklist: CE; RoHS; ISO 9001; CPRI Approved
+
+  // SECTION 7: Promotional Material & Operational Videos
+  promotionalVideo            String?  // Video file path (.mp4, .avi, etc.)
+  photoName                   String?  // Photo caption / title
+  photoDescription            String?  // Physical enclosure / internal layout notes
+  photoAttachment             String?  // High-res image file path
+  settingVideoType            String?  // Installation / Setup, Configuration, Commissioning, Operation, Troubleshooting, Other
+  settingVideoDetails         String?  // Parameter setup notes or drive configuration steps
+  settingVideoAttachment      String?  // Video guide file path
+
+  // Status & Metadata
+  status                      String   @default("ACTIVE") // ACTIVE, INACTIVE, ARCHIVED
+  createdByUserId             String?
+  createdByUserEmail          String?
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+
+  @@map("saark_product_sectors")
+  @@index([productSector])
+  @@index([skuModelNumber])
+  @@index([productCategory])
+  @@index([status])
+}
+
+model ProductSector {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  code      String?  @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("product_sectors")
+}
+
+model PromotionMaterial {
+  id            String   @id @default(uuid())
+  sector        String
+  title         String
+  materialType  String   // YouTube Video, Instagram Reel, Instagram Photo, Product Photo, etc.
+  campaignName  String?
+  platform      String   @default("YouTube")
+  publishLink   String?
+  attachmentUrl String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("promotion_materials")
+  @@index([sector])
+}
+
+// -------------------------------------------------------------
+// 22. B2B TRADING & WHITE-LABEL MARKETPLACE
+// -------------------------------------------------------------
+
+model B2bSupplier {
+  id            String       @id @default(uuid())
+  supplierCode  String?      @unique
+  name          String
+  contactPerson String?
+  country       String?
+  moq           Int          @default(1)
+  sampleCost    Float        @default(0)
+  leadTime      Int          @default(0) // Days
+  rating        Float        @default(5.0)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  products      B2bProduct[]
+
+  @@map("b2b_suppliers")
+}
+
+model B2bCategory {
+  id              String   @id @default(uuid())
+  primaryCategory String   // Domestic, Industrial, Commercial, Custom
+  subCategory     String?
+  internalTag     String?
+  createdAt       DateTime @default(now())
+
+  @@map("b2b_categories")
+}
+
+model B2bProduct {
+  id               String       @id // Timestamp sequence identifier (e.g. 20260920203658) or UUID
+  
+  // Tab 1: Taxonomy & Identification
+  primaryCategory  String       @default("Domestic")
+  subCategory      String?
+  internalTag      String?
+  originalName     String
+  originalModel    String
+  rebrandedName    String
+  rebrandedModel   String
+  collection       String?
+  description      String?
+  
+  // Tab 2: Supplier & Sourcing
+  supplierId       String?
+  supplier         B2bSupplier? @relation(fields: [supplierId], references: [id])
+  moq              Int          @default(1)
+  sampleCost       Float        @default(0)
+  leadTime         Int          @default(0)
+  rating           Float        @default(5.0)
+
+  // Tab 3: Technical Specs & Variants
+  material         String?
+  dimensions       String?
+  weight           Float?
+  hsCode           String?
+
+  // Tab 4: White-Labeling & Branding
+  logoPath         String?
+  insertCardPath   String?
+  pkgDims          String?
+  printingSpecs    String?
+  barcodePlacement String?
+  brandCopy        String?
+  seoTitle         String?
+  seoMeta          String?
+
+  // Tab 5: Financials & Margin
+  baseCost         Float        @default(0)
+  brandingFee      Float        @default(0)
+  sampleShipping   Float        @default(0) // Packaging cost per unit
+  freightPerUnit   Float        @default(0)
+  landedCost       Float        @default(0)
+  retailPrice      Float        @default(0)
+  marginPct        Float        @default(0)
+  stock            Int          @default(0)
+
+  // Status & Timestamps
+  status           String       @default("Draft") // Draft, published, Archived
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  variants         B2bVariant[]
+  documents        B2bMedia[]
+
+  @@map("b2b_products")
+  @@index([status])
+  @@index([primaryCategory])
+  @@index([rebrandedName])
+}
+
+model B2bVariant {
+  id          String     @id @default(uuid())
+  productId   String
+  product     B2bProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku         String
+  color       String?
+  size        String?
+  packageType String?
+  baseCost    Float      @default(0)
+  retailPrice Float      @default(0)
+  createdAt   DateTime   @default(now())
+
+  @@map("b2b_variants")
+}
+
+model B2bMedia {
+  id          String     @id @default(uuid())
+  productId   String
+  product     B2bProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  assetType   String     // SPEC_SHEET, USER_MANUAL, CERTIFICATE, INVOICE, ARTWORK, IMAGE
+  filePath    String
+  fileName    String?
+  description String?
+  createdAt   DateTime   @default(now())
+
+  @@map("b2b_media")
+}
+

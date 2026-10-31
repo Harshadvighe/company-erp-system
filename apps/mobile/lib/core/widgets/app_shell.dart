@@ -3,8 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:saark_erp_mobile/core/auth/auth_provider.dart';
 import 'package:saark_erp_mobile/core/theme/app_theme.dart';
+import 'package:saark_erp_mobile/core/widgets/back_to_dashboard_button.dart';
+import 'package:saark_erp_mobile/core/widgets/saark_logo.dart';
+
+/// Opens the Enterprise Database Record Dashboard.
+Future<void> _openDatabasePortal(BuildContext context) async {
+  context.go('/admin/database');
+}
 
 // ─── Responsive Shell ────────────────────────────────────────────────────────
+
 
 class AppShell extends ConsumerStatefulWidget {
   final Widget child;
@@ -23,7 +31,12 @@ class AppShell extends ConsumerStatefulWidget {
 class _AppShellState extends ConsumerState<AppShell> {
   @override
   Widget build(BuildContext context) {
-    if (widget.currentRoute.startsWith('/hr')) {
+    if (widget.currentRoute.startsWith('/hr') ||
+        widget.currentRoute.startsWith('/sales-marketing') ||
+        widget.currentRoute.startsWith('/crm/customer-vendor') ||
+        widget.currentRoute.startsWith('/production') ||
+        widget.currentRoute.startsWith('/admin/database') ||
+        widget.currentRoute.startsWith('/database')) {
       return widget.child;
     }
 
@@ -63,137 +76,225 @@ List<_NavItem> _getAuthorizedNavItems(AuthUser? user) {
       activeIcon: Icons.dashboard,
       route: '/dashboard',
     ),
-    const _NavItem(
-      label: 'My Work',
-      icon: Icons.home_repair_service_outlined,
-      activeIcon: Icons.home_repair_service,
-      route: '/my-work',
-    ),
   ];
 
-  if (user.canView('TASKS')) {
+  // 1. Sales & Marketing
+  if (user.isAdmin || user.canView('CRM') || user.canView('CUSTOMERS') || user.canView('SALES')) {
     items.add(const _NavItem(
-      label: 'Tasks',
-      icon: Icons.task_alt_outlined,
-      activeIcon: Icons.task_alt,
-      route: '/tasks',
+      label: 'Sales & Marketing',
+      icon: Icons.campaign_outlined,
+      activeIcon: Icons.campaign,
+      route: '/sales-marketing',
     ));
   }
 
-  if (user.canView('PROJECTS')) {
+  // 2. B2B Trading
+  if (user.isAdmin || user.canView('CRM') || user.canView('SALES')) {
     items.add(const _NavItem(
-      label: 'Projects',
-      icon: Icons.folder_outlined,
-      activeIcon: Icons.folder,
-      route: '/projects',
+      label: 'B2B Trading',
+      icon: Icons.storefront_outlined,
+      activeIcon: Icons.storefront,
+      route: '/crm/enquiries',
     ));
   }
 
-  if (user.canView('CRM') || user.canView('CUSTOMERS')) {
+  // 3. Production Process
+  if (user.isAdmin || user.canView('PRODUCTION')) {
     items.add(const _NavItem(
-      label: 'CRM & Sales',
-      icon: Icons.hub_outlined,
-      activeIcon: Icons.hub,
-      route: '/crm/dashboard',
-    ));
-  }
-
-  if (user.canView('SALES')) {
-    items.add(const _NavItem(
-      label: 'Sales',
-      icon: Icons.receipt_long_outlined,
-      activeIcon: Icons.receipt_long,
-      route: '/sales/quotations',
-    ));
-  }
-
-  if (user.canView('PURCHASE')) {
-    items.add(const _NavItem(
-      label: 'Purchase',
-      icon: Icons.shopping_bag_outlined,
-      activeIcon: Icons.shopping_bag,
-      route: '/purchase/orders',
-    ));
-  }
-
-  if (user.canView('INVENTORY')) {
-    items.add(const _NavItem(
-      label: 'Inventory',
-      icon: Icons.inventory_2_outlined,
-      activeIcon: Icons.inventory_2,
-      route: '/inventory',
-    ));
-  }
-
-  if (user.canView('PRODUCTION')) {
-    items.add(const _NavItem(
-      label: 'Production',
+      label: 'Production Process',
       icon: Icons.precision_manufacturing_outlined,
       activeIcon: Icons.precision_manufacturing,
       route: '/production',
     ));
   }
 
-  if (user.canView('STAFF')) {
+  // 4. Project Management / Professional Services
+  if (user.isAdmin || user.canView('PROJECTS')) {
     items.add(const _NavItem(
-      label: 'Staff Directory',
-      icon: Icons.badge_outlined,
-      activeIcon: Icons.badge,
-      route: '/staff',
+      label: 'Project Management / Professional Services',
+      icon: Icons.folder_outlined,
+      activeIcon: Icons.folder,
+      route: '/projects',
     ));
   }
 
-  if (user.canView('VENDORS')) {
+  // 5. Task Manager
+  if (user.isAdmin || user.canView('TASKS')) {
     items.add(const _NavItem(
-      label: 'Vendors',
-      icon: Icons.store_outlined,
-      activeIcon: Icons.store,
-      route: '/vendors',
+      label: 'Task Manager',
+      icon: Icons.task_alt_outlined,
+      activeIcon: Icons.task_alt,
+      route: '/tasks',
     ));
   }
 
-  if (user.canView('INVENTORY') || user.canView('PURCHASE')) {
+  // 6. Quality Control (QC) / Quality Assurance (QA)
+  if (user.isAdmin || user.canView('PRODUCTION')) {
     items.add(const _NavItem(
-      label: 'Products',
-      icon: Icons.category_outlined,
-      activeIcon: Icons.category,
-      route: '/products',
+      label: 'Quality Control (QC) / Quality Assurance (QA)',
+      icon: Icons.verified_outlined,
+      activeIcon: Icons.verified,
+      route: '/production/management',
     ));
   }
 
-  if (user.canView('REPORTS')) {
+  // 7. Panel Manufacturing
+  if (user.isAdmin || user.canView('PRODUCTION')) {
     items.add(const _NavItem(
-      label: 'Reports',
-      icon: Icons.bar_chart_outlined,
-      activeIcon: Icons.bar_chart,
-      route: '/reports',
+      label: 'Panel Manufacturing',
+      icon: Icons.build_circle_outlined,
+      activeIcon: Icons.build_circle,
+      route: '/production/new',
     ));
   }
 
-  if (user.canView('HR') || user.isAdmin) {
+  // 8. Accounts & Finance
+  if (user.isAdmin || user.canView('ACCOUNTS')) {
     items.add(const _NavItem(
-      label: 'Human Resources',
-      icon: Icons.people_alt_outlined,
-      activeIcon: Icons.people_alt,
-      route: '/hr',
-    ));
-  }
-
-  if (user.canView('ACCOUNTS') || user.isAdmin) {
-    items.add(const _NavItem(
-      label: 'Accounts & Receivables',
+      label: 'Accounts & Finance',
       icon: Icons.account_balance_outlined,
       activeIcon: Icons.account_balance,
       route: '/accounts',
     ));
   }
 
+  // 9. HR (Human Resources)
+  if (user.isAdmin || user.canView('HR') || user.canView('STAFF')) {
+    items.add(const _NavItem(
+      label: 'HR (Human Resources)',
+      icon: Icons.people_alt_outlined,
+      activeIcon: Icons.people_alt,
+      route: '/hr',
+    ));
+  }
+
+  // 10. Attendance (Biometric Punching Device)
+  if (user.isAdmin || user.canView('ATTENDANCE') || user.canView('HR')) {
+    items.add(const _NavItem(
+      label: 'Attendance',
+      icon: Icons.access_time_outlined,
+      activeIcon: Icons.access_time,
+      route: '/attendance',
+    ));
+  }
+
+  // 11. Purchase / Procurement
+  if (user.isAdmin || user.canView('PURCHASE')) {
+    items.add(const _NavItem(
+      label: 'Purchase / Procurement',
+      icon: Icons.shopping_bag_outlined,
+      activeIcon: Icons.shopping_bag,
+      route: '/purchase/orders',
+    ));
+  }
+
+  // 11. Stores / Warehouse
+  if (user.isAdmin || user.canView('INVENTORY')) {
+    items.add(const _NavItem(
+      label: 'Stores / Warehouse',
+      icon: Icons.warehouse_outlined,
+      activeIcon: Icons.warehouse,
+      route: '/inventory',
+    ));
+  }
+
+  // 12. Maintenance
+  if (user.isAdmin || user.canView('TASKS') || user.canView('PRODUCTION')) {
+    items.add(const _NavItem(
+      label: 'Maintenance',
+      icon: Icons.home_repair_service_outlined,
+      activeIcon: Icons.home_repair_service,
+      route: '/my-work',
+    ));
+  }
+
+  // 13. R&D / Engineering
+  if (user.isAdmin || user.canView('PRODUCTION')) {
+    items.add(const _NavItem(
+      label: 'R&D / Engineering',
+      icon: Icons.science_outlined,
+      activeIcon: Icons.science,
+      route: '/production/specs',
+    ));
+  }
+
+  // 14. Asset Management / Fixed Assets
+  if (user.isAdmin || user.canView('INVENTORY') || user.canView('ACCOUNTS')) {
+    items.add(const _NavItem(
+      label: 'Asset Management / Fixed Assets',
+      icon: Icons.domain_outlined,
+      activeIcon: Icons.domain,
+      route: '/inventory?view=assets',
+    ));
+  }
+
+  // 15. EHS / Risk Management
+  if (user.isAdmin || user.canView('PROJECTS')) {
+    items.add(const _NavItem(
+      label: 'EHS / Risk Management',
+      icon: Icons.shield_outlined,
+      activeIcon: Icons.shield,
+      route: '/projects?view=ehs',
+    ));
+  }
+
+  // 16. Point of Sale (POS) / E-Commerce
+  if (user.isAdmin || user.canView('SALES') || user.canView('CRM')) {
+    items.add(const _NavItem(
+      label: 'Point of Sale (POS) / E-Commerce',
+      icon: Icons.point_of_sale_outlined,
+      activeIcon: Icons.point_of_sale,
+      route: '/crm/invoices',
+    ));
+  }
+
+  // 17. IT
   if (user.isAdmin) {
     items.add(const _NavItem(
-      label: 'Admin',
+      label: 'IT',
+      icon: Icons.computer_outlined,
+      activeIcon: Icons.computer,
+      route: '/admin?section=it',
+    ));
+  }
+
+  // 18. Customer Service
+  if (user.isAdmin || user.canView('CRM') || user.canView('CUSTOMERS')) {
+    items.add(const _NavItem(
+      label: 'Customer Service',
+      icon: Icons.support_agent_outlined,
+      activeIcon: Icons.support_agent,
+      route: '/crm/follow-ups',
+    ));
+  }
+
+  // 19. Legal & Compliance
+  if (user.isAdmin || user.canView('REPORTS')) {
+    items.add(const _NavItem(
+      label: 'Legal & Compliance',
+      icon: Icons.gavel_outlined,
+      activeIcon: Icons.gavel,
+      route: '/reports?section=compliance',
+    ));
+  }
+
+  // 20. Administration
+  if (user.isAdmin) {
+    items.add(const _NavItem(
+      label: 'Administration',
       icon: Icons.settings_outlined,
       activeIcon: Icons.settings,
       route: '/admin',
+    ));
+  }
+
+  // 21. Supply Chain / Logistics
+  if (user.isAdmin || user.canView('PURCHASE') || user.canView('INVENTORY') || user.canView('VENDORS')) {
+    items.add(const _NavItem(
+      label: 'Supply Chain / Logistics',
+      icon: Icons.local_shipping_outlined,
+      activeIcon: Icons.local_shipping,
+      route: '/vendors',
     ));
   }
 
@@ -202,13 +303,90 @@ List<_NavItem> _getAuthorizedNavItems(AuthUser? user) {
 
 int _getNavIndex(List<_NavItem> items, String route) {
   for (int i = 0; i < items.length; i++) {
-    if (items[i].route == '/crm/dashboard' && (route.startsWith('/crm') || route.startsWith('/customers'))) {
-      return i;
-    }
-    if (items[i].route == '/dashboard' && (route == '/dashboard' || route == '/')) {
-      return i;
-    }
-    if (route.startsWith(items[i].route)) return i;
+    if (items[i].route == route) return i;
+  }
+  if (route.startsWith('/admin/database') || route.startsWith('/database')) {
+    final idx = items.indexWhere((it) => it.route == '/admin/database');
+    if (idx != -1) return idx;
+  }
+  if (route.startsWith('/sales-marketing')) {
+    final idx = items.indexWhere((it) => it.route == '/sales-marketing');
+    if (idx != -1) return idx;
+  }
+  if (route.startsWith('/crm/enquiries')) {
+    final idx = items.indexWhere((it) => it.route == '/crm/enquiries');
+    if (idx != -1) return idx;
+  }
+  if (route.startsWith('/crm/follow-ups') || route.startsWith('/customers')) {
+    final idx = items.indexWhere((it) => it.route == '/crm/follow-ups');
+    if (idx != -1) return idx;
+  }
+  if (route.startsWith('/crm/invoices')) {
+    final idx = items.indexWhere((it) => it.route == '/crm/invoices');
+    if (idx != -1) return idx;
+  }
+  if (route.startsWith('/crm') || route.startsWith('/sales')) {
+    final idx = items.indexWhere((it) => it.route == '/sales-marketing');
+    if (idx != -1) return idx;
+  }
+  if (route.startsWith('/production/management')) {
+    final idx = items.indexWhere((it) => it.route == '/production/management');
+    if (idx != -1) return idx;
+  }
+  if (route.startsWith('/production/new')) {
+    final idx = items.indexWhere((it) => it.route == '/production/new');
+    if (idx != -1) return idx;
+  }
+  if (route.startsWith('/production/specs')) {
+    final idx = items.indexWhere((it) => it.route == '/production/specs');
+    if (idx != -1) return idx;
+  }
+  if (route.startsWith('/production')) {
+    final idx = items.indexWhere((it) => it.route == '/production');
+    if (idx != -1) return idx;
+  }
+  if (route.startsWith('/inventory')) {
+    final idx = items.indexWhere((it) => it.route == '/inventory');
+    if (idx != -1) return idx;
+  }
+  if (route.startsWith('/purchase')) {
+    final idx = items.indexWhere((it) => it.route.startsWith('/purchase'));
+    if (idx != -1) return idx;
+  }
+  if (route.startsWith('/projects')) {
+    final idx = items.indexWhere((it) => it.route.startsWith('/projects'));
+    if (idx != -1) return idx;
+  }
+  if (route.startsWith('/tasks')) {
+    final idx = items.indexWhere((it) => it.route == '/tasks');
+    if (idx != -1) return idx;
+  }
+  if (route.startsWith('/my-work')) {
+    final idx = items.indexWhere((it) => it.route == '/my-work');
+    if (idx != -1) return idx;
+  }
+  if (route.startsWith('/accounts')) {
+    final idx = items.indexWhere((it) => it.route == '/accounts');
+    if (idx != -1) return idx;
+  }
+  if (route.startsWith('/hr') || route.startsWith('/staff')) {
+    final idx = items.indexWhere((it) => it.route == '/hr');
+    if (idx != -1) return idx;
+  }
+  if (route.startsWith('/reports')) {
+    final idx = items.indexWhere((it) => it.route.startsWith('/reports'));
+    if (idx != -1) return idx;
+  }
+  if (route.startsWith('/admin')) {
+    final idx = items.indexWhere((it) => it.route == '/admin');
+    if (idx != -1) return idx;
+  }
+  if (route.startsWith('/vendors')) {
+    final idx = items.indexWhere((it) => it.route == '/vendors');
+    if (idx != -1) return idx;
+  }
+  if (route == '/dashboard' || route == '/') {
+    return 0;
   }
   return 0;
 }
@@ -225,6 +403,8 @@ class _DesktopShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
     final navItems = _getAuthorizedNavItems(user);
+    final selectedIdx = _getNavIndex(navItems, currentRoute);
+    final isDashboard = currentRoute == '/dashboard' || currentRoute == '/';
 
     return Scaffold(
       body: Row(
@@ -239,44 +419,102 @@ class _DesktopShell extends ConsumerWidget {
                 Container(
                   height: 64,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  color: AppTheme.darkBackground,
-                  child: const Row(
-                    children: [
-                      Icon(Icons.water_drop_rounded, color: AppTheme.primary, size: 28),
-                      SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'SAARK ERP',
-                          style: TextStyle(
-                            color: AppTheme.primary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.5,
-                          ),
-                        ),
-                      ),
-                    ],
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: SaarkBrandHeader(
+                      badgeSize: 34,
+                      fontSize: 13,
+                      isCompact: false,
+                      onTap: () {
+                        if (currentRoute != '/dashboard' && currentRoute != '/') {
+                          context.go('/dashboard');
+                        }
+                      },
+                      onDoubleTap: isDashboard
+                          ? () => _openDatabasePortal(context)
+                          : null,
+                    ),
                   ),
                 ),
-                // Nav items
+                // Navigation items
                 Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    children: navItems.map((item) {
-                      final isCrm = item.route == '/crm/dashboard' && (currentRoute.startsWith('/crm') || currentRoute.startsWith('/customers'));
-                      final isDash = item.route == '/dashboard' && (currentRoute == '/dashboard' || currentRoute == '/');
-                      final isActive = isCrm || isDash || (item.route != '/dashboard' && item.route != '/crm/dashboard' && currentRoute.startsWith(item.route));
-                      return _SidebarItem(
-                        item: item,
-                        isActive: isActive,
-                        onTap: () => context.go(item.route),
-                      );
-                    }).toList(),
-                  ),
+                  child: isDashboard
+                      ? ListView(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          children: navItems.map((item) {
+                            final isActive = navItems.indexOf(item) == selectedIdx;
+                            return _SidebarItem(
+                              item: item,
+                              isActive: isActive,
+                              onTap: () => context.go(item.route),
+                            );
+                          }).toList(),
+                        )
+                      : ListView(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: AppSpacing.base, vertical: AppSpacing.xs),
+                              child: Text(
+                                'ACTIVE MODULE',
+                                style: TextStyle(
+                                  fontSize: AppTypography.scaleMicro,
+                                  fontWeight: AppTypography.bold,
+                                  letterSpacing: 1.2,
+                                  color: AppTypography.darkTextMuted,
+                                ),
+                              ),
+                            ),
+                            if (selectedIdx >= 0 && selectedIdx < navItems.length)
+                              _SidebarItem(
+                                item: navItems[selectedIdx],
+                                isActive: true,
+                                onTap: () {},
+                              ),
+                            // Notice: Other modules locked until return to Dashboard
+                            Container(
+                              margin: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.md),
+                              padding: AppSpacing.pMd,
+                              decoration: BoxDecoration(
+                                color: AppTheme.darkBackground.withValues(alpha: 0.7),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: AppTheme.darkBorder),
+                              ),
+                              child: const Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(Icons.lock_outline, size: 14, color: AppTheme.warning),
+                                      AppSpacing.gapW6,
+                                      Text(
+                                        'Modules Locked',
+                                        style: TextStyle(
+                                          fontSize: AppTypography.scaleLabelMedium,
+                                          fontWeight: AppTypography.semiBold,
+                                          color: AppTypography.darkTextPrimary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  AppSpacing.gapH6,
+                                  Text(
+                                    'Other modules (HR, Admin, etc.) are disabled while inside this module.\n\nClick "Back to Dashboard" above to switch modules.',
+                                    style: TextStyle(
+                                      fontSize: AppTypography.scaleLabelSmall,
+                                      color: AppTypography.darkTextSecondary,
+                                      height: AppTypography.leadingBody,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                 ),
                 // User profile at bottom
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: AppSpacing.pMd,
                   color: AppTheme.darkBackground,
                   child: Row(
                     children: [
@@ -287,29 +525,36 @@ class _DesktopShell extends ConsumerWidget {
                           (user?.fullName.isNotEmpty == true)
                               ? user!.fullName[0].toUpperCase()
                               : 'A',
-                          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: AppTypography.bold),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      AppSpacing.gapW8,
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               user?.fullName ?? 'User',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: AppTypography.semiBold,
+                                color: AppTypography.darkTextPrimary,
+                              ),
                               overflow: TextOverflow.ellipsis,
                             ),
                             Text(
                               user?.designation ?? user?.roles.firstOrNull ?? '',
-                              style: const TextStyle(fontSize: 10, color: Colors.grey),
+                              style: const TextStyle(
+                                fontSize: 10.5,
+                                color: AppTypography.darkTextSecondary,
+                              ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.logout, size: 16, color: Colors.grey),
+                        icon: const Icon(Icons.logout, size: 16, color: AppTypography.darkTextSecondary),
                         onPressed: () async {
                           await ref.read(authProvider.notifier).logout();
                           if (context.mounted) context.go('/login');
@@ -349,6 +594,48 @@ class _TabletShell extends ConsumerWidget {
     final user = ref.watch(currentUserProvider);
     final navItems = _getAuthorizedNavItems(user);
     final selectedIndex = _getNavIndex(navItems, currentRoute);
+    final isDashboard = currentRoute == '/dashboard' || currentRoute == '/';
+
+    if (!isDashboard) {
+      final activeItem = (selectedIndex >= 0 && selectedIndex < navItems.length)
+          ? navItems[selectedIndex]
+          : null;
+
+      return Scaffold(
+        body: Row(
+          children: [
+            NavigationRail(
+              backgroundColor: AppTheme.darkSurface,
+              selectedIndex: 1,
+              onDestinationSelected: (i) {
+                if (i == 0) {
+                  context.go('/dashboard');
+                }
+              },
+              labelType: NavigationRailLabelType.all,
+              selectedIconTheme: const IconThemeData(color: AppTheme.primary),
+              selectedLabelTextStyle: const TextStyle(color: AppTheme.primary, fontSize: 10),
+              unselectedIconTheme: const IconThemeData(color: Colors.grey, size: 22),
+              unselectedLabelTextStyle: const TextStyle(color: Colors.grey, fontSize: 10),
+              destinations: [
+                const NavigationRailDestination(
+                  icon: Icon(Icons.arrow_back),
+                  selectedIcon: Icon(Icons.arrow_back),
+                  label: Text('Dashboard'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(activeItem?.activeIcon ?? Icons.folder),
+                  selectedIcon: Icon(activeItem?.activeIcon ?? Icons.folder),
+                  label: Text(activeItem?.label.split(' ').first ?? 'Module'),
+                ),
+              ],
+            ),
+            const VerticalDivider(width: 1),
+            Expanded(child: child),
+          ],
+        ),
+      );
+    }
 
     return Scaffold(
       body: Row(
@@ -423,19 +710,12 @@ class _MobileShellState extends ConsumerState<_MobileShell> {
       ),
     ];
 
-    if (user?.canView('CRM') == true) {
+    if (user?.canView('CRM') == true || user?.canView('CUSTOMERS') == true) {
       mobileTabs.add(const _MobileBottomTab(
-        label: 'CRM',
-        icon: Icons.people_outline,
-        activeIcon: Icons.people,
-        route: '/crm/dashboard',
-      ));
-    } else if (user?.canView('CUSTOMERS') == true) {
-      mobileTabs.add(const _MobileBottomTab(
-        label: 'Customers',
-        icon: Icons.person_outline,
-        activeIcon: Icons.person,
-        route: '/customers',
+        label: 'Sales & Mktg',
+        icon: Icons.campaign_outlined,
+        activeIcon: Icons.campaign,
+        route: '/sales-marketing',
       ));
     }
 
@@ -484,9 +764,9 @@ class _MobileShellState extends ConsumerState<_MobileShell> {
       }
     }
 
-    // Check if on sub-CRM routes like /crm/pipeline, /crm/follow-ups, /crm/leads, /crm/enquiries
-    if (selectedIndex == -1 && widget.currentRoute.startsWith('/crm')) {
-      final crmIdx = mobileTabs.indexWhere((t) => t.route == '/crm/dashboard');
+    // Check if on sub-CRM routes like /crm/pipeline, /crm/follow-ups, /crm/leads, /crm/enquiries, /sales-marketing, /sales
+    if (selectedIndex == -1 && (widget.currentRoute.startsWith('/crm') || widget.currentRoute.startsWith('/sales-marketing') || widget.currentRoute.startsWith('/customers') || widget.currentRoute.startsWith('/sales'))) {
+      final crmIdx = mobileTabs.indexWhere((t) => t.route == '/sales-marketing' || t.route == '/crm/dashboard');
       if (crmIdx != -1) selectedIndex = crmIdx;
     }
 
@@ -504,12 +784,18 @@ class _MobileShellState extends ConsumerState<_MobileShell> {
                 icon: const Icon(Icons.menu),
                 onPressed: () => _scaffoldKey.currentState?.openDrawer(),
               ),
-              title: const Row(
-                children: [
-                  Icon(Icons.water_drop_rounded, color: AppTheme.primary, size: 20),
-                  SizedBox(width: 8),
-                  Text('SAARK', style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 1.5, color: AppTheme.primary)),
-                ],
+              title: SaarkBrandHeader(
+                badgeSize: 28,
+                fontSize: 13,
+                isCompact: true,
+                onTap: () {
+                  if (widget.currentRoute != '/dashboard' && widget.currentRoute != '/') {
+                    context.go('/dashboard');
+                  }
+                },
+                onDoubleTap: isDashboard
+                    ? () => _openDatabasePortal(context)
+                    : null,
               ),
               actions: [
                 IconButton(
@@ -564,6 +850,9 @@ class _MobileShellState extends ConsumerState<_MobileShell> {
   }
 
   Widget _buildDrawer(BuildContext context, AuthUser? user, List<_NavItem> navItems) {
+    final isDashboard = widget.currentRoute == '/dashboard' || widget.currentRoute == '/';
+    final selectedIdx = _getNavIndex(navItems, widget.currentRoute);
+
     return Drawer(
       backgroundColor: AppTheme.darkSurface,
       child: SafeArea(
@@ -572,62 +861,150 @@ class _MobileShellState extends ConsumerState<_MobileShell> {
             Container(
               padding: const EdgeInsets.all(16),
               color: AppTheme.darkBackground,
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  CircleAvatar(
-                    radius: 22,
-                    backgroundColor: AppTheme.primary,
-                    child: Text(
-                      (user?.fullName.isNotEmpty == true) ? user!.fullName[0] : 'A',
-                      style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(user?.fullName ?? 'User',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                        Text(user?.designation ?? '', style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                      ],
-                    ),
+                  const SaarkFullLogoCard(width: double.infinity, height: 60, padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6)),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 22,
+                        backgroundColor: AppTheme.primary,
+                        child: Text(
+                          (user?.fullName.isNotEmpty == true) ? user!.fullName[0] : 'A',
+                          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              user?.fullName ?? 'User',
+                              style: const TextStyle(
+                                fontWeight: AppTypography.bold,
+                                fontSize: AppTypography.scaleTitleMedium,
+                                color: AppTypography.darkTextPrimary,
+                              ),
+                            ),
+                            Text(
+                              user?.designation ?? '',
+                              style: const TextStyle(
+                                color: AppTypography.darkTextSecondary,
+                                fontSize: AppTypography.scaleLabelMedium,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                children: navItems.map((item) {
-                  final isCrm = item.route == '/crm/dashboard' && (widget.currentRoute.startsWith('/crm') || widget.currentRoute.startsWith('/customers'));
-                  final isDash = item.route == '/dashboard' && (widget.currentRoute == '/dashboard' || widget.currentRoute == '/');
-                  final isActive = isCrm || isDash || (item.route != '/dashboard' && item.route != '/crm/dashboard' && widget.currentRoute.startsWith(item.route));
-                  return ListTile(
-                    leading: Icon(
-                      isActive ? item.activeIcon : item.icon,
-                      color: isActive ? AppTheme.primary : Colors.grey,
-                      size: 20,
+              child: isDashboard
+                  ? ListView(
+                      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                      children: navItems.map((item) {
+                        final isActive = navItems.indexOf(item) == selectedIdx;
+                        return ListTile(
+                          leading: Icon(
+                            isActive ? item.activeIcon : item.icon,
+                            color: isActive ? AppTheme.primary : AppTypography.darkTextMuted,
+                            size: 20,
+                          ),
+                          title: Text(
+                            item.label,
+                            style: TextStyle(
+                              color: isActive ? AppTheme.primary : AppTypography.darkTextPrimary,
+                              fontWeight: isActive ? AppTypography.semiBold : AppTypography.regular,
+                              fontSize: AppTypography.scaleTitleSmall,
+                            ),
+                          ),
+                          onTap: () {
+                            Navigator.pop(context);
+                            context.go(item.route);
+                          },
+                        );
+                      }).toList(),
+                    )
+                  : ListView(
+                      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                      children: [
+                        ListTile(
+                          leading: const Icon(Icons.arrow_back, color: Color(0xFFF15A24), size: 22),
+                          title: const Text(
+                            'Back to Dashboard',
+                            style: TextStyle(
+                              color: Color(0xFFF15A24),
+                              fontWeight: AppTypography.bold,
+                              fontSize: AppTypography.scaleTitleSmall,
+                            ),
+                          ),
+                          onTap: () {
+                            Navigator.pop(context);
+                            context.go('/dashboard');
+                          },
+                        ),
+                        const Divider(color: AppTheme.darkBorder),
+                        if (selectedIdx >= 0 && selectedIdx < navItems.length)
+                          ListTile(
+                            leading: Icon(
+                              navItems[selectedIdx].activeIcon,
+                              color: AppTheme.primary,
+                              size: 20,
+                            ),
+                            title: Text(
+                              navItems[selectedIdx].label,
+                              style: const TextStyle(
+                                color: AppTheme.primary,
+                                fontWeight: AppTypography.bold,
+                                fontSize: AppTypography.scaleTitleSmall,
+                              ),
+                            ),
+                            subtitle: const Text(
+                              'Active Module',
+                              style: TextStyle(color: AppTypography.darkTextSecondary, fontSize: 11),
+                            ),
+                            onTap: () => Navigator.pop(context),
+                          ),
+                        Container(
+                          margin: AppSpacing.allMd,
+                          padding: AppSpacing.allMd,
+                          decoration: BoxDecoration(
+                            color: AppTheme.darkBackground.withValues(alpha: 0.7),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppTheme.darkBorder),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(Icons.lock_outline, size: 16, color: AppTheme.warning),
+                              AppSpacing.gapW8,
+                              Expanded(
+                                child: Text(
+                                  'Other modules (HR, Admin, etc.) are locked. Return to Dashboard to switch modules.',
+                                  style: TextStyle(
+                                    fontSize: AppTypography.scaleLabelSmall,
+                                    color: AppTypography.darkTextSecondary,
+                                    height: AppTypography.leadingBody,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    title: Text(
-                      item.label,
-                      style: TextStyle(
-                        color: isActive ? AppTheme.primary : null,
-                        fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                        fontSize: 14,
-                      ),
-                    ),
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.go(item.route);
-                    },
-                  );
-                }).toList(),
-              ),
             ),
             ListTile(
-              leading: const Icon(Icons.logout, size: 20, color: Colors.grey),
-              title: const Text('Logout', style: TextStyle(color: Colors.grey, fontSize: 14)),
+              leading: const Icon(Icons.logout, size: 20, color: AppTypography.darkTextSecondary),
+              title: const Text(
+                'Logout',
+                style: TextStyle(color: AppTypography.darkTextSecondary, fontSize: AppTypography.scaleTitleSmall),
+              ),
               onTap: () async {
                 await ref.read(authProvider.notifier).logout();
                 if (context.mounted) context.go('/login');
@@ -653,28 +1030,34 @@ class _SidebarItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        margin: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xxs),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
         decoration: BoxDecoration(
           color: isActive ? AppTheme.primary.withValues(alpha: 0.15) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
-          border: isActive ? Border.all(color: AppTheme.primary.withValues(alpha: 0.3)) : null,
+          border: isActive ? Border.all(color: AppTheme.primary.withValues(alpha: 0.35)) : null,
         ),
         child: Row(
           children: [
             Icon(
               isActive ? item.activeIcon : item.icon,
               size: 18,
-              color: isActive ? AppTheme.primary : Colors.grey,
+              color: isActive ? AppTheme.primary : AppTypography.darkTextMuted,
             ),
-            const SizedBox(width: 10),
-            Text(
-              item.label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                color: isActive ? AppTheme.primary : Colors.white70,
+            AppSpacing.gapW10,
+            Expanded(
+              child: Text(
+                item.label,
+                style: TextStyle(
+                  fontSize: AppTypography.scaleBodySmall,
+                  height: AppTypography.leadingLabel,
+                  fontWeight: isActive ? AppTypography.semiBold : AppTypography.regular,
+                  color: isActive ? AppTheme.primary : AppTypography.darkTextSecondary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
@@ -697,25 +1080,36 @@ class _TopHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 64,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
       decoration: const BoxDecoration(
         color: AppTheme.darkSurface,
         border: Border(bottom: BorderSide(color: AppTheme.darkBorder)),
       ),
       child: Row(
         children: [
+          if (currentRoute != '/dashboard' && currentRoute != '/') ...[
+            const BackToDashboardButton(),
+            AppSpacing.gapW12,
+            Container(width: 1, height: 24, color: AppTheme.darkBorder),
+            AppSpacing.gapW12,
+          ],
           // Breadcrumb
-          const Icon(Icons.chevron_right, size: 16, color: Colors.grey),
-          const SizedBox(width: 4),
+          const Icon(Icons.chevron_right, size: 16, color: AppTypography.darkTextMuted),
+          AppSpacing.gapW4,
           Text(
             _getPageTitle(currentRoute),
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+            style: const TextStyle(
+              fontWeight: AppTypography.semiBold,
+              fontSize: AppTypography.scaleTitleMedium,
+              height: AppTypography.leadingTitle,
+              color: AppTypography.darkTextPrimary,
+            ),
           ),
           const Spacer(),
           // Global Search
           Container(
-            width: 220,
-            height: 36,
+            width: 240,
+            height: 38,
             decoration: BoxDecoration(
               color: AppTheme.darkBackground,
               borderRadius: BorderRadius.circular(8),
@@ -723,21 +1117,27 @@ class _TopHeader extends StatelessWidget {
             ),
             child: const TextField(
               decoration: InputDecoration(
-                hintText: 'Search...',
-                prefixIcon: Icon(Icons.search, size: 16),
+                hintText: 'Search modules & records...',
+                prefixIcon: Icon(Icons.search, size: 16, color: AppTypography.darkTextMuted),
                 border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(vertical: 8),
-                hintStyle: TextStyle(fontSize: 13),
+                contentPadding: EdgeInsets.symmetric(vertical: 9, horizontal: 10),
+                hintStyle: TextStyle(
+                  fontSize: AppTypography.scaleBodySmall,
+                  color: AppTypography.darkTextMuted,
+                ),
               ),
-              style: TextStyle(fontSize: 13),
+              style: TextStyle(
+                fontSize: AppTypography.scaleBodySmall,
+                color: AppTypography.darkTextPrimary,
+              ),
             ),
           ),
-          const SizedBox(width: 16),
+          AppSpacing.gapW16,
           // Notifications
           IconButton(
             icon: Stack(
               children: [
-                const Icon(Icons.notifications_outlined),
+                const Icon(Icons.notifications_outlined, color: AppTypography.darkTextSecondary),
                 Positioned(
                   right: 0,
                   top: 0,
@@ -807,31 +1207,25 @@ class _TopHeader extends StatelessWidget {
 
   String _getPageTitle(String route) {
     if (route.startsWith('/dashboard')) return 'Dashboard';
-    if (route.startsWith('/customers')) return 'Customers';
-    if (route.startsWith('/vendors')) return 'Vendors';
-    if (route.startsWith('/products')) return 'Products';
-    if (route.startsWith('/crm/leads')) return 'Leads';
-    if (route.startsWith('/crm/enquiries')) return 'Enquiries';
-    if (route.startsWith('/crm/dashboard')) return 'CRM & Sales — Dashboard';
-    if (route.startsWith('/crm/leads')) return 'CRM & Sales — Leads';
-    if (route.startsWith('/crm/enquiries')) return 'CRM & Sales — Enquiries';
-    if (route.startsWith('/crm/pipeline')) return 'CRM & Sales — Pipeline';
-    if (route.startsWith('/crm/follow-ups')) return 'CRM & Sales — Follow-ups & Meetings';
-    if (route.startsWith('/crm/analytics')) return 'CRM & Sales — Analytics';
-    if (route.startsWith('/crm/sales-orders') || route.startsWith('/sales/orders')) return 'Sales Orders';
-    if (route.startsWith('/crm/invoices') || route.startsWith('/sales/invoices')) return 'Tax Invoices';
-    if (route.startsWith('/crm')) return 'CRM & Sales';
-    if (route.startsWith('/customers')) return 'CRM & Sales — Customers';
-    if (route.startsWith('/sales')) return 'Sales';
-    if (route.startsWith('/purchase')) return 'Purchase';
-    if (route.startsWith('/inventory')) return 'Inventory';
-    if (route.startsWith('/production')) return 'Production';
-    if (route.startsWith('/projects')) return 'Projects';
-    if (route.startsWith('/tasks')) return 'Tasks';
-    if (route.startsWith('/hr')) return 'Human Resources';
-    if (route.startsWith('/accounts')) return 'Accounts';
-    if (route.startsWith('/reports')) return 'Reports';
-    if (route.startsWith('/admin')) return 'Administration';
+    if (route.startsWith('/sales-marketing')) return 'Sales & Marketing';
+    if (route.startsWith('/crm/enquiries')) return 'B2B Trading';
+    if (route.startsWith('/crm/follow-ups') || route.startsWith('/customers')) return 'Customer Service';
+    if (route.startsWith('/crm/invoices') || route.startsWith('/sales/invoices')) return 'Point of Sale (POS) / E-Commerce';
+    if (route.startsWith('/crm') || route.startsWith('/sales')) return 'Sales & Marketing';
+    if (route.startsWith('/production/management')) return 'Quality Control (QC) / QA';
+    if (route.startsWith('/production/new')) return 'Panel Manufacturing';
+    if (route.startsWith('/production/specs')) return 'R&D / Engineering';
+    if (route.startsWith('/production')) return 'Production Process';
+    if (route.startsWith('/projects')) return 'Project Management / Professional Services';
+    if (route.startsWith('/tasks')) return 'Task Manager';
+    if (route.startsWith('/my-work')) return 'Maintenance';
+    if (route.startsWith('/accounts')) return 'Accounts & Finance';
+    if (route.startsWith('/hr') || route.startsWith('/staff')) return 'HR (Human Resources)';
+    if (route.startsWith('/purchase')) return 'Purchase / Procurement';
+    if (route.startsWith('/inventory')) return 'Stores / Warehouse';
+    if (route.startsWith('/vendors')) return 'Supply Chain / Logistics';
+    if (route.startsWith('/reports')) return 'Legal & Compliance';
+    if (route.startsWith('/admin')) return 'Administration & IT';
     return 'ERP';
   }
 }

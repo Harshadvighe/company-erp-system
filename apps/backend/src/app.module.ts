@@ -20,9 +20,13 @@ import { SalesModule } from './modules/sales/sales.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { BulkImportModule } from './modules/bulk-import/bulk-import.module';
+import { BiometricsModule } from './core/biometrics/biometrics.module';
+import { B2bTradingModule } from './modules/b2b-trading/b2b-trading.module';
+import { AttendanceModule } from './modules/attendance/attendance-sync.module';
 
 @Module({
   imports: [
+    BiometricsModule,
     AuthModule,
     AdminModule,
     CustomersModule,
@@ -44,6 +48,8 @@ import { BulkImportModule } from './modules/bulk-import/bulk-import.module';
     InventoryModule,
     ReportsModule,
     BulkImportModule,
+    B2bTradingModule,
+    AttendanceModule,
   ],
 })
 export class AppModule {}

@@ -9,7 +9,6 @@ import 'package:saark_erp_mobile/features/customers/presentation/pages/customers
 import 'package:saark_erp_mobile/features/customers/presentation/pages/customer_detail_page.dart';
 import 'package:saark_erp_mobile/features/customers/presentation/pages/customer_form_page.dart';
 import 'package:saark_erp_mobile/features/vendors/presentation/pages/vendors_list_page.dart';
-import 'package:saark_erp_mobile/features/products/presentation/pages/products_list_page.dart';
 import 'package:saark_erp_mobile/features/crm/presentation/pages/leads_list_page.dart';
 import 'package:saark_erp_mobile/features/crm/presentation/pages/enquiries_list_page.dart';
 import 'package:saark_erp_mobile/features/crm/presentation/pages/crm_dashboard_page.dart';
@@ -26,7 +25,8 @@ import 'package:saark_erp_mobile/features/crm/presentation/pages/site_visits_lis
 import 'package:saark_erp_mobile/features/production/presentation/pages/panel_specs_list_page.dart';
 import 'package:saark_erp_mobile/features/production/presentation/pages/panel_spec_detail_page.dart';
 import 'package:saark_erp_mobile/features/production/presentation/pages/panel_spec_form_page.dart';
-import 'package:saark_erp_mobile/features/purchase/presentation/pages/purchase_dashboard_page.dart';
+import 'package:saark_erp_mobile/features/production/presentation/pages/booster_pump_calculator_page.dart';
+import 'package:saark_erp_mobile/features/production/presentation/pages/production_management_page.dart';
 import 'package:saark_erp_mobile/features/my_work/presentation/pages/my_work_page.dart';
 import 'package:saark_erp_mobile/features/tasks/presentation/pages/tasks_list_page.dart';
 import 'package:saark_erp_mobile/features/tasks/presentation/pages/task_detail_page.dart';
@@ -34,11 +34,13 @@ import 'package:saark_erp_mobile/features/projects/presentation/pages/projects_l
 import 'package:saark_erp_mobile/features/projects/presentation/pages/project_detail_page.dart';
 import 'package:saark_erp_mobile/features/staff/presentation/pages/staff_directory_page.dart';
 import 'package:saark_erp_mobile/features/hr/presentation/pages/hr_dashboard_page.dart';
+import 'package:saark_erp_mobile/features/attendance/presentation/pages/attendance_dashboard_page.dart';
 import 'package:saark_erp_mobile/features/admin/presentation/pages/admin_dashboard_page.dart';
-import 'package:saark_erp_mobile/features/crm/presentation/pages/invoices_list_page.dart';
+import 'package:saark_erp_mobile/features/admin/presentation/pages/database_record_dashboard_page.dart';
 import 'package:saark_erp_mobile/features/crm/presentation/pages/accounts_dashboard_page.dart';
 import 'package:saark_erp_mobile/features/inventory/presentation/pages/inventory_dashboard_page.dart';
 import 'package:saark_erp_mobile/features/reports/presentation/pages/reports_dashboard_page.dart';
+import 'package:saark_erp_mobile/features/crm/presentation/pages/sales_marketing_portal_page.dart';
 
 class RouterNotifier extends ChangeNotifier {
   final Ref _ref;
@@ -56,7 +58,19 @@ class RouterNotifier extends ChangeNotifier {
     final isLoginPage = state.matchedLocation == '/login';
 
     if (!isLoggedIn && !isLoginPage) return '/login';
-    if (isLoggedIn && isLoginPage) return '/dashboard';
+    if (isLoggedIn && isLoginPage) {
+      final user = authState.user;
+      final dept = (user?.department ?? '').toUpperCase();
+      final roles = (user?.roles ?? []).map((r) => r.toUpperCase()).toList();
+
+      if (dept.contains('HR') || roles.any((r) => r.contains('HR'))) return '/hr';
+      if (dept.contains('PROD') || dept.contains('MANUFACTUR') || roles.any((r) => r.contains('PROD'))) return '/production';
+      if (dept.contains('SALE') || dept.contains('CRM') || roles.any((r) => r.contains('SALE') || r.contains('CRM'))) return '/sales-marketing';
+      if (dept.contains('PURCHASE') || roles.any((r) => r.contains('PURCHASE'))) return '/purchase';
+      if (dept.contains('INVENT') || dept.contains('STORE') || roles.any((r) => r.contains('INVENT'))) return '/inventory';
+      if (dept.contains('ACCOUNT') || dept.contains('FINANCE') || roles.any((r) => r.contains('ACCOUNT') || r.contains('FINANCE'))) return '/accounts';
+      return '/dashboard';
+    }
     return null;
   }
 }
@@ -168,7 +182,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/products',
             name: 'products',
-            builder: (context, state) => const ProductsListPage(),
+            builder: (context, state) => const SalesMarketingPortalPage(initialTab: 2),
+          ),
+
+          // ─── Sales & Marketing ──────────────────────────────────
+          GoRoute(
+            path: '/sales-marketing',
+            name: 'sales-marketing',
+            builder: (context, state) => const SalesMarketingPortalPage(),
+          ),
+          GoRoute(
+            path: '/crm/customer-vendor',
+            name: 'crm-customer-vendor',
+            builder: (context, state) => const SalesMarketingPortalPage(initialTab: 1),
           ),
 
           // ─── CRM ─────────────────────────────────────────────────
@@ -281,44 +307,124 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/crm/invoices',
             name: 'crm-invoices',
-            builder: (context, state) => const InvoicesListPage(),
+            builder: (context, state) => const SalesMarketingPortalPage(initialTab: 3),
           ),
           GoRoute(
             path: '/sales/invoices',
             name: 'sales-invoices',
-            builder: (context, state) => const InvoicesListPage(),
+            builder: (context, state) => const SalesMarketingPortalPage(initialTab: 3),
+          ),
+          // ─── B2B Marketplace & Trading Platform ─────────────────
+          GoRoute(
+            path: '/crm/b2b-marketplace',
+            name: 'b2b-marketplace',
+            builder: (context, state) => const SalesMarketingPortalPage(initialTab: 10),
+          ),
+          GoRoute(
+            path: '/b2b',
+            name: 'b2b-trading',
+            builder: (context, state) => const SalesMarketingPortalPage(initialTab: 10),
           ),
           // ─── Purchase / Procurement Module ───────────────────────
           GoRoute(
             path: '/purchase',
             name: 'purchase',
-            builder: (context, state) => const PurchaseDashboardPage(),
+            builder: (context, state) => const SalesMarketingPortalPage(initialTab: 4),
           ),
           GoRoute(
             path: '/purchase/orders',
             name: 'purchase-orders',
-            builder: (context, state) => const PurchaseDashboardPage(),
+            builder: (context, state) => const SalesMarketingPortalPage(initialTab: 4),
           ),
           GoRoute(
             path: '/purchase/inward',
             name: 'purchase-inward',
-            builder: (context, state) => const PurchaseDashboardPage(),
+            builder: (context, state) => const SalesMarketingPortalPage(initialTab: 4),
+          ),
+          // ─── Payment (Bank & Cash) Module ─────────────────────────
+          GoRoute(
+            path: '/payment',
+            name: 'payment',
+            builder: (context, state) => const SalesMarketingPortalPage(initialTab: 5),
+          ),
+          GoRoute(
+            path: '/crm/accounts',
+            name: 'crm-accounts',
+            builder: (context, state) => const SalesMarketingPortalPage(initialTab: 5),
+          ),
+          // ─── Expense & Income Module ──────────────────────────────
+          GoRoute(
+            path: '/expenses',
+            name: 'expenses',
+            builder: (context, state) => const SalesMarketingPortalPage(initialTab: 6),
+          ),
+          GoRoute(
+            path: '/crm/expenses',
+            name: 'crm-expenses',
+            builder: (context, state) => const SalesMarketingPortalPage(initialTab: 6),
+          ),
+          GoRoute(
+            path: '/expense-income',
+            name: 'expense-income',
+            builder: (context, state) => const SalesMarketingPortalPage(initialTab: 6),
+          ),
+          // ─── Other Documents (Outward Dispatch) Module ────────────
+          GoRoute(
+            path: '/other-documents',
+            name: 'other-documents',
+            builder: (context, state) => const SalesMarketingPortalPage(initialTab: 7),
+          ),
+          GoRoute(
+            path: '/crm/other-documents',
+            name: 'crm-other-documents',
+            builder: (context, state) => const SalesMarketingPortalPage(initialTab: 7),
+          ),
+          GoRoute(
+            path: '/outward-documents',
+            name: 'outward-documents',
+            builder: (context, state) => const SalesMarketingPortalPage(initialTab: 7),
+          ),
+          // ─── Financial Reports Module ─────────────────────────────
+          GoRoute(
+            path: '/crm/reports',
+            name: 'crm-reports',
+            builder: (context, state) => const SalesMarketingPortalPage(initialTab: 8),
+          ),
+          GoRoute(
+            path: '/financial-reports',
+            name: 'financial-reports',
+            builder: (context, state) => const SalesMarketingPortalPage(initialTab: 8),
           ),
           GoRoute(
             path: '/inventory',
             name: 'inventory',
             builder: (context, state) => const InventoryDashboardPage(),
           ),
-          // ─── Production / Panel Manufacturing ────────────────────
+          // ─── Production / Panel Manufacturing & MES ──────────────
           GoRoute(
             path: '/production',
             name: 'production',
+            builder: (context, state) => const ProductionManagementPage(),
+          ),
+          GoRoute(
+            path: '/production/management',
+            name: 'production-management',
+            builder: (context, state) => const ProductionManagementPage(),
+          ),
+          GoRoute(
+            path: '/production/specs',
+            name: 'production-specs',
             builder: (context, state) => const PanelSpecsListPage(),
           ),
           GoRoute(
             path: '/production/new',
             name: 'production-new',
             builder: (context, state) => const PanelSpecFormPage(),
+          ),
+          GoRoute(
+            path: '/production/booster-pump-calculator',
+            name: 'booster-pump-calculator',
+            builder: (context, state) => const BoosterPumpCalculatorPage(),
           ),
           GoRoute(
             path: '/production/:id',
@@ -337,12 +443,33 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const HrDashboardPage(),
           ),
           GoRoute(
+            path: '/attendance',
+            name: 'attendance',
+            builder: (context, state) => const AttendanceDashboardPage(),
+          ),
+          GoRoute(
             path: '/reports',
             name: 'reports',
             builder: (context, state) => const ReportsDashboardPage(),
           ),
           GoRoute(
-              path: '/admin', builder: (_, __) => const AdminDashboardPage()),
+            path: '/admin',
+            builder: (_, __) => const AdminDashboardPage(),
+          ),
+          GoRoute(
+            path: '/admin/database',
+            name: 'admin-database',
+            builder: (context, state) => DatabaseRecordDashboardPage(
+              initialTableName: state.uri.queryParameters['table'],
+            ),
+          ),
+          GoRoute(
+            path: '/database',
+            name: 'database-dashboard',
+            builder: (context, state) => DatabaseRecordDashboardPage(
+              initialTableName: state.uri.queryParameters['table'],
+            ),
+          ),
         ],
       ),
     ],

@@ -1,8 +1,9 @@
 import 'package:flutter/foundation.dart';
 
 class AppConstants {
-  // Production Render Cloud URL - Hosted 24/7
-  static const String defaultPublicUrl = 'https://saark-erp-backend.onrender.com';
+  // Local Development Backend URL
+  // Uses localhost so the app reaches the PC backend over USB via `adb reverse`
+  static const String defaultPublicUrl = 'http://127.0.0.1:3000';
   static const String serverUrlKey = 'custom_server_url';
 
   static String? customServerUrl;
@@ -23,7 +24,7 @@ class AppConstants {
       final host = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
       return 'http://$host:3000/api/v1';
     }
-    // Mobile app connects directly to Render Cloud URL
+    // Mobile app connects to local backend
     return '$defaultPublicUrl/api/v1';
   }
 

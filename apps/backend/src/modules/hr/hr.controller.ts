@@ -4,6 +4,7 @@ import {
   Post,
   Put,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -108,6 +109,15 @@ export class HrController {
   }
 
   // -------------------------------------------------------------
+  // DESIGNATIONS
+  // -------------------------------------------------------------
+  @Get('designations')
+  @ApiOperation({ summary: 'List all organization designations for HR' })
+  async getDesignations() {
+    return this.hrService.getDesignations();
+  }
+
+  // -------------------------------------------------------------
   // EMPLOYEES
   // -------------------------------------------------------------
   @Get('employees')
@@ -128,9 +138,12 @@ export class HrController {
   }
 
   @Post('employees')
-  @ApiOperation({ summary: 'Onboard a new employee or technician' })
-  async createEmployee(@Body() dto: CreateEmployeeDto) {
-    return this.hrService.createEmployee(dto);
+  @ApiOperation({ summary: 'Onboard a new employee or technician with identity verification' })
+  async createEmployee(@Body() dto: CreateEmployeeDto, @Req() req: any) {
+    const actorId = req.user?.id;
+    const actorEmail = req.user?.email;
+    const ip = req.headers['x-forwarded-for'] || req.socket?.remoteAddress;
+    return this.hrService.createEmployee(dto, actorId, actorEmail, ip);
   }
 
   @Put('employees/:id')
@@ -140,6 +153,40 @@ export class HrController {
     @Body() dto: Partial<CreateEmployeeDto>,
   ) {
     return this.hrService.updateEmployee(id, dto);
+  }
+
+  // -------------------------------------------------------------
+  // BIOMETRIC FACE ENROLLMENT & RE-ENROLLMENT
+  // -------------------------------------------------------------
+  @Post('employees/:id/face/enroll')
+  @ApiOperation({ summary: 'Enroll or re-enroll employee face biometric template' })
+  async enrollFace(
+    @Param('id') id: string,
+    @Body() dto: any,
+    @Req() req: any,
+  ) {
+    const actorId = req.user?.id;
+    const actorEmail = req.user?.email;
+    const ip = req.headers['x-forwarded-for'] || req.socket?.remoteAddress;
+    return this.hrService.enrollEmployeeFace(id, dto, actorId, actorEmail, ip);
+  }
+
+  @Delete('employees/:id/face')
+  @ApiOperation({ summary: 'Disable employee face verification' })
+  async disableFace(
+    @Param('id') id: string,
+    @Req() req: any,
+  ) {
+    const actorId = req.user?.id;
+    const actorEmail = req.user?.email;
+    const ip = req.headers['x-forwarded-for'] || req.socket?.remoteAddress;
+    return this.hrService.disableEmployeeFace(id, actorId, actorEmail, ip);
+  }
+
+  @Get('employees/:id/face/status')
+  @ApiOperation({ summary: 'Get employee face biometric enrollment status' })
+  async getFaceStatus(@Param('id') id: string) {
+    return this.hrService.getEmployeeFaceStatus(id);
   }
 
   // -------------------------------------------------------------

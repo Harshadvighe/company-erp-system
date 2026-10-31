@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { SalesService } from './sales.service';
@@ -184,6 +184,23 @@ export class SalesController {
     return this.salesService.recordPayment(id, dto, req.user?.id);
   }
 
+  @Put('invoices/:id')
+  @ApiOperation({ summary: 'Update commercial tax invoice' })
+  updateInvoice(
+    @Param('id') id: string,
+    @Body() dto: any,
+  ) {
+    return this.salesService.updateInvoice(id, dto);
+  }
+
+  @Delete('invoices/:id')
+  @ApiOperation({ summary: 'Delete commercial tax invoice' })
+  deleteInvoice(
+    @Param('id') id: string,
+  ) {
+    return this.salesService.deleteInvoice(id);
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // ACCOUNTS & RECEIVABLES
   // ─────────────────────────────────────────────────────────────────────────
@@ -193,5 +210,133 @@ export class SalesController {
   getAccountsSummary() {
     return this.salesService.getAccountsSummary();
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // BANK & CASH MANAGEMENT
+  // ─────────────────────────────────────────────────────────────────────────
+
+  @Get('bank-cash/accounts')
+  @ApiOperation({ summary: 'List all registered bank and cash accounts with live computed balances' })
+  getBankAccounts() {
+    return this.salesService.getBankAccounts();
+  }
+
+  @Post('bank-cash/accounts')
+  @ApiOperation({ summary: 'Add or update bank/cash account' })
+  saveBankAccount(@Body() dto: any) {
+    return this.salesService.saveBankAccount(dto);
+  }
+
+  @Delete('bank-cash/accounts/:id')
+  @ApiOperation({ summary: 'Delete bank/cash account' })
+  deleteBankAccount(@Param('id') id: string) {
+    return this.salesService.deleteBankAccount(id);
+  }
+
+  @Get('bank-cash/transactions')
+  @ApiOperation({ summary: 'List all bank & cash ledger transactions' })
+  getBankTransactions() {
+    return this.salesService.getBankTransactions();
+  }
+
+  @Post('bank-cash/transactions')
+  @ApiOperation({ summary: 'Record new bank or cash transaction' })
+  saveBankTransaction(@Body() dto: any) {
+    return this.salesService.saveBankTransaction(dto);
+  }
+
+  @Delete('bank-cash/transactions/:id')
+  @ApiOperation({ summary: 'Delete bank or cash transaction' })
+  deleteBankTransaction(@Param('id') id: string) {
+    return this.salesService.deleteBankTransaction(id);
+  }
+
+  @Get('bank-cash/summary')
+  @ApiOperation({ summary: 'Bank & Cash total balance and summary metrics' })
+  getBankCashSummary() {
+    return this.salesService.getBankCashSummary();
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // EXPENSES MANAGEMENT
+  // ─────────────────────────────────────────────────────────────────────────
+
+  @Get('expenses')
+  @ApiOperation({ summary: 'List all operational expenses' })
+  getExpenses(@Query() query: any) {
+    return this.salesService.getExpenses(query);
+  }
+
+  @Post('expenses')
+  @ApiOperation({ summary: 'Add or update operational expense entry' })
+  saveExpense(@Body() dto: any) {
+    return this.salesService.saveExpense(dto);
+  }
+
+  @Delete('expenses/:id')
+  @ApiOperation({ summary: 'Delete operational expense entry' })
+  deleteExpense(@Param('id') id: string) {
+    return this.salesService.deleteExpense(id);
+  }
+
+  @Get('expenses/summary')
+  @ApiOperation({ summary: 'Get total expenses, this month, top category and breakdown' })
+  getExpenseSummary() {
+    return this.salesService.getExpenseSummary();
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // OUTWARD DOCUMENTS (OTHER DOCUMENTS)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  @Get('outward')
+  @ApiOperation({ summary: 'List outward dispatch documents with line items' })
+  getOutwardDocuments(@Query() query: any) {
+    return this.salesService.getOutwardDocuments(query);
+  }
+
+  @Get('outward/next-number')
+  @ApiOperation({ summary: 'Generate next smart outward document sequence number' })
+  getNextOutwardNumber(
+    @Query('type') type?: string,
+    @Query('date') date?: string,
+  ) {
+    return this.salesService.generateNextOutwardNumber(type, date);
+  }
+
+  @Get('outward/catalog')
+  @ApiOperation({ summary: 'Get product/material catalog for outward document selection' })
+  getOutwardCatalog() {
+    return this.salesService.getOutwardCatalog();
+  }
+
+  @Get('outward/customers')
+  @ApiOperation({ summary: 'Get customers list for outward document selection' })
+  getOutwardCustomers() {
+    return this.salesService.getOutwardCustomers();
+  }
+
+  @Post('outward')
+  @ApiOperation({ summary: 'Create or update outward document entry and generate documents' })
+  saveOutwardDocument(@Body() dto: any) {
+    return this.salesService.saveOutwardDocument(dto);
+  }
+
+  @Delete('outward/:docNo')
+  @ApiOperation({ summary: 'Delete outward document entries by document number' })
+  deleteOutwardDocument(@Param('docNo') docNo: string) {
+    return this.salesService.deleteOutwardDocument(docNo);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // FINANCIAL REPORTS
+  // ─────────────────────────────────────────────────────────────────────────
+
+  @Get('financial-reports')
+  @ApiOperation({ summary: 'Get consolidated financial reports for Dashboard, P&L, Cash Flow, Balance Sheet, and Outstanding' })
+  getFinancialReports(@Query('period') period?: string) {
+    return this.salesService.getFinancialReports(period);
+  }
 }
+
 

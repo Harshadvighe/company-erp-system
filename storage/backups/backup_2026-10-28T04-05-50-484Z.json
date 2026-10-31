@@ -1,0 +1,15 @@
+{
+  "backupId": "BK-1793160352263",
+  "createdDate": "2026-10-28T04:05:52.263Z",
+  "initiatedBy": "SuperAdmin",
+  "databaseEngine": "PostgreSQL 16",
+  "totalRecords": 17,
+  "tableBreakdown": {
+    "users": 1,
+    "employees": 0,
+    "departments": 15,
+    "auditLogs": 1
+  },
+  "status": "VERIFIED_SNAPSHOT",
+  "sizeEstimatedKb": 2048
+}

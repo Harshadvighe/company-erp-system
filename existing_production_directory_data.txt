@@ -1,0 +1,128 @@
+====================================================================================================
+COMPANY MANAGEMENT SOFTWARE - EXISTING PRODUCTION DIRECTORY DATA
+Module: Production Management & Manufacturing Execution System (MES)
+Export Date: 2026-10-23
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+BATCH 1: BATCH-20260917_193942 (hmi)
+----------------------------------------------------------------------------------------------------
+
+1. SELECT PRODUCTION BATCH
+----------------------------------------------------------------------------------------------------
+Batch ID            : batch-20260917-193942
+Select Batch Label  : BATCH-20260917_193942 (hmi)
+Product Name        : hmi
+Product Model       : SE-HMI-7INCH
+Specifications      : 7-inch HMI Touchscreen, Modbus RS485, Wi-Fi IoT Gateway, 24V DC
+Start Date          : 2026-09-17 19:39:42
+Expected Completion : 2026-09-24
+Personnel Assigned  : sunny s. hapse - 9423813061;a
+Target Quantity     : 10 Units
+Batch Status        : IN_PROGRESS
+Total BOM Value     : Rs. 24,936.00
+
+
+2. MATERIAL LIST & PURCHASE ORDERS (BOM)
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+[ PO ] | Sr. No. | Category       | Part Name                   | Value          | Package  | Toleranc | Quantity | PO QTY | RATE (Rs) | Total Price (Rs) | MAKE
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+[X]    | 1       | Semiconductors | Microcontroller STM32F4     | 168MHz, 512KB  | LQFP-100 | -        | 10       | 10     | 450.00    | 4,500.00         | STMicroelectronics
+[X]    | 2       | Displays       | 7" TFT LCD Touch Display    | 800x480 RGB    | Module   | -        | 10       | 10     | 1,850.00  | 18,500.00        | Nextion
+[X]    | 3       | Power          | Buck Regulator IC           | 24V to 5V 3A   | SOIC-8   | 2%       | 10       | 10     | 65.00     | 650.00           | TI
+[X]    | 4       | Communication  | RS485 Transceiver IC        | Half-Duplex    | SOIC-8   | -        | 20       | 20     | 38.00     | 760.00           | Maxim
+[X]    | 5       | Passive        | SMD Ceramic Capacitor       | 10uF 50V X7R   | 1206     | 10%      | 100      | 100    | 3.50      | 350.00           | Murata
+[X]    | 6       | Passive        | Precision Resistor Network  | 10k 0.1%       | 0805     | 0.1%     | 80       | 80     | 2.20      | 176.00           | Yageo
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+RAW CSV FORMAT (SECTION 2 - BOM):
+PO_Selected,Sr_No,Category,Part_Name,Value,Package,Tolerance,Quantity,PO_QTY,RATE,Total_Price,MAKE
+true,1,Semiconductors,Microcontroller STM32F4,168MHz 512KB,LQFP-100,-,10,10,450,4500,STMicroelectronics
+true,2,Displays,7" TFT LCD Touch Display,800x480 RGB,Module,-,10,10,1850,18500,Nextion
+true,3,Power,Buck Regulator IC,24V to 5V 3A,SOIC-8,2%,10,10,65,650,TI
+true,4,Communication,RS485 Transceiver IC,Half-Duplex 3.3V,SOIC-8,-,20,20,38,760,Maxim
+true,5,Passive,SMD Ceramic Capacitor,10uF 50V X7R,1206,10%,100,100,3.5,350,Murata
+true,6,Passive,Precision Resistor Network,10k 0.1%,0805,0.1%,80,80,2.2,176,Yageo
+
+
+3. DELIVER TO PCB MOUNTING
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Dispatch Status   : Bare PCB Lot & Reel Kit Ready for SMT Dispatch
+Target SMT Line   : SMT Line #1 (Alpha Circuits Pvt Ltd)
+Challan Ref       : DC-20260918-001
+
+[ Sel ] | Sr. No. | Category       | Part Name                   | Value          | Package  | Tolerance | Quantity | PO QTY | MAKE
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+[X]     | 1       | Semiconductors | Microcontroller STM32F4     | 168MHz, 512KB  | LQFP-100 | -         | 10       | 10     | STMicroelectronics
+[X]     | 2       | Displays       | 7" TFT LCD Touch Display    | 800x480 RGB    | Module   | -         | 10       | 10     | Nextion
+[X]     | 3       | Power          | Buck Regulator IC           | 24V to 5V 3A   | SOIC-8   | 2%        | 10       | 10     | TI
+[X]     | 4       | Communication  | RS485 Transceiver IC        | Half-Duplex    | SOIC-8   | -         | 20       | 20     | Maxim
+[X]     | 5       | Passive        | SMD Ceramic Capacitor       | 10uF 50V X7R   | 1206     | 10%       | 100      | 100    | Murata
+[X]     | 6       | Passive        | Precision Resistor Network  | 10k 0.1%       | 0805     | 0.1%      | 80       | 80     | Yageo
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+4. RECEIVE FROM PCB MOUNTING
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Inward Status     : 10 Units Assembled (SMD QC & Solder Verified)
+Inward Lot ID     : PCB-REC-20260922-01
+SMD AOI Status    : Cleared - 0 Defects
+
+[ Sel ] | Sr. No. | Category       | Part Name                   | Value          | Package  | Tolerance | Quantity | Received QTY | MAKE
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+[X]     | 1       | Semiconductors | Microcontroller STM32F4     | 168MHz, 512KB  | LQFP-100 | -         | 10       | 10           | STMicroelectronics
+[X]     | 2       | Displays       | 7" TFT LCD Touch Display    | 800x480 RGB    | Module   | -         | 10       | 10           | Nextion
+[X]     | 3       | Power          | Buck Regulator IC           | 24V to 5V 3A   | SOIC-8   | 2%        | 10       | 10           | TI
+[X]     | 4       | Communication  | RS485 Transceiver IC        | Half-Duplex    | SOIC-8   | -         | 20       | 20           | Maxim
+[X]     | 5       | Passive        | SMD Ceramic Capacitor       | 10uF 50V X7R   | 1206     | 10%       | 100      | 100          | Murata
+[X]     | 6       | Passive        | Precision Resistor Network  | 10k 0.1%       | 0805     | 0.1%      | 80       | 80           | Yageo
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+5. PRODUCT TESTING & VISUAL INSPECTION
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Firmware Flashing   : v2.4.1-prod (Flashed via ST-Link v3)
+Visual Inspection   : 10/10 Passed (No solder bridges, tombstoning, or misalignments)
+Touch Calibration   : 10/10 Passed (5-point capacitive matrix)
+RS485 Communication : Passed (Modbus RTU response OK)
+Wi-Fi Gateway Ping  : Passed (<12ms latency to MQTT Broker)
+QC Certification    : QC PASSED (Ready for Final Enclosure Assembly & Dispatch)
+QC Inspector        : Sunny S. Hapse
+
+
+
+====================================================================================================
+BATCH 2: BATCH-20261023_100059 (Smart Industrial Control Panel VFD)
+================================================================--------------------------------====
+
+1. SELECT PRODUCTION BATCH
+----------------------------------------------------------------------------------------------------
+Batch ID            : batch-20261023-100059
+Select Batch Label  : BATCH-20261023_100059 (Smart Industrial Control Panel (VFD))
+Product Name        : Smart Industrial Control Panel (VFD)
+Product Model       : SE-VFD-415V-15HP
+Specifications      : Triplex VFD Automation, IP55 Enclosure, Modbus RS485 & Wi-Fi IoT Gateway
+Start Date          : 2026-10-23 10:00:59
+Expected Completion : 2026-10-30
+Personnel Assigned  : Rahul Verma; Sunil Pawar
+Target Quantity     : 10 Units
+Batch Status        : READY_BOM
+Unit BOM Value      : Rs. 47,600.00
+Batch Total BOM     : Rs. 4,76,000.00
+
+
+2. MATERIAL LIST & PURCHASE ORDERS (BOM)
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+[ PO ] | Sr. No. | Category   | Part Name                 | Value         | Package     | Toleranc | Quantity | PO QTY | RATE (Rs) | Total Price (Rs) | MAKE
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+[X]    | 1       | Switchgear | Incomer MCB 4P 63A        | 10kA C-Curve  | DIN Rail    | -        | 1        | 1      | 2,400.00  | 2,400.00         | Schneider
+[X]    | 2       | Drives     | VFD Inverter 15HP 415V    | 11kW 3-Phase  | Panel Mount | -        | 1        | 1      | 42,000.00 | 42,000.00        | Danfoss
+[X]    | 3       | Automation | Modbus RS485 IoT Gateway  | Wi-Fi + MQTT  | DIN Rail    | -        | 1        | 1      | 3,200.00  | 3,200.00         | Saark IoT
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+RAW CSV FORMAT (SECTION 2 - BOM):
+PO_Selected,Sr_No,Category,Part_Name,Value,Package,Tolerance,Quantity,PO_QTY,RATE,Total_Price,MAKE
+true,1,Switchgear,Incomer MCB 4P 63A,10kA C-Curve,DIN Rail,-,1,1,2400,2400,Schneider
+true,2,Drives,VFD Inverter 15HP 415V,11kW 3-Phase,Panel Mount,-,1,1,42000,42000,Danfoss
+true,3,Automation,Modbus RS485 IoT Gateway,Wi-Fi + MQTT,DIN Rail,-,1,1,3200,3200,Saark IoT
+====================================================================================================
