@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // -------------------------------------------------------------
@@ -1692,6 +1693,35 @@ model AuditLog {
   @@index([timestamp])
 }
 
+model UserSession {
+  id              String    @id @default(uuid())
+  userId          String
+  username        String
+  fullName        String
+  email           String
+  department      String?
+  role            String?
+  ipAddress       String?
+  clientType      String?
+  loginTime       DateTime  @default(now())
+  logoutTime      DateTime?
+  lastHeartbeat   DateTime  @default(now())
+  durationSeconds Int?
+  status          String    @default("ACTIVE") // ACTIVE, LOGGED_OUT, REVOKED, EXPIRED
+  loginMethod     String    @default("CREDENTIALS_AND_BIOMETRIC_2FA")
+  faceVerified    Boolean   @default(false)
+  logoutReason    String?   // USER_LOGOUT, ADMIN_REVOKED, TIMEOUT, SYSTEM
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_sessions")
+  @@index([userId])
+  @@index([status])
+  @@index([loginTime])
+}
+
 // -------------------------------------------------------------
 // 9. STAFF, PROJECTS & TASK MANAGEMENT
 // -------------------------------------------------------------
@@ -2010,16 +2040,87 @@ model Attendance {
   checkInNote      String?
   checkOutNote     String?
   location         String?   @default("MIDC Industrial Unit")
+  deviceId         String?   // Biometric device that captured this punch
+  devicePunchId    String?   // Original punch ID from biometric device
+  source           String    @default("MANUAL") // MANUAL, DEVICE, API, KIOSK
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  employee         Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee         Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  device           BiometricDevice? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
 
   @@unique([employeeId, punchDate])
   @@map("attendances")
   @@index([employeeId])
   @@index([punchDate])
   @@index([status])
+  @@index([deviceId])
+  @@index([source])
+}
+
+// -------------------------------------------------------------
+// 9. BIOMETRIC PUNCHING DEVICE INTEGRATION
+// -------------------------------------------------------------
+model BiometricDevice {
+  id                    String   @id @default(uuid())
+  deviceCode            String   @unique // TM-2026-0001
+  deviceName            String   // Main Gate, Plant Entry, Assembly Bay
+  deviceType            String   @default("FINGERPRINT_FACE") // FINGERPRINT, FACE, RFID, FINGERPRINT_FACE, CARD
+  manufacturer          String   @default("TeamOffice") // TeamOffice, ZKTeco, Suprema, etc.
+  model                 String?  // TM-700, UFace, etc.
+  serialNumber          String?
+  ipAddress             String?  // 192.168.1.100
+  port                  Int      @default(4370) // Default ZK TCP port
+  connectionType        String   @default("TCP_IP") // TCP_IP, HTTP, USB, SERIAL, CLOUD
+  apiEndpoint           String?  // HTTP API base URL if connectionType=HTTP
+  apiKey                String?  // API key for HTTP/Cloud devices
+  apiSecret             String?  // API secret for HTTP/Cloud devices
+  communicationKey      String?  // Device communication key (ZKLib etc.)
+  isActive              Boolean  @default(true)
+  lastSyncAt            DateTime?
+  lastSyncStatus        String?  // SUCCESS, FAILED, PARTIAL, PENDING
+  lastSyncRecordCount   Int      @default(0)
+  lastSyncError         String?
+  syncIntervalMinutes   Int      @default(15) // Auto-sync interval
+  autoSyncEnabled       Boolean  @default(true)
+  timezone              String   @default("Asia/Kolkata")
+  location              String?  // Plant location description
+  notes                 String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  syncLogs              DeviceSyncLog[]
+  attendances           Attendance[]
+
+  @@map("biometric_devices")
+  @@index([ipAddress])
+  @@index([isActive])
+  @@index([connectionType])
+}
+
+model DeviceSyncLog {
+  id             String   @id @default(uuid())
+  deviceId       String
+  deviceCode     String   // Denormalized for quick lookup
+  syncType       String   // MANUAL, AUTO, WEBHOOK
+  syncStatus     String   // SUCCESS, FAILED, PARTIAL
+  recordsFetched Int      @default(0)
+  recordsInserted Int     @default(0)
+  recordsSkipped Int      @default(0)
+  recordsUpdated Int      @default(0)
+  errorMessage   String?
+  errorDetails   String?  // JSON stack trace or error details
+  startedAt      DateTime @default(now())
+  completedAt    DateTime?
+  durationMs     Int?
+  createdAt      DateTime @default(now())
+
+  device         BiometricDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@map("device_sync_logs")
+  @@index([deviceId])
+  @@index([syncStatus])
+  @@index([startedAt])
 }
 
 model WorkstationAllocation {

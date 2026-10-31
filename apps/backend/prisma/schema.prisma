@@ -2046,7 +2046,8 @@ model Attendance {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  employee         Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee         Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  device           BiometricDevice? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
 
   @@unique([employeeId, punchDate])
   @@map("attendances")
