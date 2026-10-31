@@ -4,7 +4,7 @@ services:
     env: node
     plan: free
     rootDir: apps/backend
-    buildCommand: npm install && npm run build:render
+    buildCommand: npm install --legacy-peer-deps && npm run build:render
     startCommand: npm run start:prod
     autoDeploy: true
     healthCheckPath: /api/docs
