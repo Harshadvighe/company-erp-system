@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, OnModuleInit, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
 import { PrismaService } from '../../core/database/prisma.service';
@@ -6,10 +6,19 @@ import { CreateB2bProductDto, UpdateB2bProductDto, CalculateB2bFinancialsDto } f
 
 @Injectable()
 export class B2bTradingService implements OnModuleInit {
+  private readonly logger = new Logger(B2bTradingService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async onModuleInit() {
-    await this.seedDefaultsIfEmpty();
+    // Non-blocking deferred seed so bootstrap never fails or blocks on connection pool
+    setTimeout(async () => {
+      try {
+        await this.seedDefaultsIfEmpty();
+      } catch (err: any) {
+        this.logger.warn(`B2bTrading default seed skipped/deferred: ${err?.message || err}`);
+      }
+    }, 4000);
   }
 
   // ─── FINANCIALS & MARGIN CALCULATIONS ───────────────────────

@@ -7,9 +7,17 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
   constructor() {
     let dbUrl = process.env.DATABASE_URL || '';
-    if (dbUrl && !dbUrl.includes('connection_limit=')) {
-      const sep = dbUrl.includes('?') ? '&' : '?';
-      dbUrl = `${dbUrl}${sep}connection_limit=3`;
+    if (dbUrl) {
+      if (/connection_limit=\d+/.test(dbUrl)) {
+        dbUrl = dbUrl.replace(/connection_limit=\d+/, 'connection_limit=3');
+      } else {
+        const sep = dbUrl.includes('?') ? '&' : '?';
+        dbUrl = `${dbUrl}${sep}connection_limit=3`;
+      }
+
+      if (dbUrl.includes(':6543') && !dbUrl.includes('pgbouncer=true')) {
+        dbUrl = `${dbUrl}&pgbouncer=true`;
+      }
     }
 
     super(dbUrl ? {
@@ -22,12 +30,14 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   async onModuleInit() {
-    try {
-      await this.$connect();
-      this.logger.log('✅ Connected to database successfully');
-    } catch (err: any) {
-      this.logger.warn(`⚠️ Database connection pool notice: ${err.message}. Queries will retry automatically.`);
-    }
+    // Connect asynchronously in background to ensure instant server port binding
+    this.$connect()
+      .then(() => {
+        this.logger.log('✅ Connected to database successfully');
+      })
+      .catch((err: any) => {
+        this.logger.warn(`⚠️ Database connection notice: ${err?.message || err}. Queries will retry automatically.`);
+      });
   }
 
   async onModuleDestroy() {

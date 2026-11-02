@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException, OnModuleInit } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, OnModuleInit, Logger } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
 import { AuditService } from '../../core/audit/audit.service';
 import {
@@ -9,13 +9,22 @@ import {
 
 @Injectable()
 export class ProductsService implements OnModuleInit {
+  private readonly logger = new Logger(ProductsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
   ) {}
 
   async onModuleInit() {
-    await this.seedDefaultSectors();
+    // Non-blocking deferred seed so bootstrap never fails or blocks on connection pool
+    setTimeout(async () => {
+      try {
+        await this.seedDefaultSectors();
+      } catch (err: any) {
+        this.logger.warn(`Products default sectors seed skipped/deferred: ${err?.message || err}`);
+      }
+    }, 5000);
   }
 
   // ─── SAARK PRODUCT SECTOR & SPECS (38 FIELDS) ──────────────────────────────
