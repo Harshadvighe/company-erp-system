@@ -577,6 +577,25 @@ export class HrService {
       );
     }
 
+    // Resolve departmentId to ensure it is a valid UUID that exists in DB
+    let validDepartmentId: string | null = null;
+    if (dto.departmentId && dto.departmentId.trim().length > 0) {
+      try {
+        const dept = await this.prisma.department.findFirst({
+          where: {
+            OR: [
+              { id: dto.departmentId.trim() },
+              { code: dto.departmentId.trim() },
+              { name: { equals: dto.departmentId.trim(), mode: 'insensitive' } },
+            ],
+          },
+        });
+        validDepartmentId = dept?.id || null;
+      } catch (_) {
+        validDepartmentId = null;
+      }
+    }
+
     // Optional: Create linked User Account concurrently
     let linkedUserId: string | null = null;
     const shouldCreateUser = dto.createUserAccount || Boolean(dto.username && dto.password);
@@ -597,7 +616,7 @@ export class HrService {
           fullName: [dto.firstName.trim(), dto.middleName?.trim(), dto.lastName.trim()].filter(Boolean).join(' '),
           phone: dto.phone,
           designation: dto.designation,
-          departmentId: dto.departmentId,
+          departmentId: validDepartmentId,
           passwordHash,
           status: 'ACTIVE',
           faceVerificationEnabled: hasBiometric ? (dto.enableFaceAuth ?? true) : false,
@@ -640,7 +659,7 @@ export class HrService {
         email: normalizedEmail,
         phone: dto.phone,
         designation: dto.designation,
-        departmentId: dto.departmentId,
+        departmentId: validDepartmentId,
         status: dto.status || 'PENDING_APPROVAL',
         employmentType: dto.employmentType || 'FULL_TIME',
         workerCategory: dto.workerCategory || 'SHOPFLOOR_TECH',
@@ -945,6 +964,29 @@ export class HrService {
       }
     }
 
+    // Resolve valid departmentId if supplied
+    let validDepartmentId: string | null | undefined = undefined;
+    if (dto.departmentId !== undefined) {
+      if (dto.departmentId && dto.departmentId.trim().length > 0) {
+        try {
+          const dept = await this.prisma.department.findFirst({
+            where: {
+              OR: [
+                { id: dto.departmentId.trim() },
+                { code: dto.departmentId.trim() },
+                { name: { equals: dto.departmentId.trim(), mode: 'insensitive' } },
+              ],
+            },
+          });
+          validDepartmentId = dept?.id || null;
+        } catch (_) {
+          validDepartmentId = null;
+        }
+      } else {
+        validDepartmentId = null;
+      }
+    }
+
     // ─── SYNC USER ACCOUNT CREDENTIALS (USERNAME / PASSWORD / ROLE) ─────────────
     let updatedUserId = existing.userId;
     let credentialsChanged = false;
@@ -986,7 +1028,7 @@ export class HrService {
 
       if (dto.phone) userUpdates.phone = dto.phone;
       if (dto.designation) userUpdates.designation = dto.designation;
-      if (dto.departmentId) userUpdates.departmentId = dto.departmentId;
+      if (validDepartmentId !== undefined) userUpdates.departmentId = validDepartmentId;
 
       if (Object.keys(userUpdates).length > 0) {
         await this.prisma.user.update({
@@ -1040,7 +1082,7 @@ export class HrService {
           fullName: `${dto.firstName ?? existing.firstName} ${dto.lastName ?? existing.lastName}`.trim(),
           phone: dto.phone ?? existing.phone,
           designation: dto.designation ?? existing.designation,
-          departmentId: dto.departmentId ?? existing.departmentId,
+          departmentId: validDepartmentId !== undefined ? validDepartmentId : existing.departmentId,
           passwordHash,
           status: 'ACTIVE',
           faceVerificationEnabled: Boolean(existing.faceBiometric?.isActive),
@@ -1095,7 +1137,7 @@ export class HrService {
         ...(dto.email !== undefined && { email: dto.email.trim() }),
         ...(dto.phone !== undefined && { phone: dto.phone }),
         ...(dto.designation !== undefined && { designation: dto.designation }),
-        ...(dto.departmentId !== undefined && { departmentId: dto.departmentId }),
+        ...(validDepartmentId !== undefined && { departmentId: validDepartmentId }),
         ...(dto.status !== undefined && { status: dto.status }),
         ...(dto.employmentType !== undefined && { employmentType: dto.employmentType }),
         ...(dto.workerCategory !== undefined && { workerCategory: dto.workerCategory }),

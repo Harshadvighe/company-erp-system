@@ -847,7 +847,7 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
         'email': workEmail,
         'phone': phone.isNotEmpty ? phone : '+91 98200 00000',
         'designation': designation.isNotEmpty ? designation : 'Staff Member',
-        'departmentId': _selectedDepartmentId,
+        'departmentId': (_selectedDepartmentId != null && _selectedDepartmentId!.trim().isNotEmpty) ? _selectedDepartmentId!.trim() : null,
         'status': isNew ? 'PENDING_APPROVAL' : (existingStatus.isNotEmpty ? existingStatus : 'ACTIVE'),
         'bloodGroup': _selectedBloodGroup.isNotEmpty ? _selectedBloodGroup : null,
         'emergencyPhone': _emergencyContactController.text.trim(),
