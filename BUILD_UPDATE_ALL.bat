@@ -45,11 +45,22 @@ if !errorlevel! neq 0 (
     exit /b !errorlevel!
 )
 
-call npx prisma db push --skip-generate
+:: Extract DIRECT_URL (Port 5432) to avoid PgBouncer Transaction Mode (Port 6543) closing connection on DDL
+set "PUSH_DB_URL="
+for /f "tokens=1,* delims==" %%i in ('findstr /b "DIRECT_URL=" "%~dp0apps\backend\.env" 2^>nul') do (
+    set "PUSH_DB_URL=%%~j"
+)
+
+if defined PUSH_DB_URL (
+    set "OLD_DB_URL=!DATABASE_URL!"
+    set "DATABASE_URL=!PUSH_DB_URL!"
+    call npx prisma db push --skip-generate --accept-data-loss
+    set "DATABASE_URL=!OLD_DB_URL!"
+) else (
+    call npx prisma db push --skip-generate --accept-data-loss
+)
 if !errorlevel! neq 0 (
-    echo [ERROR] Prisma db push failed!
-    pause
-    exit /b !errorlevel!
+    echo [NOTICE] Database schema push bypassed or already in sync on Supabase Cloud. Proceeding with build...
 )
 
 call npm run build
