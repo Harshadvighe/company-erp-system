@@ -558,8 +558,8 @@ export class HrService {
       liveStoragePath = savedLive.relativePath;
     }
 
-    // AUTO-VERIFICATION AT PROFILE CREATION:
-    // If BOTH Live Photo and Passport Photo are supplied, verify that they belong to the same person!
+    // VERIFICATION AT PROFILE CREATION:
+    // If BOTH Live Photo and Passport Photo are supplied, compare and log similarity for audit trail
     if (liveBiometricDescriptor && passportDescriptor) {
       const settings = await this.faceRecognitionService.getFaceAuthSettings();
       const match = this.faceRecognitionService.compareFaces(
@@ -567,13 +567,8 @@ export class HrService {
         passportDescriptor,
         settings.matchThreshold || 0.55,
       );
-      if (!match.isMatch) {
-        throw new BadRequestException(
-          `Face Verification Failed: Captured live face does not match the uploaded passport photo (Distance: ${match.distance}, Threshold: ${match.threshold}). Please ensure both photos belong to the same employee.`,
-        );
-      }
       this.logger.log(
-        `Auto-verified employee face at profile creation: Live Photo matches Passport Photo (Distance: ${match.distance}, Similarity: ${match.similarity})`,
+        `Employee face biometric comparison: Live Photo vs Passport Photo (Distance: ${match.distance}, Similarity: ${match.similarity}, Match: ${match.isMatch})`,
       );
     }
 
@@ -765,7 +760,7 @@ export class HrService {
       });
     }
 
-    // AUTO-VERIFICATION ON ENROLLMENT:
+    // VERIFICATION ON ENROLLMENT:
     if (liveBiometricDescriptor && passportDescriptor) {
       const settings = await this.faceRecognitionService.getFaceAuthSettings();
       const match = this.faceRecognitionService.compareFaces(
@@ -773,11 +768,9 @@ export class HrService {
         passportDescriptor,
         settings.matchThreshold || 0.55,
       );
-      if (!match.isMatch) {
-        throw new BadRequestException(
-          `Face Verification Failed: Captured live face does not match the uploaded passport photo (Distance: ${match.distance}, Threshold: ${match.threshold}). Please ensure both photos belong to the same employee.`,
-        );
-      }
+      this.logger.log(
+        `Employee face biometric enrollment: Live Photo vs Passport Photo (Distance: ${match.distance}, Similarity: ${match.similarity}, Match: ${match.isMatch})`,
+      );
     }
 
     const encrypted = this.faceRecognitionService.encryptEmbedding(liveBiometricDescriptor);
