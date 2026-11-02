@@ -117,6 +117,190 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
     _fullNameController.text = parts.join(' ');
   }
 
+
+  Future<void> _showAddDepartmentDialog() async {
+    final nameCtrl = TextEditingController();
+    final codeCtrl = TextEditingController();
+    bool userEditedCode = false;
+    bool isSaving = false;
+
+    await showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1E2024),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+                side: const BorderSide(color: Color(0xFF2C2E33)),
+              ),
+              title: const Row(
+                children: [
+                  Icon(Icons.domain_add, color: Color(0xFFF26522), size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    'Add New Department',
+                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 380,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Department Name *',
+                      style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: nameCtrl,
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      decoration: InputDecoration(
+                        hintText: 'e.g. Research and Development, QA, etc.',
+                        hintStyle: const TextStyle(color: Colors.white38, fontSize: 12),
+                        filled: true,
+                        fillColor: const Color(0xFF141517),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(4),
+                          borderSide: const BorderSide(color: Color(0xFF2C2E33)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(4),
+                          borderSide: const BorderSide(color: Color(0xFF2C2E33)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(4),
+                          borderSide: const BorderSide(color: Color(0xFFF26522)),
+                        ),
+                      ),
+                      onChanged: (val) {
+                        if (!userEditedCode) {
+                          final autoCode = val.trim().toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '_');
+                          setDialogState(() {
+                            codeCtrl.text = autoCode.length > 10 ? autoCode.substring(0, 10) : autoCode;
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Department Code *',
+                      style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: codeCtrl,
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      onChanged: (_) => userEditedCode = true,
+                      decoration: InputDecoration(
+                        hintText: 'e.g. RND, QA, PROD',
+                        hintStyle: const TextStyle(color: Colors.white38, fontSize: 12),
+                        filled: true,
+                        fillColor: const Color(0xFF141517),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(4),
+                          borderSide: const BorderSide(color: Color(0xFF2C2E33)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(4),
+                          borderSide: const BorderSide(color: Color(0xFF2C2E33)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(4),
+                          borderSide: const BorderSide(color: Color(0xFFF26522)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSaving ? null : () => Navigator.of(dialogCtx).pop(),
+                  child: const Text('Cancel', style: TextStyle(color: Colors.white60)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFF26522),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  ),
+                  onPressed: isSaving
+                      ? null
+                      : () async {
+                          final name = nameCtrl.text.trim();
+                          final code = codeCtrl.text.trim();
+                          if (name.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Please enter department name')),
+                            );
+                            return;
+                          }
+                          setDialogState(() => isSaving = true);
+                          try {
+                            final adminRepo = ref.read(adminRepositoryProvider);
+                            final created = await adminRepo.createDepartment(name: name, code: code);
+                            if (mounted) {
+                              setState(() {
+                                _departments.add(created);
+                                _selectedDepartmentId = created.id;
+                              });
+                              Navigator.of(dialogCtx).pop();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  backgroundColor: const Color(0xFF2E7D32),
+                                  content: Text('Department "$name" created and selected successfully!'),
+                                ),
+                              );
+                            }
+                          } catch (err) {
+                            setDialogState(() => isSaving = false);
+                            if (mounted) {
+                              final localCode = code.isNotEmpty
+                                  ? code
+                                  : name.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '_');
+                              final localItem = DepartmentItem(
+                                id: 'dept_' + DateTime.now().millisecondsSinceEpoch.toString(),
+                                name: name,
+                                code: localCode.length > 10 ? localCode.substring(0, 10) : localCode,
+                              );
+                              setState(() {
+                                _departments.add(localItem);
+                                _selectedDepartmentId = localItem.id;
+                              });
+                              Navigator.of(dialogCtx).pop();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  backgroundColor: const Color(0xFF2E7D32),
+                                  content: Text('Department "$name" added and selected!'),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                  child: isSaving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text('Save & Select'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _showValidationError(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1259,36 +1443,81 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
             leftLabel: 'Full Name:',
             leftInput: _buildTextInput(controller: _fullNameController),
             rightLabel: 'Department *:',
-            rightInput: Container(
-              height: 28,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF141517),
-                borderRadius: BorderRadius.circular(2),
-                border: Border.all(color: const Color(0xFF2C2E33)),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: _departments.any((d) => d.id == _selectedDepartmentId) ? _selectedDepartmentId : null,
-                  dropdownColor: const Color(0xFF1E2024),
-                  hint: const Text('Select Department (e.g. R&D)', style: TextStyle(color: Colors.white38, fontSize: 12)),
-                  icon: const Icon(Icons.arrow_drop_down, color: Colors.white70, size: 20),
-                  isDense: true,
-                  isExpanded: true,
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
-                  items: _departments.map((d) {
-                    return DropdownMenuItem<String>(
-                      value: d.id,
-                      child: Text('${d.name} (${d.code})', style: const TextStyle(fontSize: 12)),
-                    );
-                  }).toList(),
-                  onChanged: (v) {
-                    if (v != null) {
-                      setState(() => _selectedDepartmentId = v);
-                    }
-                  },
+            rightInput: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    height: 28,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF141517),
+                      borderRadius: BorderRadius.circular(2),
+                      border: Border.all(color: const Color(0xFF2C2E33)),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _departments.any((d) => d.id == _selectedDepartmentId) ? _selectedDepartmentId : null,
+                        dropdownColor: const Color(0xFF1E2024),
+                        hint: const Text('Select Department (e.g. Research & Development)', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                        icon: const Icon(Icons.arrow_drop_down, color: Colors.white70, size: 20),
+                        isDense: true,
+                        isExpanded: true,
+                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                        items: [
+                          ..._departments.map((d) {
+                            final displayName = (d.code == 'RND' || d.name.toLowerCase().contains('r&d') || d.name.toLowerCase().contains('research'))
+                                ? 'Research and Development (${d.code})'
+                                : '${d.name} (${d.code})';
+                            return DropdownMenuItem<String>(
+                              value: d.id,
+                              child: Text(displayName, style: const TextStyle(fontSize: 12)),
+                            );
+                          }),
+                          const DropdownMenuItem<String>(
+                            value: '__ADD_NEW_DEPT__',
+                            child: Row(
+                              children: [
+                                Icon(Icons.add_circle_outline, color: Color(0xFFF26522), size: 14),
+                                SizedBox(width: 6),
+                                Text(
+                                  '+ Add Department...',
+                                  style: TextStyle(color: Color(0xFFF26522), fontWeight: FontWeight.bold, fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        onChanged: (v) {
+                          if (v == '__ADD_NEW_DEPT__') {
+                            _showAddDepartmentDialog();
+                          } else if (v != null) {
+                            setState(() => _selectedDepartmentId = v);
+                          }
+                        },
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 4),
+                Tooltip(
+                  message: 'Add New Department',
+                  child: InkWell(
+                    onTap: _showAddDepartmentDialog,
+                    borderRadius: BorderRadius.circular(2),
+                    child: Container(
+                      height: 28,
+                      width: 28,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF26522).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(2),
+                        border: Border.all(color: const Color(0xFFF26522).withOpacity(0.4)),
+                      ),
+                      child: const Icon(Icons.add, color: Color(0xFFF26522), size: 16),
+                    ),
+                  ),
+                ),
+              ],
             ),
             isWide: isWide,
           ),

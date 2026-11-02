@@ -85,124 +85,151 @@ export class CrmService {
 
   // ─── DASHBOARD STATS ──────────────────────────────────────────────────────
   async getDashboardStats(user?: any) {
-    const scope = this.buildScopeFilter(user);
+    try {
+      const scope = this.buildScopeFilter(user);
 
-    const [
-      totalLeads,
-      newLeads,
-      qualifiedLeads,
-      wonLeads,
-      lostLeads,
-      openEnquiries,
-      opportunities,
-      pendingFollowUps,
-      overdueFollowUps,
-      meetingsToday,
-      totalCustomers,
-      activeCustomers,
-      recentMeetings,
-      recentFollowUps,
-    ] = await Promise.all([
-      this.prisma.lead.count({ where: scope }),
-      this.prisma.lead.count({ where: { ...scope, status: 'NEW' } }),
-      this.prisma.lead.count({ where: { ...scope, status: 'QUALIFIED' } }),
-      this.prisma.lead.count({ where: { ...scope, status: 'WON' } }),
-      this.prisma.lead.count({ where: { ...scope, status: 'LOST' } }),
-      this.prisma.enquiry.count({ where: { status: 'PENDING' } }),
-      this.prisma.opportunity.findMany({
-        where: scope,
-        select: { stage: true, estimatedValue: true, weightedValue: true },
-      }),
-      this.prisma.crmFollowUp.count({
-        where: {
-          ...this.buildScopeFilter(user, 'assignedStaffId'),
-          status: 'PENDING',
-          scheduledDate: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
-        },
-      }),
-      this.prisma.crmFollowUp.count({
-        where: {
-          ...this.buildScopeFilter(user, 'assignedStaffId'),
-          status: 'PENDING',
-          scheduledDate: { lt: new Date() },
-        },
-      }),
-      this.prisma.crmMeeting.count({
-        where: {
-          startTime: {
-            gte: new Date(new Date().setHours(0, 0, 0, 0)),
-            lte: new Date(new Date().setHours(23, 59, 59, 999)),
+      const [
+        totalLeads,
+        newLeads,
+        qualifiedLeads,
+        wonLeads,
+        lostLeads,
+        openEnquiries,
+        opportunities,
+        pendingFollowUps,
+        overdueFollowUps,
+        meetingsToday,
+        totalCustomers,
+        activeCustomers,
+        recentMeetings,
+        recentFollowUps,
+      ] = await Promise.all([
+        this.prisma.lead.count({ where: scope }).catch(() => 0),
+        this.prisma.lead.count({ where: { ...scope, status: 'NEW' } }).catch(() => 0),
+        this.prisma.lead.count({ where: { ...scope, status: 'QUALIFIED' } }).catch(() => 0),
+        this.prisma.lead.count({ where: { ...scope, status: 'WON' } }).catch(() => 0),
+        this.prisma.lead.count({ where: { ...scope, status: 'LOST' } }).catch(() => 0),
+        this.prisma.enquiry.count({ where: { status: 'PENDING' } }).catch(() => 0),
+        this.prisma.opportunity.findMany({
+          where: scope,
+          select: { stage: true, estimatedValue: true, weightedValue: true },
+        }).catch(() => []),
+        this.prisma.crmFollowUp.count({
+          where: {
+            ...this.buildScopeFilter(user, 'assignedStaffId'),
+            status: 'PENDING',
+            scheduledDate: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
           },
-        },
-      }),
-      this.prisma.customer.count(),
-      this.prisma.customer.count({ where: { status: 'ACTIVE' } }),
-      this.prisma.crmMeeting.findMany({
-        take: 8,
-        orderBy: { startTime: 'desc' },
-        include: {
-          activity: {
-            include: {
-              customer: { select: { id: true, companyName: true } },
-              lead: { select: { id: true, companyName: true } },
+        }).catch(() => 0),
+        this.prisma.crmFollowUp.count({
+          where: {
+            ...this.buildScopeFilter(user, 'assignedStaffId'),
+            status: 'PENDING',
+            scheduledDate: { lt: new Date() },
+          },
+        }).catch(() => 0),
+        this.prisma.crmMeeting.count({
+          where: {
+            startTime: {
+              gte: new Date(new Date().setHours(0, 0, 0, 0)),
+              lte: new Date(new Date().setHours(23, 59, 59, 999)),
             },
           },
-        },
-      }),
-      this.prisma.crmFollowUp.findMany({
-        where: {
-          ...this.buildScopeFilter(user, 'assignedStaffId'),
-          status: 'PENDING',
-        },
-        take: 8,
-        orderBy: { scheduledDate: 'asc' },
-        include: {
-          customer: { select: { id: true, companyName: true, phone: true } },
-          opportunity: { select: { id: true, title: true } },
-          assignedStaff: { select: { fullName: true } },
-        },
-      }),
-    ]);
+        }).catch(() => 0),
+        this.prisma.customer.count().catch(() => 0),
+        this.prisma.customer.count({ where: { status: 'ACTIVE' } }).catch(() => 0),
+        this.prisma.crmMeeting.findMany({
+          take: 8,
+          orderBy: { startTime: 'desc' },
+          include: {
+            activity: {
+              include: {
+                customer: { select: { id: true, companyName: true } },
+                lead: { select: { id: true, companyName: true } },
+              },
+            },
+          },
+        }).catch(() => []),
+        this.prisma.crmFollowUp.findMany({
+          where: {
+            ...this.buildScopeFilter(user, 'assignedStaffId'),
+            status: 'PENDING',
+          },
+          take: 8,
+          orderBy: { scheduledDate: 'asc' },
+          include: {
+            customer: { select: { id: true, companyName: true, phone: true } },
+            opportunity: { select: { id: true, title: true } },
+            assignedStaff: { select: { fullName: true } },
+          },
+        }).catch(() => []),
+      ]);
 
-    const pipelineValue = opportunities
-      .filter((o) => !['CLOSED_WON', 'CLOSED_LOST'].includes(o.stage))
-      .reduce((sum, o) => sum + (o.estimatedValue || 0), 0);
+      const safeOpportunities = Array.isArray(opportunities) ? opportunities : [];
+      const pipelineValue = safeOpportunities
+        .filter((o) => !['CLOSED_WON', 'CLOSED_LOST'].includes(o.stage))
+        .reduce((sum, o) => sum + (o.estimatedValue || 0), 0);
 
-    const weightedPipelineValue = opportunities
-      .filter((o) => !['CLOSED_WON', 'CLOSED_LOST'].includes(o.stage))
-      .reduce((sum, o) => sum + (o.weightedValue || 0), 0);
+      const weightedPipelineValue = safeOpportunities
+        .filter((o) => !['CLOSED_WON', 'CLOSED_LOST'].includes(o.stage))
+        .reduce((sum, o) => sum + (o.weightedValue || 0), 0);
 
-    const wonValue = opportunities
-      .filter((o) => o.stage === 'CLOSED_WON')
-      .reduce((sum, o) => sum + (o.estimatedValue || 0), 0);
+      const wonValue = safeOpportunities
+        .filter((o) => o.stage === 'CLOSED_WON')
+        .reduce((sum, o) => sum + (o.estimatedValue || 0), 0);
 
-    const lostValue = opportunities
-      .filter((o) => o.stage === 'CLOSED_LOST')
-      .reduce((sum, o) => sum + (o.estimatedValue || 0), 0);
+      const lostValue = safeOpportunities
+        .filter((o) => o.stage === 'CLOSED_LOST')
+        .reduce((sum, o) => sum + (o.estimatedValue || 0), 0);
 
-    return {
-      totalLeads,
-      newLeads,
-      qualifiedLeads,
-      wonLeads,
-      lostLeads,
-      openEnquiries,
-      openOpportunities: opportunities.filter((o) => !['CLOSED_WON', 'CLOSED_LOST'].includes(o.stage)).length,
-      pipelineValue,
-      weightedPipelineValue,
-      wonValue,
-      lostValue,
-      conversionRate: totalLeads > 0 ? Math.round((wonLeads / totalLeads) * 100) : 0,
-      followUpsToday: pendingFollowUps,
-      overdueFollowUps,
-      meetingsToday,
-      totalCustomers,
-      totalCompanies: totalCustomers,
-      activeCustomers,
-      recentMeetings,
-      meetings: recentMeetings,
-      recentFollowUps,
-    };
+      return {
+        totalLeads,
+        newLeads,
+        qualifiedLeads,
+        wonLeads,
+        lostLeads,
+        openEnquiries,
+        openOpportunities: safeOpportunities.filter((o) => !['CLOSED_WON', 'CLOSED_LOST'].includes(o.stage)).length,
+        pipelineValue,
+        weightedPipelineValue,
+        wonValue,
+        lostValue,
+        conversionRate: totalLeads > 0 ? Math.round((wonLeads / totalLeads) * 100) : 0,
+        followUpsToday: pendingFollowUps,
+        overdueFollowUps,
+        meetingsToday,
+        totalCustomers,
+        totalCompanies: totalCustomers,
+        activeCustomers,
+        recentMeetings: Array.isArray(recentMeetings) ? recentMeetings : [],
+        meetings: Array.isArray(recentMeetings) ? recentMeetings : [],
+        recentFollowUps: Array.isArray(recentFollowUps) ? recentFollowUps : [],
+      };
+    } catch (err) {
+      return {
+        totalLeads: 0,
+        newLeads: 0,
+        qualifiedLeads: 0,
+        wonLeads: 0,
+        lostLeads: 0,
+        openEnquiries: 0,
+        openOpportunities: 0,
+        pipelineValue: 0,
+        weightedPipelineValue: 0,
+        wonValue: 0,
+        lostValue: 0,
+        conversionRate: 0,
+        followUpsToday: 0,
+        overdueFollowUps: 0,
+        meetingsToday: 0,
+        totalCustomers: 0,
+        totalCompanies: 0,
+        activeCustomers: 0,
+        recentMeetings: [],
+        meetings: [],
+        recentFollowUps: [],
+      };
+    }
   }
 
   // ─── GLOBAL SEARCH ────────────────────────────────────────────────────────
@@ -1001,35 +1028,39 @@ export class CrmService {
 
   // ─── FOLLOW-UPS ───────────────────────────────────────────────────────────
   async getFollowUps(query?: any, user?: any) {
-    const scope = this.buildScopeFilter(user, 'assignedStaffId');
-    const where: any = { ...scope };
+    try {
+      const scope = this.buildScopeFilter(user, 'assignedStaffId');
+      const where: any = { ...scope };
 
-    if (query?.customerId) where.customerId = query.customerId;
-    if (query?.status && query.status !== 'ALL') where.status = query.status;
+      if (query?.customerId) where.customerId = query.customerId;
+      if (query?.status && query.status !== 'ALL') where.status = query.status;
 
-    if (query?.due === 'today') {
-      const startOfDay = new Date();
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date();
-      endOfDay.setHours(23, 59, 59, 999);
-      where.scheduledDate = { gte: startOfDay, lte: endOfDay };
+      if (query?.due === 'today') {
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date();
+        endOfDay.setHours(23, 59, 59, 999);
+        where.scheduledDate = { gte: startOfDay, lte: endOfDay };
+      }
+
+      const followUps = await this.prisma.crmFollowUp.findMany({
+        where,
+        include: {
+          customer: { select: { id: true, companyName: true, phone: true, city: true, gstin: true, email: true, contactPerson: true } },
+          opportunity: { select: { id: true, title: true, stage: true } },
+          assignedStaff: { select: { id: true, fullName: true, employeeId: true } },
+        },
+        orderBy: [{ scheduledDate: 'asc' }, { interactionDate: 'desc' }, { createdAt: 'desc' }],
+      }).catch(() => []);
+
+      const now = new Date();
+      return this.includeComputedFollowUpNumbers(followUps).map((f) => {
+        const isOverdue = f.status === 'PENDING' && !!f.scheduledDate && f.scheduledDate < now;
+        return { ...f, isOverdue, displayStatus: isOverdue ? 'OVERDUE' : f.status };
+      });
+    } catch (err) {
+      return [];
     }
-
-    const followUps = await this.prisma.crmFollowUp.findMany({
-      where,
-      include: {
-        customer: { select: { id: true, companyName: true, phone: true, city: true, gstin: true, email: true, contactPerson: true } },
-        opportunity: { select: { id: true, title: true, stage: true } },
-        assignedStaff: { select: { id: true, fullName: true, employeeId: true } },
-      },
-      orderBy: [{ scheduledDate: 'asc' }, { interactionDate: 'desc' }, { createdAt: 'desc' }],
-    });
-
-    const now = new Date();
-    return this.includeComputedFollowUpNumbers(followUps).map((f) => {
-      const isOverdue = f.status === 'PENDING' && !!f.scheduledDate && f.scheduledDate < now;
-      return { ...f, isOverdue, displayStatus: isOverdue ? 'OVERDUE' : f.status };
-    });
   }
 
   async getFollowUpCompanies(query?: any, user?: any) {

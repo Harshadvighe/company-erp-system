@@ -454,6 +454,18 @@ class AdminRepository {
     return response.data['data'] ?? response.data;
   }
 
+  Future<DepartmentItem> createDepartment({required String name, String? code}) async {
+    final cleanCode = (code != null && code.trim().isNotEmpty)
+        ? code.trim().toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '_')
+        : name.trim().toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '_');
+    final response = await _dio.post('/admin/departments', data: {
+      'name': name.trim(),
+      'code': cleanCode.length > 20 ? cleanCode.substring(0, 20) : cleanCode,
+    });
+    final data = response.data['data'] ?? response.data;
+    return DepartmentItem.fromJson(data);
+  }
+
   Future<List<DepartmentItem>> getDepartments() async {
     final response = await _dio.get('/admin/departments');
     final list = response.data['data'] as List? ?? (response.data as List? ?? []);
