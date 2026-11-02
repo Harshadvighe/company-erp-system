@@ -1,0 +1,98 @@
+================================================================================
+                    SAARK EXPLORATION PVT. LTD. - ERP SYSTEM
+                       LINKS, ACCESS & CREDENTIALS DIRECTORY
+================================================================================
+
+1. LIVE WEB APPLICATION URLS
+--------------------------------------------------------------------------------
+* Main ERP Web Application:
+  https://company-erp-system-4fi6.onrender.com
+
+* Dual-Factor Secured Sign-in (Login Screen):
+  https://company-erp-system-4fi6.onrender.com/#/login
+
+* Operational Dashboard:
+  https://company-erp-system-4fi6.onrender.com/#/dashboard
+
+* Human Resources (HR) & Employee Onboarding:
+  https://company-erp-system-4fi6.onrender.com/#/hr
+
+* Sales & Marketing (CRM):
+  https://company-erp-system-4fi6.onrender.com/#/sales-marketing
+
+* B2B Trading & Enquiries:
+  https://company-erp-system-4fi6.onrender.com/#/crm/enquiries
+
+* Production Process (Shop Floor Batches):
+  https://company-erp-system-4fi6.onrender.com/#/production
+
+* Panel Manufacturing & Pump Calculator:
+  https://company-erp-system-4fi6.onrender.com/#/production/new
+
+* Quality Control (QC/QA) & FAT Protocols:
+  https://company-erp-system-4fi6.onrender.com/#/production/management
+
+* Accounts & Finance:
+  https://company-erp-system-4fi6.onrender.com/#/accounts
+
+* Attendance & Biometric Punches:
+  https://company-erp-system-4fi6.onrender.com/#/attendance
+
+* Stores / Warehouse Inventory:
+  https://company-erp-system-4fi6.onrender.com/#/inventory
+
+* Purchase / Procurement:
+  https://company-erp-system-4fi6.onrender.com/#/purchase/orders
+
+
+2. CLOUD INFRASTRUCTURE & REPOSITORIES
+--------------------------------------------------------------------------------
+* Render Cloud Service Dashboard:
+  https://dashboard.render.com/web/srv-dbir9r942hec73ba0mv0
+
+* GitHub Source Code Repository:
+  https://github.com/Harshadvighe/company-erp-system
+
+* Active Synchronized Branches:
+  - main
+  - attendance-biometric-integration
+
+
+3. DEFAULT SYSTEM LOGIN CREDENTIALS
+--------------------------------------------------------------------------------
+* Managing Director / Super Admin Account:
+  Username : Saarkadmin
+  Password : 12345678
+  Role     : Managing Director / Super Administrator
+  Access   : Full access across all 15 modules & administrative controls
+
+* General Administrator Account:
+  Username : admin
+  Email    : admin@saark.in
+  Role     : Administrator
+
+* Staff / Employee Test Account:
+  Username : pooja.saark
+  Email    : pooja.saark@gmail.com
+  Password : Saark@2026
+  Role     : Employee (Staff)
+
+
+4. ASSIGNED MODULE ACCESS FEATURE OVERVIEW
+--------------------------------------------------------------------------------
+When HR creates or edits an employee profile:
+1. Navigate to HR Module -> Employee Profile & Onboarding.
+2. Under "Provision ERP Login Account", locate the checkable section:
+   "Assigned ERP Module Access & Permissions".
+3. Check the specific modules this employee is permitted to view
+   (e.g., Sales & Marketing only).
+4. Click "Save & Submit to Admin".
+5. Once submitted/verified, when this employee logs in with their credentials:
+   - Their sidebar and navigation will ONLY display the authorized module.
+   - All other 14 modules will be completely hidden and restricted.
+   - Non-admin users are automatically routed to their primary assigned module.
+
+================================================================================
+Generated on: Monday, November 2, 2026
+Saark Exploration Pvt. Ltd. | Industrial Automation & ERP Platform
+================================================================================
