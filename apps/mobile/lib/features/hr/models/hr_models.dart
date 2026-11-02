@@ -1,3 +1,4 @@
+import 'dart:convert';
 // HR Module Data Models for Saark Industrial ERP
 
 class Employee {
@@ -32,6 +33,7 @@ class Employee {
   final String? avatarUrl;
   final bool hasBiometric;
   final String? username;
+  final List<String> assignedModules;
   final DateTime joiningDate;
 
   String get fullName => [firstName, if (middleName != null && middleName!.isNotEmpty) middleName, lastName].join(' ').trim();
@@ -68,6 +70,7 @@ class Employee {
     this.avatarUrl,
     this.hasBiometric = false,
     this.username,
+    this.assignedModules = const [],
     required this.joiningDate,
   });
 
@@ -104,6 +107,19 @@ class Employee {
       avatarUrl: json['avatarUrl'],
       hasBiometric: json['faceBiometric'] != null || json['hasBiometric'] == true,
       username: json['user']?['username'] ?? json['username'],
+      assignedModules: () {
+        final raw = json['assignedModules'] ?? json['user']?['assignedModules'];
+        if (raw is List) return List<String>.from(raw.map((e) => e.toString().trim()).where((e) => e.isNotEmpty));
+        if (raw is String && raw.trim().isNotEmpty) {
+          try {
+            final parsed = jsonDecode(raw);
+            if (parsed is List) return List<String>.from(parsed.map((e) => e.toString().trim()).where((e) => e.isNotEmpty));
+          } catch (_) {
+            return raw.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+          }
+        }
+        return <String>[];
+      }(),
       joiningDate: json['joiningDate'] != null
           ? DateTime.tryParse(json['joiningDate']) ?? DateTime.now()
           : DateTime.now(),

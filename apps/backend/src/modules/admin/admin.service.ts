@@ -758,6 +758,9 @@ export class AdminService {
     }
 
     const targetDeptId = dto.departmentId || employee.departmentId;
+    const modulesToAssign = (dto as any).assignedModules
+      ? (typeof (dto as any).assignedModules === 'string' ? (dto as any).assignedModules : JSON.stringify((dto as any).assignedModules))
+      : (employee.assignedModules || null);
     const passwordHash = await bcrypt.hash(dto.password, 12);
     let user: any;
 
@@ -792,6 +795,7 @@ export class AdminService {
           designation: employee.designation,
           departmentId: targetDeptId,
           status: 'ACTIVE',
+          assignedModules: modulesToAssign,
         },
       });
     } else {
@@ -808,6 +812,7 @@ export class AdminService {
           designation: employee.designation,
           departmentId: targetDeptId,
           status: 'ACTIVE',
+          assignedModules: modulesToAssign,
         },
       });
     }

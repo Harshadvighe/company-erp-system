@@ -18,6 +18,7 @@ export interface FaceExtractionResult {
   livenessScore: number;
   imageDimensions: { width: number; height: number };
   qualityScore: number;
+  isAiEngine?: boolean;
 }
 
 export interface EncryptedBiometricData {
@@ -169,6 +170,7 @@ export class FaceRecognitionService {
                   livenessScore: res.livenessScore || 0.9,
                   imageDimensions: res.imageDimensions || { width: 128, height: 128 },
                   qualityScore: res.qualityScore || 0.9,
+                  isAiEngine: true,
                 });
               } else if (res.error) {
                 this.logger.debug(`Python face engine message: ${res.error}`);
@@ -284,6 +286,7 @@ export class FaceRecognitionService {
       livenessScore: Math.round(livenessScore * 100) / 100,
       imageDimensions: { width: stats.width, height: stats.height },
       qualityScore: Math.round(stats.sharpness * 100) / 100,
+      isAiEngine: false,
     };
   }
 

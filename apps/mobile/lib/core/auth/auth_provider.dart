@@ -18,6 +18,9 @@ class AuthUser {
   final String? employeeId;
   final List<String> roles;
   final List<String> permissions;
+  final List<String> assignedModules;
+  final String? targetRoute;
+  final String? targetModule;
 
   const AuthUser({
     required this.id,
@@ -31,9 +34,27 @@ class AuthUser {
     this.employeeId,
     required this.roles,
     required this.permissions,
+    this.assignedModules = const [],
+    this.targetRoute,
+    this.targetModule,
   });
 
   factory AuthUser.fromJson(Map<String, dynamic> json) {
+    List<String> modules = [];
+    final rawModules = json['assignedModules'] ?? json['user']?['assignedModules'];
+    if (rawModules is List) {
+      modules = rawModules.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList();
+    } else if (rawModules is String && rawModules.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rawModules);
+        if (decoded is List) {
+          modules = decoded.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList();
+        }
+      } catch (_) {
+        modules = rawModules.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+      }
+    }
+
     return AuthUser(
       id: json['id'] ?? '',
       username: json['username'] ?? '',
@@ -46,6 +67,9 @@ class AuthUser {
       employeeId: json['employeeId'],
       roles: List<String>.from(json['roles'] ?? []),
       permissions: List<String>.from(json['permissions'] ?? []),
+      assignedModules: modules,
+      targetRoute: json['targetRoute'],
+      targetModule: json['targetModule'],
     );
   }
 
@@ -61,6 +85,9 @@ class AuthUser {
         'employeeId': employeeId,
         'roles': roles,
         'permissions': permissions,
+        'assignedModules': assignedModules,
+        if (targetRoute != null) 'targetRoute': targetRoute,
+        if (targetModule != null) 'targetModule': targetModule,
       };
 
   bool get isAdmin =>
@@ -70,6 +97,84 @@ class AuthUser {
 
   bool get isProjectManager =>
       isAdmin || roles.contains('ROLE_PROJECT_MGR');
+
+  bool canAccessModule(String moduleKey) {
+    if (isAdmin) return true;
+    if (assignedModules.isNotEmpty) {
+      return assignedModules.contains(moduleKey);
+    }
+    // Fallback to role-based permission checks if no explicit modules assigned
+    switch (moduleKey) {
+      case 'SALES_MARKETING':
+        return canView('CRM') || canView('CUSTOMERS') || canView('SALES');
+      case 'B2B_TRADING':
+        return canView('CRM') || canView('SALES');
+      case 'PRODUCTION':
+      case 'PANEL_MANUFACTURING':
+      case 'QUALITY_CONTROL':
+      case 'RESEARCH_DEVELOPMENT':
+        return canView('PRODUCTION');
+      case 'PROJECTS':
+        return canView('PROJECTS');
+      case 'TASKS':
+        return canView('TASKS');
+      case 'ACCOUNTS':
+        return canView('ACCOUNTS');
+      case 'HR':
+        return canView('HR') || canView('STAFF');
+      case 'ATTENDANCE':
+        return canView('ATTENDANCE') || canView('HR');
+      case 'PURCHASE':
+        return canView('PURCHASE');
+      case 'INVENTORY':
+      case 'ASSET_MANAGEMENT':
+        return canView('INVENTORY');
+      case 'MAINTENANCE':
+        return canView('TASKS') || canView('PRODUCTION');
+      default:
+        return true;
+    }
+  }
+
+  String getPrimaryModuleRoute() {
+    if (targetRoute != null && targetRoute!.isNotEmpty) return targetRoute!;
+    if (assignedModules.isEmpty) return '/dashboard';
+    final primary = assignedModules.first;
+    switch (primary) {
+      case 'SALES_MARKETING':
+        return '/sales-marketing';
+      case 'B2B_TRADING':
+        return '/crm/enquiries';
+      case 'PRODUCTION':
+        return '/production';
+      case 'PANEL_MANUFACTURING':
+        return '/production/new';
+      case 'QUALITY_CONTROL':
+        return '/production/management';
+      case 'PROJECTS':
+        return '/projects';
+      case 'TASKS':
+        return '/tasks';
+      case 'ACCOUNTS':
+        return '/accounts';
+      case 'HR':
+        return '/hr';
+      case 'ATTENDANCE':
+        return '/attendance';
+      case 'PURCHASE':
+        return '/purchase/orders';
+      case 'INVENTORY':
+        return '/inventory';
+      case 'MAINTENANCE':
+        return '/my-work';
+      case 'RESEARCH_DEVELOPMENT':
+        return '/production/specs';
+      case 'ASSET_MANAGEMENT':
+        return '/inventory?view=assets';
+      default:
+        return '/dashboard';
+    }
+  }
 
   bool hasPermission(String module, String action) {
     if (isAdmin) return true;

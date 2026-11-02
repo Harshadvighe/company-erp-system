@@ -30,6 +30,7 @@ model User {
   faceEnrolledAt          DateTime?
   failedFaceAttempts      Int        @default(0)
   faceLockoutUntil        DateTime?
+  assignedModules         String?
   createdAt               DateTime   @default(now())
   updatedAt               DateTime   @updatedAt
 
@@ -2007,6 +2008,7 @@ model Employee {
   bloodGroup          String?
   address             String?
   avatarUrl           String?
+  assignedModules     String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 

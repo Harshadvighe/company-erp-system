@@ -419,7 +419,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 
     final tiles = <_ConsoleTileData>[];
 
-    if (user.canView('PRODUCTION')) {
+    if (user.canAccessModule('PRODUCTION')) {
       tiles.add(const _ConsoleTileData(
         title: 'Production Process',
         subtitle: 'Shop floor batches & workflow',
@@ -427,6 +427,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         route: '/production',
         accentColor: Color(0xFFF15A24),
       ));
+    }
+    if (user.canAccessModule('PANEL_MANUFACTURING')) {
       tiles.add(const _ConsoleTileData(
         title: 'Panel Manufacturing',
         subtitle: 'MCC / PCC & automation panels',
@@ -434,6 +436,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         route: '/production/new',
         accentColor: Color(0xFFFF7A45),
       ));
+    }
+    if (user.canAccessModule('QUALITY_CONTROL')) {
       tiles.add(const _ConsoleTileData(
         title: 'Quality Control (QC/QA)',
         subtitle: 'FAT reports & inspection protocols',
@@ -443,7 +447,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       ));
     }
 
-    if (user.canView('PROJECTS')) {
+    if (user.canAccessModule('PROJECTS')) {
       tiles.add(const _ConsoleTileData(
         title: 'Project Management',
         subtitle: 'Engineering milestones & delivery',
@@ -453,7 +457,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       ));
     }
 
-    if (user.canView('CRM') || user.canView('CUSTOMERS')) {
+    if (user.canAccessModule('SALES_MARKETING')) {
       tiles.add(const _ConsoleTileData(
         title: 'Sales & Marketing',
         subtitle: 'B2B inquiries, leads & RFQs',
@@ -463,13 +467,63 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       ));
     }
 
-    if (user.canView('TASKS')) {
+    if (user.canAccessModule('TASKS')) {
       tiles.add(const _ConsoleTileData(
         title: 'Task Manager',
         subtitle: 'Operations assignments & boards',
         icon: Icons.task_alt_rounded,
         route: '/tasks',
         accentColor: Color(0xFF8B5CF6),
+      ));
+    }
+
+    if (user.canAccessModule('ACCOUNTS')) {
+      tiles.add(const _ConsoleTileData(
+        title: 'Accounts & Finance',
+        subtitle: 'Invoicing, ledger & balance reports',
+        icon: Icons.account_balance_rounded,
+        route: '/accounts',
+        accentColor: Color(0xFF06B6D4),
+      ));
+    }
+
+    if (user.canAccessModule('HR')) {
+      tiles.add(const _ConsoleTileData(
+        title: 'Human Resources',
+        subtitle: 'Staff onboarding, directory & records',
+        icon: Icons.people_alt_rounded,
+        route: '/hr',
+        accentColor: Color(0xFFEC4899),
+      ));
+    }
+
+    if (user.canAccessModule('ATTENDANCE')) {
+      tiles.add(const _ConsoleTileData(
+        title: 'Attendance',
+        subtitle: 'Biometric punch logs & shift reports',
+        icon: Icons.access_time_rounded,
+        route: '/attendance',
+        accentColor: Color(0xFF3B82F6),
+      ));
+    }
+
+    if (user.canAccessModule('PURCHASE')) {
+      tiles.add(const _ConsoleTileData(
+        title: 'Purchase / Procurement',
+        subtitle: 'Purchase orders & vendor RFQs',
+        icon: Icons.shopping_bag_rounded,
+        route: '/purchase/orders',
+        accentColor: Color(0xFFEAB308),
+      ));
+    }
+
+    if (user.canAccessModule('INVENTORY')) {
+      tiles.add(const _ConsoleTileData(
+        title: 'Stores / Warehouse',
+        subtitle: 'Stock balances & material issues',
+        icon: Icons.warehouse_rounded,
+        route: '/inventory',
+        accentColor: Color(0xFF64748B),
       ));
     }
 

@@ -159,5 +159,9 @@ export class CreateEmployeeDto {
   @IsOptional()
   @IsString()
   roleId?: string;
+
+  @ApiPropertyOptional({ description: 'Array of assigned module keys or JSON string' })
+  @IsOptional()
+  assignedModules?: string[] | string;
 }
 

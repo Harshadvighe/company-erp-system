@@ -522,6 +522,10 @@ export class HrService {
       );
     }
 
+    const serializedModules = dto.assignedModules
+      ? (typeof dto.assignedModules === 'string' ? dto.assignedModules : JSON.stringify(dto.assignedModules))
+      : null;
+
     const employeeCode = await this.sequenceService.nextEmployeeCode();
 
     // Process Passport/Profile Photo if supplied
@@ -617,6 +621,7 @@ export class HrService {
           faceVerificationEnabled: hasBiometric ? (dto.enableFaceAuth ?? true) : false,
           faceVerificationStatus: hasBiometric ? 'ENROLLED' : 'NOT_ENROLLED',
           faceEnrolledAt: hasBiometric ? new Date() : null,
+          assignedModules: serializedModules,
         },
       });
 
@@ -673,6 +678,7 @@ export class HrService {
         emergencyPhone: dto.emergencyPhone,
         address: dto.address,
         avatarUrl: avatarUrl || undefined,
+        assignedModules: serializedModules,
       },
       include: { department: true },
     });
@@ -981,6 +987,10 @@ export class HrService {
     }
 
     // ─── SYNC USER ACCOUNT CREDENTIALS (USERNAME / PASSWORD / ROLE) ─────────────
+    let serializedModules = dto.assignedModules !== undefined
+      ? (dto.assignedModules ? (typeof dto.assignedModules === 'string' ? dto.assignedModules : JSON.stringify(dto.assignedModules)) : null)
+      : undefined;
+
     let updatedUserId = existing.userId;
     let credentialsChanged = false;
     let finalUsername = existing.user?.username || '';
@@ -1022,6 +1032,7 @@ export class HrService {
       if (dto.phone) userUpdates.phone = dto.phone;
       if (dto.designation) userUpdates.designation = dto.designation;
       if (validDepartmentId !== undefined) userUpdates.departmentId = validDepartmentId;
+      if (serializedModules !== undefined) userUpdates.assignedModules = serializedModules;
 
       if (Object.keys(userUpdates).length > 0) {
         await this.prisma.user.update({
@@ -1081,6 +1092,7 @@ export class HrService {
           faceVerificationEnabled: Boolean(existing.faceBiometric?.isActive),
           faceVerificationStatus: existing.faceBiometric?.isActive ? 'ENROLLED' : 'NOT_ENROLLED',
           faceEnrolledAt: existing.faceBiometric?.enrolledAt ?? null,
+          assignedModules: serializedModules !== undefined ? serializedModules : existing.assignedModules,
         },
       });
 
@@ -1148,6 +1160,7 @@ export class HrService {
         ...(dto.bloodGroup !== undefined && { bloodGroup: dto.bloodGroup }),
         ...(dto.emergencyPhone !== undefined && { emergencyPhone: dto.emergencyPhone }),
         ...(dto.address !== undefined && { address: dto.address }),
+        ...(serializedModules !== undefined && { assignedModules: serializedModules }),
       },
       include: {
         department: true,

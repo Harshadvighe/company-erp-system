@@ -28,6 +28,10 @@ export class ApproveEmployeeRequestDto {
   @IsArray()
   roleIds?: string[];
 
+  @ApiPropertyOptional({ description: 'Array of assigned module keys or JSON string' })
+  @IsOptional()
+  assignedModules?: string[] | string;
+
   @ApiPropertyOptional({ example: true, description: 'Whether to dispatch welcome email with login credentials' })
   @IsOptional()
   sendWelcomeEmail?: boolean;

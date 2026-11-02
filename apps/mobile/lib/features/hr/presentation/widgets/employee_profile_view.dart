@@ -34,6 +34,7 @@ class EmployeeProfileRecord {
   bool faceVerificationEnabled;
   String? avatarUrl;
   String? username;
+  List<String> assignedModules;
 
   EmployeeProfileRecord({
     this.dbId = '',
@@ -60,6 +61,7 @@ class EmployeeProfileRecord {
     this.faceVerificationEnabled = false,
     this.avatarUrl,
     this.username,
+    this.assignedModules = const [],
   });
 
   factory EmployeeProfileRecord.fromEmployee(Employee emp) {
@@ -88,6 +90,7 @@ class EmployeeProfileRecord {
       faceVerificationEnabled: false,
       avatarUrl: emp.avatarUrl,
       username: emp.username,
+      assignedModules: List<String>.from(emp.assignedModules),
     );
   }
 }
@@ -336,6 +339,26 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
   String _selectedRole = 'ROLE_EMPLOYEE';
   bool _isBiometricEnrolled = false;
 
+  // ERP Module Options for Granular Employee Access
+  static const List<Map<String, dynamic>> _erpModuleOptions = [
+    {'key': 'SALES_MARKETING', 'title': 'Sales & Marketing', 'icon': Icons.campaign_rounded},
+    {'key': 'B2B_TRADING', 'title': 'B2B Trading', 'icon': Icons.storefront_rounded},
+    {'key': 'PRODUCTION', 'title': 'Production Process', 'icon': Icons.precision_manufacturing_rounded},
+    {'key': 'PANEL_MANUFACTURING', 'title': 'Panel Manufacturing', 'icon': Icons.electrical_services_rounded},
+    {'key': 'QUALITY_CONTROL', 'title': 'Quality Control (QC/QA)', 'icon': Icons.verified_rounded},
+    {'key': 'PROJECTS', 'title': 'Project Management', 'icon': Icons.folder_open_rounded},
+    {'key': 'TASKS', 'title': 'Task Manager', 'icon': Icons.task_alt_rounded},
+    {'key': 'ACCOUNTS', 'title': 'Accounts & Finance', 'icon': Icons.account_balance_rounded},
+    {'key': 'HR', 'title': 'HR (Human Resources)', 'icon': Icons.people_alt_rounded},
+    {'key': 'ATTENDANCE', 'title': 'Attendance', 'icon': Icons.access_time_rounded},
+    {'key': 'PURCHASE', 'title': 'Purchase / Procurement', 'icon': Icons.shopping_bag_rounded},
+    {'key': 'INVENTORY', 'title': 'Stores / Warehouse', 'icon': Icons.warehouse_rounded},
+    {'key': 'MAINTENANCE', 'title': 'Maintenance', 'icon': Icons.home_repair_service_rounded},
+    {'key': 'RESEARCH_DEVELOPMENT', 'title': 'R&D / Engineering', 'icon': Icons.science_rounded},
+    {'key': 'ASSET_MANAGEMENT', 'title': 'Asset Management', 'icon': Icons.domain_rounded},
+  ];
+  List<String> _selectedModules = ['SALES_MARKETING'];
+
   // Dropdown values
   String _selectedGender = '';
   String _selectedMaritalStatus = '';
@@ -519,6 +542,7 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
       if (record.departmentId != null && _departments.any((d) => d.id == record.departmentId)) {
         _selectedDepartmentId = record.departmentId;
       }
+      _selectedModules = List<String>.from(record.assignedModules);
     });
 
     _loadBiometricStatus(record.dbId.isNotEmpty ? record.dbId : record.id);
@@ -855,14 +879,13 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
         if (_passportPhotoBase64 != null) 'passportPhotoBase64': _passportPhotoBase64,
         if (_livePhotoBase64 != null) 'livePhotoBase64': _livePhotoBase64,
         'enableFaceAuth': _enableFaceAuth,
-        if (!isNew) ...{
-          if (_usernameController.text.trim().isNotEmpty)
-            'username': _usernameController.text.trim(),
-          if (_passwordController.text.trim().isNotEmpty)
-            'password': _passwordController.text.trim(),
-          'roleId': _selectedRole,
-          'createUserAccount': _createUserAccount,
-        },
+        'assignedModules': _selectedModules,
+        'createUserAccount': _createUserAccount,
+        if (_usernameController.text.trim().isNotEmpty)
+          'username': _usernameController.text.trim(),
+        if (_passwordController.text.trim().isNotEmpty)
+          'password': _passwordController.text.trim(),
+        'roleId': _selectedRole,
       };
 
       // Find department name
@@ -913,6 +936,7 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
           username: _usernameController.text.trim().isNotEmpty
               ? _usernameController.text.trim()
               : updated.username,
+          assignedModules: List<String>.from(_selectedModules),
         );
 
         setState(() {
@@ -962,6 +986,7 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
           hasBiometric: enrolled,
           faceVerificationEnabled: _enableFaceAuth,
           avatarUrl: created.avatarUrl,
+          assignedModules: List<String>.from(_selectedModules),
         );
 
         setState(() {
@@ -1880,9 +1905,175 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
                             _buildInlineField(label: 'ERP Role:', input: _buildRoleDropdown()),
                           ],
                         ),
+                  const SizedBox(height: 10),
+                  const Divider(color: Color(0xFF2C2E33), height: 1),
+                  const SizedBox(height: 10),
+                  _buildModuleAccessSection(isWide: isWide),
                 ],
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  
+  Widget _buildModuleAccessSection({required bool isWide}) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF141517),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: const Color(0xFF2C2E33)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.shield_outlined, color: Color(0xFFF26522), size: 16),
+              const SizedBox(width: 8),
+              const Text(
+                'Assigned ERP Module Access & Permissions',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _selectedModules.isEmpty
+                      ? const Color(0xFF333333)
+                      : const Color(0x33F26522),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: _selectedModules.isEmpty
+                        ? Colors.white24
+                        : const Color(0xFFF26522),
+                  ),
+                ),
+                child: Text(
+                  _selectedModules.isEmpty
+                      ? 'No Modules Selected'
+                      : '${_selectedModules.length} Modules Authorized',
+                  style: TextStyle(
+                    color: _selectedModules.isEmpty
+                        ? Colors.white60
+                        : const Color(0xFFF26522),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _selectedModules = _erpModuleOptions
+                        .map((m) => m['key'] as String)
+                        .toList();
+                  });
+                },
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text('Select All', style: TextStyle(color: Color(0xFFF26522), fontSize: 11)),
+              ),
+              const SizedBox(width: 8),
+              TextButton(
+                onPressed: () {
+                  setState(() => _selectedModules.clear());
+                },
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text('Clear All', style: TextStyle(color: Colors.white60, fontSize: 11)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Select which ERP modules this employee is permitted to access. When logged in, the employee will only see and navigate to the checked modules.',
+            style: TextStyle(color: Colors.white54, fontSize: 11),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _erpModuleOptions.map((opt) {
+              final key = opt['key'] as String;
+              final isChecked = _selectedModules.contains(key);
+              final icon = opt['icon'] as IconData;
+              final title = opt['title'] as String;
+
+              return InkWell(
+                onTap: () {
+                  setState(() {
+                    if (isChecked) {
+                      _selectedModules.remove(key);
+                    } else {
+                      _selectedModules.add(key);
+                    }
+                  });
+                },
+                borderRadius: BorderRadius.circular(4),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isChecked ? const Color(0x22F26522) : const Color(0xFF1E2024),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: isChecked ? const Color(0xFFF26522) : const Color(0xFF2C2E33),
+                      width: isChecked ? 1.5 : 1.0,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: Checkbox(
+                          value: isChecked,
+                          activeColor: const Color(0xFFF26522),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(3)),
+                          side: const BorderSide(color: Color(0xFF4C4E55)),
+                          onChanged: (_) {
+                            setState(() {
+                              if (isChecked) {
+                                _selectedModules.remove(key);
+                              } else {
+                                _selectedModules.add(key);
+                              }
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(icon, size: 16, color: isChecked ? const Color(0xFFF26522) : Colors.white70),
+                      const SizedBox(width: 6),
+                      Text(
+                        title,
+                        style: TextStyle(
+                          color: isChecked ? Colors.white : Colors.white70,
+                          fontSize: 11.5,
+                          fontWeight: isChecked ? FontWeight.bold : FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
           ),
         ],
       ),

@@ -79,7 +79,7 @@ List<_NavItem> _getAuthorizedNavItems(AuthUser? user) {
   ];
 
   // 1. Sales & Marketing
-  if (user.isAdmin || user.canView('CRM') || user.canView('CUSTOMERS') || user.canView('SALES')) {
+  if (user.canAccessModule('SALES_MARKETING')) {
     items.add(const _NavItem(
       label: 'Sales & Marketing',
       icon: Icons.campaign_outlined,
@@ -89,7 +89,7 @@ List<_NavItem> _getAuthorizedNavItems(AuthUser? user) {
   }
 
   // 2. B2B Trading
-  if (user.isAdmin || user.canView('CRM') || user.canView('SALES')) {
+  if (user.canAccessModule('B2B_TRADING')) {
     items.add(const _NavItem(
       label: 'B2B Trading',
       icon: Icons.storefront_outlined,
@@ -99,7 +99,7 @@ List<_NavItem> _getAuthorizedNavItems(AuthUser? user) {
   }
 
   // 3. Production Process
-  if (user.isAdmin || user.canView('PRODUCTION')) {
+  if (user.canAccessModule('PRODUCTION')) {
     items.add(const _NavItem(
       label: 'Production Process',
       icon: Icons.precision_manufacturing_outlined,
@@ -109,7 +109,7 @@ List<_NavItem> _getAuthorizedNavItems(AuthUser? user) {
   }
 
   // 4. Project Management / Professional Services
-  if (user.isAdmin || user.canView('PROJECTS')) {
+  if (user.canAccessModule('PROJECTS')) {
     items.add(const _NavItem(
       label: 'Project Management / Professional Services',
       icon: Icons.folder_outlined,
@@ -119,7 +119,7 @@ List<_NavItem> _getAuthorizedNavItems(AuthUser? user) {
   }
 
   // 5. Task Manager
-  if (user.isAdmin || user.canView('TASKS')) {
+  if (user.canAccessModule('TASKS')) {
     items.add(const _NavItem(
       label: 'Task Manager',
       icon: Icons.task_alt_outlined,
@@ -129,7 +129,7 @@ List<_NavItem> _getAuthorizedNavItems(AuthUser? user) {
   }
 
   // 6. Quality Control (QC) / Quality Assurance (QA)
-  if (user.isAdmin || user.canView('PRODUCTION')) {
+  if (user.canAccessModule('QUALITY_CONTROL')) {
     items.add(const _NavItem(
       label: 'Quality Control (QC) / Quality Assurance (QA)',
       icon: Icons.verified_outlined,
@@ -139,7 +139,7 @@ List<_NavItem> _getAuthorizedNavItems(AuthUser? user) {
   }
 
   // 7. Panel Manufacturing
-  if (user.isAdmin || user.canView('PRODUCTION')) {
+  if (user.canAccessModule('PANEL_MANUFACTURING')) {
     items.add(const _NavItem(
       label: 'Panel Manufacturing',
       icon: Icons.build_circle_outlined,
@@ -149,7 +149,7 @@ List<_NavItem> _getAuthorizedNavItems(AuthUser? user) {
   }
 
   // 8. Accounts & Finance
-  if (user.isAdmin || user.canView('ACCOUNTS')) {
+  if (user.canAccessModule('ACCOUNTS')) {
     items.add(const _NavItem(
       label: 'Accounts & Finance',
       icon: Icons.account_balance_outlined,
@@ -159,7 +159,7 @@ List<_NavItem> _getAuthorizedNavItems(AuthUser? user) {
   }
 
   // 9. HR (Human Resources)
-  if (user.isAdmin || user.canView('HR') || user.canView('STAFF')) {
+  if (user.canAccessModule('HR')) {
     items.add(const _NavItem(
       label: 'HR (Human Resources)',
       icon: Icons.people_alt_outlined,
@@ -169,7 +169,7 @@ List<_NavItem> _getAuthorizedNavItems(AuthUser? user) {
   }
 
   // 10. Attendance (Biometric Punching Device)
-  if (user.isAdmin || user.canView('ATTENDANCE') || user.canView('HR')) {
+  if (user.canAccessModule('ATTENDANCE')) {
     items.add(const _NavItem(
       label: 'Attendance',
       icon: Icons.access_time_outlined,
@@ -179,7 +179,7 @@ List<_NavItem> _getAuthorizedNavItems(AuthUser? user) {
   }
 
   // 11. Purchase / Procurement
-  if (user.isAdmin || user.canView('PURCHASE')) {
+  if (user.canAccessModule('PURCHASE')) {
     items.add(const _NavItem(
       label: 'Purchase / Procurement',
       icon: Icons.shopping_bag_outlined,
@@ -188,8 +188,8 @@ List<_NavItem> _getAuthorizedNavItems(AuthUser? user) {
     ));
   }
 
-  // 11. Stores / Warehouse
-  if (user.isAdmin || user.canView('INVENTORY')) {
+  // 12. Stores / Warehouse
+  if (user.canAccessModule('INVENTORY')) {
     items.add(const _NavItem(
       label: 'Stores / Warehouse',
       icon: Icons.warehouse_outlined,
@@ -198,8 +198,8 @@ List<_NavItem> _getAuthorizedNavItems(AuthUser? user) {
     ));
   }
 
-  // 12. Maintenance
-  if (user.isAdmin || user.canView('TASKS') || user.canView('PRODUCTION')) {
+  // 13. Maintenance
+  if (user.canAccessModule('MAINTENANCE')) {
     items.add(const _NavItem(
       label: 'Maintenance',
       icon: Icons.home_repair_service_outlined,
@@ -208,8 +208,8 @@ List<_NavItem> _getAuthorizedNavItems(AuthUser? user) {
     ));
   }
 
-  // 13. R&D / Engineering
-  if (user.isAdmin || user.canView('PRODUCTION')) {
+  // 14. R&D / Engineering
+  if (user.canAccessModule('RESEARCH_DEVELOPMENT')) {
     items.add(const _NavItem(
       label: 'R&D / Engineering',
       icon: Icons.science_outlined,
@@ -218,8 +218,8 @@ List<_NavItem> _getAuthorizedNavItems(AuthUser? user) {
     ));
   }
 
-  // 14. Asset Management / Fixed Assets
-  if (user.isAdmin || user.canView('INVENTORY') || user.canView('ACCOUNTS')) {
+  // 15. Asset Management / Fixed Assets
+  if (user.canAccessModule('ASSET_MANAGEMENT')) {
     items.add(const _NavItem(
       label: 'Asset Management / Fixed Assets',
       icon: Icons.domain_outlined,
@@ -228,73 +228,13 @@ List<_NavItem> _getAuthorizedNavItems(AuthUser? user) {
     ));
   }
 
-  // 15. EHS / Risk Management
-  if (user.isAdmin || user.canView('PROJECTS')) {
+  // 16. EHS / Risk Management
+  if (user.canAccessModule('PROJECTS')) {
     items.add(const _NavItem(
       label: 'EHS / Risk Management',
       icon: Icons.shield_outlined,
       activeIcon: Icons.shield,
-      route: '/projects?view=ehs',
-    ));
-  }
-
-  // 16. Point of Sale (POS) / E-Commerce
-  if (user.isAdmin || user.canView('SALES') || user.canView('CRM')) {
-    items.add(const _NavItem(
-      label: 'Point of Sale (POS) / E-Commerce',
-      icon: Icons.point_of_sale_outlined,
-      activeIcon: Icons.point_of_sale,
-      route: '/crm/invoices',
-    ));
-  }
-
-  // 17. IT
-  if (user.isAdmin) {
-    items.add(const _NavItem(
-      label: 'IT',
-      icon: Icons.computer_outlined,
-      activeIcon: Icons.computer,
-      route: '/admin?section=it',
-    ));
-  }
-
-  // 18. Customer Service
-  if (user.isAdmin || user.canView('CRM') || user.canView('CUSTOMERS')) {
-    items.add(const _NavItem(
-      label: 'Customer Service',
-      icon: Icons.support_agent_outlined,
-      activeIcon: Icons.support_agent,
-      route: '/crm/follow-ups',
-    ));
-  }
-
-  // 19. Legal & Compliance
-  if (user.isAdmin || user.canView('REPORTS')) {
-    items.add(const _NavItem(
-      label: 'Legal & Compliance',
-      icon: Icons.gavel_outlined,
-      activeIcon: Icons.gavel,
-      route: '/reports?section=compliance',
-    ));
-  }
-
-  // 20. Administration
-  if (user.isAdmin) {
-    items.add(const _NavItem(
-      label: 'Administration',
-      icon: Icons.settings_outlined,
-      activeIcon: Icons.settings,
-      route: '/admin',
-    ));
-  }
-
-  // 21. Supply Chain / Logistics
-  if (user.isAdmin || user.canView('PURCHASE') || user.canView('INVENTORY') || user.canView('VENDORS')) {
-    items.add(const _NavItem(
-      label: 'Supply Chain / Logistics',
-      icon: Icons.local_shipping_outlined,
-      activeIcon: Icons.local_shipping,
-      route: '/vendors',
+      route: '/projects?tab=ehs',
     ));
   }
 

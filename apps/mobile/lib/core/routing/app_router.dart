@@ -58,8 +58,11 @@ class RouterNotifier extends ChangeNotifier {
     final isLoginPage = state.matchedLocation == '/login';
 
     if (!isLoggedIn && !isLoginPage) return '/login';
-    if (isLoggedIn && isLoginPage) {
+        if (isLoggedIn && isLoginPage) {
       final user = authState.user;
+      if (user != null && !user.isAdmin && user.assignedModules.isNotEmpty) {
+        return user.getPrimaryModuleRoute();
+      }
       final dept = (user?.department ?? '').toUpperCase();
       final roles = (user?.roles ?? []).map((r) => r.toUpperCase()).toList();
 
