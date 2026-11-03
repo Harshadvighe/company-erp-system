@@ -238,6 +238,46 @@ List<_NavItem> _getAuthorizedNavItems(AuthUser? user) {
     ));
   }
 
+  // 17. Administration & IT (Admin Console)
+  if (user.isAdmin || user.canAccessModule('ADMINISTRATION')) {
+    items.add(const _NavItem(
+      label: 'Administration & IT',
+      icon: Icons.admin_panel_settings_outlined,
+      activeIcon: Icons.admin_panel_settings,
+      route: '/admin',
+    ));
+  }
+
+  // 18. Customer Service
+  if (user.isAdmin || user.canAccessModule('CUSTOMER_SERVICE') || user.canView('CRM')) {
+    items.add(const _NavItem(
+      label: 'Customer Service',
+      icon: Icons.support_agent_outlined,
+      activeIcon: Icons.support_agent,
+      route: '/crm/follow-ups',
+    ));
+  }
+
+  // 19. Point of Sale (POS) / Invoicing
+  if (user.isAdmin || user.canAccessModule('POS') || user.canView('SALES')) {
+    items.add(const _NavItem(
+      label: 'Point of Sale (POS)',
+      icon: Icons.point_of_sale_outlined,
+      activeIcon: Icons.point_of_sale,
+      route: '/crm/invoices',
+    ));
+  }
+
+  // 20. Supply Chain & Vendors
+  if (user.isAdmin || user.canAccessModule('SUPPLY_CHAIN') || user.canView('PURCHASE')) {
+    items.add(const _NavItem(
+      label: 'Supply Chain & Vendors',
+      icon: Icons.local_shipping_outlined,
+      activeIcon: Icons.local_shipping,
+      route: '/vendors',
+    ));
+  }
+
   return items;
 }
 

@@ -527,6 +527,16 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       ));
     }
 
+    if (user.isAdmin || user.canAccessModule('ADMINISTRATION')) {
+      tiles.add(const _ConsoleTileData(
+        title: 'Administration Console',
+        subtitle: 'Employee approvals, user provisioning & IT',
+        icon: Icons.admin_panel_settings_rounded,
+        route: '/admin',
+        accentColor: Color(0xFF8B5CF6),
+      ));
+    }
+
     if (tiles.isEmpty) return const SizedBox.shrink();
 
     return Container(

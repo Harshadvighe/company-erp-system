@@ -131,6 +131,8 @@ class AuthUser {
         return canView('INVENTORY');
       case 'MAINTENANCE':
         return canView('TASKS') || canView('PRODUCTION');
+      case 'ADMINISTRATION':
+        return isAdmin;
       default:
         return true;
     }
@@ -171,6 +173,8 @@ class AuthUser {
         return '/production/specs';
       case 'ASSET_MANAGEMENT':
         return '/inventory?view=assets';
+      case 'ADMINISTRATION':
+        return '/admin';
       default:
         return '/dashboard';
     }
