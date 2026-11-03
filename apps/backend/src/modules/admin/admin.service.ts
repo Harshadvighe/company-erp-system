@@ -558,10 +558,16 @@ export class AdminService {
         fullName: true,
         phone: true,
         designation: true,
+        departmentId: true,
         status: true,
+        assignedModules: true,
+        faceVerificationEnabled: true,
+        faceVerificationStatus: true,
+        failedFaceAttempts: true,
         createdAt: true,
-        department: { select: { name: true, code: true } },
-        userRoles: { select: { role: { select: { name: true, code: true } } } },
+        department: { select: { id: true, name: true, code: true } },
+        employee: { select: { id: true, employeeCode: true, departmentId: true, assignedModules: true, status: true } },
+        userRoles: { select: { role: { select: { id: true, name: true, code: true } } } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -1065,7 +1071,7 @@ export class AdminService {
 
 
   async updateEmployeeRequest(
-    employeeId: string,
+    identifier: string,
     dto: {
       firstName?: string;
       lastName?: string;
@@ -1081,42 +1087,88 @@ export class AdminService {
     },
     adminUser?: any,
   ) {
-    const employee = await this.prisma.employee.findFirst({
+    // 1. Try to find the Employee by id, employeeCode, userId, or email
+    let employee = await this.prisma.employee.findFirst({
       where: {
-        OR: [{ id: employeeId }, { employeeCode: employeeId }],
+        OR: [
+          { id: identifier },
+          { employeeCode: identifier },
+          { userId: identifier },
+          { email: identifier },
+          ...(dto.email ? [{ email: dto.email.trim() }] : []),
+        ],
       },
       include: { department: true, user: true },
     });
 
-    if (!employee) throw new NotFoundException(`Employee '${employeeId}' not found`);
+    // 2. Try to find the User by id, username, email, or linked employee's userId
+    let user = employee?.user;
+    if (!user) {
+      user = await this.prisma.user.findFirst({
+        where: {
+          OR: [
+            { id: identifier },
+            ...(employee?.userId ? [{ id: employee.userId }] : []),
+            { username: identifier },
+            { email: identifier },
+            ...(dto.email ? [{ email: dto.email.trim() }] : []),
+            ...(dto.username ? [{ username: dto.username.trim() }] : []),
+          ],
+        },
+        include: { department: true, userRoles: { include: { role: true } } },
+      });
+    }
 
-    const updateEmployeeData: any = {};
-    if (dto.firstName) updateEmployeeData.firstName = dto.firstName.trim();
-    if (dto.lastName) updateEmployeeData.lastName = dto.lastName.trim();
-    if (dto.email) updateEmployeeData.email = dto.email.trim();
-    if (dto.phone !== undefined) updateEmployeeData.phone = dto.phone.trim();
-    if (dto.departmentId !== undefined) updateEmployeeData.departmentId = dto.departmentId || null;
-    if (dto.designation !== undefined) updateEmployeeData.designation = dto.designation.trim();
-    if (dto.status) updateEmployeeData.status = dto.status;
+    // 3. If employee wasn't found before but user was found, try finding employee by user's id or email
+    if (!employee && user) {
+      employee = await this.prisma.employee.findFirst({
+        where: {
+          OR: [
+            { userId: user.id },
+            { email: user.email },
+            ...(dto.email ? [{ email: dto.email.trim() }] : []),
+          ],
+        },
+        include: { department: true, user: true },
+      });
+    }
+
+    if (!employee && !user) {
+      throw new NotFoundException(`Employee or User '${identifier}' not found`);
+    }
+
+    // Prepare modules string if provided
+    let modulesJson: string | undefined = undefined;
     if (dto.assignedModules !== undefined) {
-      updateEmployeeData.assignedModules = Array.isArray(dto.assignedModules)
+      modulesJson = Array.isArray(dto.assignedModules)
         ? JSON.stringify(dto.assignedModules)
         : dto.assignedModules;
     }
 
-    const updated = await this.prisma.employee.update({
-      where: { id: employee.id },
-      data: updateEmployeeData,
-      include: { department: true, user: true },
-    });
+    // Update Employee if exists
+    if (employee) {
+      const updateEmployeeData: any = {};
+      if (dto.firstName) updateEmployeeData.firstName = dto.firstName.trim();
+      if (dto.lastName) updateEmployeeData.lastName = dto.lastName.trim();
+      if (dto.email) updateEmployeeData.email = dto.email.trim();
+      if (dto.phone !== undefined) updateEmployeeData.phone = dto.phone.trim();
+      if (dto.departmentId !== undefined) updateEmployeeData.departmentId = dto.departmentId || null;
+      if (dto.designation !== undefined) updateEmployeeData.designation = dto.designation.trim();
+      if (dto.status) updateEmployeeData.status = dto.status;
+      if (modulesJson !== undefined) updateEmployeeData.assignedModules = modulesJson;
 
-    // Also sync linked user account if exists
-    const linkedUserId = employee.userId || employee.user?.id;
-    if (linkedUserId) {
+      employee = await this.prisma.employee.update({
+        where: { id: employee.id },
+        data: updateEmployeeData,
+        include: { department: true, user: true },
+      });
+    }
+
+    // Update User if exists
+    if (user) {
       const userUpdateData: any = {};
-      if (dto.firstName || dto.lastName) {
-        userUpdateData.fullName = `${dto.firstName ?? employee.firstName} ${dto.lastName ?? employee.lastName}`.trim();
-      }
+      const fullName = `${dto.firstName ?? employee?.firstName ?? ''} ${dto.lastName ?? employee?.lastName ?? ''}`.trim();
+      if (fullName) userUpdateData.fullName = fullName;
       if (dto.email) userUpdateData.email = dto.email.trim();
       if (dto.phone !== undefined) userUpdateData.phone = dto.phone.trim();
       if (dto.departmentId !== undefined) userUpdateData.departmentId = dto.departmentId || null;
@@ -1126,41 +1178,52 @@ export class AdminService {
       if (dto.password && dto.password.length >= 6) {
         userUpdateData.passwordHash = await bcrypt.hash(dto.password, 12);
       }
-      if (dto.assignedModules !== undefined) {
-        userUpdateData.assignedModules = updateEmployeeData.assignedModules;
+      if (modulesJson !== undefined) {
+        userUpdateData.assignedModules = modulesJson;
       }
 
       await this.prisma.user.update({
-        where: { id: linkedUserId },
+        where: { id: user.id },
         data: userUpdateData,
       });
 
       if (dto.roleId) {
-        await this.prisma.userRole.deleteMany({ where: { userId: linkedUserId } });
+        await this.prisma.userRole.deleteMany({ where: { userId: user.id } });
         await this.prisma.userRole.create({
-          data: { userId: linkedUserId, roleId: dto.roleId },
+          data: { userId: user.id, roleId: dto.roleId },
+        });
+      }
+
+      // Link employee to user if unlinked
+      if (employee && !employee.userId) {
+        await this.prisma.employee.update({
+          where: { id: employee.id },
+          data: { userId: user.id },
         });
       }
     }
 
+    const employeeCode = employee?.employeeCode || user?.username || identifier;
+    const displayName = employee ? `${employee.firstName} ${employee.lastName}` : (user?.fullName || identifier);
+
     try {
       await this.prisma.auditLog.create({
         data: {
-          userId: adminUser?.id || linkedUserId,
-          userEmail: adminUser?.email || employee.email,
+          userId: adminUser?.id || user?.id || employee?.userId || 'ADMIN',
+          userEmail: adminUser?.email || user?.email || employee?.email || 'admin@saark.com',
           action: 'UPDATE',
           module: 'ADMIN_HR',
-          entityType: 'EMPLOYEE',
-          entityId: employee.id,
-          details: `Admin updated employee details for ${updated.employeeCode} (${updated.firstName} ${updated.lastName})`,
+          entityType: employee ? 'EMPLOYEE' : 'USER',
+          entityId: employee?.id || user?.id || identifier,
+          details: `Admin updated details for ${employeeCode} (${displayName})`,
         },
       });
     } catch (_) {}
 
     return {
       success: true,
-      message: `Employee ${updated.employeeCode} updated successfully`,
-      employee: updated,
+      message: `Employee / User ${employeeCode} updated successfully`,
+      employee: employee || user,
     };
   }
 

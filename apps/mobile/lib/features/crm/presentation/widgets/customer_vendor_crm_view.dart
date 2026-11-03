@@ -58,17 +58,17 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
   // ─── Right Column Form Controllers ─────────────────────────────────────────
   // Valuation
   final TextEditingController _valuablePercentCtrl = TextEditingController(text: '0.0');
-  final TextEditingController _ratingCtrl = TextEditingController(text: '1.0');
+  final TextEditingController _ratingCtrl = TextEditingController(text: '0.0');
 
-  // Valuation Checkboxes (Matching Screenshot)
-  bool _workInVfdPanel = true;
+  // Valuation Checkboxes
+  bool _workInVfdPanel = false;
   bool _workInDewatering = false;
   bool _isDistributor = false;
   bool _isDealer = false;
-  bool _seriousBase = true;
+  bool _seriousBase = false;
 
   // Products
-  final Set<String> _selectedProducts = {'Booster Pump'};
+  final Set<String> _selectedProducts = {};
 
   // Activity & Communication
   String _callRemark = 'Call receive';
@@ -76,26 +76,24 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
   final TextEditingController _remarkPersonDesigCtrl = TextEditingController();
   final TextEditingController _remarkPersonMobileCtrl = TextEditingController();
 
-  String _dataSent = 'Yes';
+  String _dataSent = 'No';
   String _dataTypeName = 'Brochure';
-  String _enquiryReceived = 'Yes';
+  String _enquiryReceived = 'No';
   String _enquiryType = 'Direct Call';
 
-  final TextEditingController _callTimeCtrl = TextEditingController(text: '11:30 AM');
-  final TextEditingController _convDateCtrl = TextEditingController(text: '2026-10-14');
-  final TextEditingController _commDetailsCtrl = TextEditingController(
-    text: 'Customer requested updated quotation and wiring schematic for 3-Pump Booster system.',
-  );
+  final TextEditingController _callTimeCtrl = TextEditingController();
+  final TextEditingController _convDateCtrl = TextEditingController();
+  final TextEditingController _commDetailsCtrl = TextEditingController();
 
   // Meetings
-  final TextEditingController _meetingScheduleTimeCtrl = TextEditingController(text: '2026-10-16 14:00');
-  final TextEditingController _nextMeetingTimeCtrl = TextEditingController(text: '2026-10-18 10:30');
-  final TextEditingController _meetingAgendaCtrl = TextEditingController(text: 'Commercial Price Finalization & FAT Inspection');
-  final TextEditingController _meetingDetailsCtrl = TextEditingController(text: 'MOM: Approved panel enclosure sizing. Awaiting advance payment.');
+  final TextEditingController _meetingScheduleTimeCtrl = TextEditingController();
+  final TextEditingController _nextMeetingTimeCtrl = TextEditingController();
+  final TextEditingController _meetingAgendaCtrl = TextEditingController();
+  final TextEditingController _meetingDetailsCtrl = TextEditingController();
 
   // Photos & Media
-  final List<String> _photos = ['Site_Pump_Room_Front.jpg', 'Main_PCC_Panel_Inward.jpg'];
-  final List<String> _audioFiles = ['Call_Recording_20261012_1145.mp3', 'Director_Discussion_20261013.mp3'];
+  final List<String> _photos = [];
+  final List<String> _audioFiles = [];
 
   // Loading States
   bool _isVerifyingGst = false;
@@ -103,6 +101,7 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
 
   // ─── Fallback / Sample Table Records (Exact match to screenshot) ───────────
   late List<_CustomerRowData> _sampleRows;
+  List<_CustomerRowData> _displayedCustomerRows = [];
 
   @override
   void initState() {
@@ -111,120 +110,12 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
     _initEnquiryList();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchEnquiries();
-    });
-    _sampleRows = [
-      const _CustomerRowData(
-        index: 1,
-        companyName: 'Win Win Engineering',
-        gstNumber: '36AACCU7891K1Z5',
-        contactPerson: 'R.HYMAV',
-        designation: 'sales',
-        contactNumber: '9849993371',
-        country: 'India',
-        state: 'maharatra',
-        district: 'pune',
-        location: 'Win Win Engineering',
-        ownerName: 'sunny',
-        products: 'Booster Pump',
-        valuablePct: 0.0,
-        rating: 1.0,
-        activityCount: 1,
-        mobileRec: 1,
-        dataSent: 'Yes',
-        enquiry: 'Yes',
-        callTime: '00 hrs 00',
-        convDate: '2026-09-24',
-        meetingTime: '2026-09-24',
-        nextMeeting: '2026-09-30',
-        remark: 'Call receive',
-      ),
-      const _CustomerRowData(
-        index: 2,
-        companyName: 'AJANI CO',
-        gstNumber: '',
-        contactPerson: 'satyanarayana',
-        designation: '',
-        contactNumber: '9246607218',
-        country: '',
-        state: '',
-        district: '',
-        location: '',
-        ownerName: '',
-        products: '',
-        valuablePct: 0.0,
-        rating: 0.0,
-        activityCount: 0,
-        mobileRec: 1,
-        dataSent: 'Yes',
-        enquiry: 'No',
-        callTime: '00 hr',
-        convDate: '',
-        meetingTime: '',
-        nextMeeting: '',
-        remark: '',
-      ),
-      const _CustomerRowData(
-        index: 3,
-        companyName: 'Revolve Engineers',
-        gstNumber: '36ABZPK6151E1ZT',
-        contactPerson: 'palepu manikanta',
-        designation: 'electrical engineer',
-        contactNumber: '9390425123',
-        country: '',
-        state: '',
-        district: '',
-        location: 'google.com',
-        ownerName: '',
-        products: '',
-        valuablePct: 0.0,
-        rating: 0.0,
-        activityCount: 0,
-        mobileRec: 0,
-        dataSent: 'No',
-        enquiry: 'No',
-        callTime: '',
-        convDate: '',
-        meetingTime: '',
-        nextMeeting: '',
-        remark: '',
-      ),
-      const _CustomerRowData(
-        index: 4,
-        companyName: 'Revolve Engineers',
-        gstNumber: '36ABZPK6151E1ZT',
-        contactPerson: 'kenneth',
-        designation: 'tech support',
-        contactNumber: '7330862228',
-        country: '',
-        state: '',
-        district: '',
-        location: 'google.com',
-        ownerName: '',
-        products: '',
-        valuablePct: 0.0,
-        rating: 0.0,
-        activityCount: 0,
-        mobileRec: 0,
-        dataSent: 'No',
-        enquiry: 'No',
-        callTime: '',
-        convDate: '',
-        meetingTime: '',
-        nextMeeting: '',
-        remark: '',
-      ),
-    ];
-
-    // Load initial selection into form
-    _populateFromSampleRow(_sampleRows[0]);
-
-    // Fetch live customers in background
-    WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(customerListProvider.notifier).loadCustomers();
     });
+    _sampleRows = [];
   }
 
-  void _populateFromSampleRow(_CustomerRowData row) {
+    void _populateFromSampleRow(_CustomerRowData row) {
     setState(() {
       _companyNameCtrl.text = row.companyName;
       _gstNumberCtrl.text = row.gstNumber;
@@ -292,12 +183,23 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
       _locationCtrl.clear();
       _ownerNameCtrl.clear();
       _staffCountCtrl.clear();
-      _valuablePercentCtrl.text = '50.0';
-      _ratingCtrl.text = '4.0';
+      _valuablePercentCtrl.text = '0.0';
+      _ratingCtrl.text = '0.0';
+      _workInVfdPanel = false;
+      _workInDewatering = false;
+      _isDistributor = false;
+      _isDealer = false;
+      _seriousBase = false;
+      _photos.clear();
+      _audioFiles.clear();
       _remarkPersonNameCtrl.clear();
       _remarkPersonDesigCtrl.clear();
       _remarkPersonMobileCtrl.clear();
+      _callTimeCtrl.clear();
+      _convDateCtrl.clear();
       _commDetailsCtrl.clear();
+      _meetingScheduleTimeCtrl.clear();
+      _nextMeetingTimeCtrl.clear();
       _meetingAgendaCtrl.clear();
       _meetingDetailsCtrl.clear();
       _selectedProducts.clear();
@@ -768,36 +670,39 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
 
   // ─── SECTION 2: Customer Interaction History Table ─────────────────────────
   Widget _buildCustomerInteractionTable(List<Customer> liveCustomers) {
-    final combinedRows = <_CustomerRowData>[..._sampleRows];
+    final combinedRows = <_CustomerRowData>[];
     for (int i = 0; i < liveCustomers.length; i++) {
       final c = liveCustomers[i];
-      if (!_sampleRows.any((s) => s.companyName.toLowerCase() == c.companyName.toLowerCase())) {
-        combinedRows.add(_CustomerRowData(
-          index: combinedRows.length + 1,
-          companyName: c.companyName,
-          gstNumber: c.gstin ?? 'UNREGISTERED',
-          contactPerson: c.contactPerson,
-          designation: c.designation ?? 'Manager',
-          contactNumber: c.phone,
-          country: c.country.isNotEmpty ? c.country : 'India',
-          state: c.state.isNotEmpty ? c.state : 'Maharashtra',
-          district: c.district.isNotEmpty ? c.district : 'Pune',
-          location: c.city.isNotEmpty ? c.city : 'Industrial Area',
-          ownerName: c.ownerName ?? 'Client Director',
-          products: c.products.isNotEmpty ? c.products.join(', ') : 'Industrial System',
-          valuablePct: c.valuationPercentage,
-          rating: c.customerRating,
-          activityCount: c.activityCount,
-          mobileRec: 1,
-          dataSent: 'Yes',
-          enquiry: c.enquiryCount > 0 ? 'Yes' : 'No',
-          callTime: '10:30 AM',
-          convDate: c.createdAt.toString().split(' ').first,
-          meetingTime: 'Scheduled',
-          nextMeeting: 'Upcoming',
-          remark: 'Call receive',
-          liveCustomer: c,
-        ));
+      combinedRows.add(_CustomerRowData(
+        index: combinedRows.length + 1,
+        companyName: c.companyName,
+        gstNumber: c.gstin?.isNotEmpty == true ? c.gstin! : 'UNREGISTERED',
+        contactPerson: c.contactPerson,
+        designation: c.designation ?? '',
+        contactNumber: c.phone,
+        country: c.country.isNotEmpty ? c.country : 'India',
+        state: c.state.isNotEmpty ? c.state : 'Maharashtra',
+        district: c.district.isNotEmpty ? c.district : 'Pune',
+        location: c.city.isNotEmpty ? c.city : '',
+        ownerName: c.ownerName ?? '',
+        products: c.products.isNotEmpty ? c.products.join(', ') : '',
+        valuablePct: c.valuationPercentage,
+        rating: c.customerRating,
+        activityCount: c.activityCount,
+        mobileRec: 1,
+        dataSent: 'Yes',
+        enquiry: c.enquiryCount > 0 ? 'Yes' : 'No',
+        callTime: '',
+        convDate: c.createdAt.toString().split(' ').first,
+        meetingTime: '',
+        nextMeeting: '',
+        remark: '',
+        liveCustomer: c,
+      ));
+    }
+    for (final s in _sampleRows) {
+      if (!combinedRows.any((r) => r.companyName.toLowerCase() == s.companyName.toLowerCase())) {
+        combinedRows.add(s);
       }
     }
 
@@ -812,6 +717,7 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
           r.location.toLowerCase().contains(q) ||
           r.state.toLowerCase().contains(q);
     }).toList();
+    _displayedCustomerRows = filteredSampleRows;
 
     return Container(
       decoration: BoxDecoration(
@@ -834,7 +740,27 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
               ),
             ),
           ),
-          SingleChildScrollView(
+          if (filteredSampleRows.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 30),
+              child: Center(
+                child: Column(
+                  children: [
+                    const Icon(Icons.people_outline, color: Color(0xFF6B7280), size: 36),
+                    const SizedBox(height: 8),
+                    Text(
+                      liveCustomers.isEmpty
+                          ? 'No saved customer records found in database.\nEnter details above and click "Save Customer Record" to add your first customer.'
+                          : 'No customers match search "$_activeSearchQuery".',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: ConstrainedBox(
               constraints: const BoxConstraints(minWidth: 1600),
@@ -939,11 +865,16 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
           icon: const Icon(Icons.folder_open, size: 15),
           label: const Text('Open Company Data', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
           onPressed: () {
-            if (_selectedCustomerIndex != null && _selectedCustomerIndex! < _sampleRows.length) {
-              _populateFromSampleRow(_sampleRows[_selectedCustomerIndex!]);
+            if (_selectedCustomerIndex != null && _selectedCustomerIndex! < _displayedCustomerRows.length) {
+              final row = _displayedCustomerRows[_selectedCustomerIndex!];
+              if (row.liveCustomer != null) {
+                _populateFromLiveCustomer(row.liveCustomer!);
+              } else {
+                _populateFromSampleRow(row);
+              }
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Loaded "${_sampleRows[_selectedCustomerIndex!].companyName}" into details form.'),
+                  content: Text('Loaded "${row.companyName}" into details form.'),
                   backgroundColor: const Color(0xFFF15A24),
                 ),
               );
@@ -975,15 +906,25 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
                   SnackBar(content: Text('Customer "$name" deleted successfully.'), backgroundColor: Colors.redAccent),
                 );
               }
-            } else if (_selectedCustomerIndex != null && _selectedCustomerIndex! < _sampleRows.length) {
-              final name = _sampleRows[_selectedCustomerIndex!].companyName;
-              setState(() {
-                _sampleRows.removeAt(_selectedCustomerIndex!);
-                _selectedCustomerIndex = null;
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Record "$name" deleted.'), backgroundColor: Colors.redAccent),
-              );
+            } else if (_selectedCustomerIndex != null && _selectedCustomerIndex! < _displayedCustomerRows.length) {
+              final row = _displayedCustomerRows[_selectedCustomerIndex!];
+              final name = row.companyName;
+              if (row.liveCustomer != null) {
+                try {
+                  await ref.read(customersRepositoryProvider).deleteCustomer(row.liveCustomer!.id);
+                  await ref.read(customerListProvider.notifier).loadCustomers();
+                } catch (_) {}
+              } else {
+                setState(() {
+                  _sampleRows.removeWhere((s) => s.companyName == name);
+                });
+              }
+              _clearForm();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Customer "$name" deleted.'), backgroundColor: Colors.redAccent),
+                );
+              }
             }
           },
         ),
@@ -1004,18 +945,31 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
 
   // ─── SECTION 3: Customer Details & Data Entry Header ───────────────────────
   Widget _buildCustomerDetailsHeader() {
-    return const Row(
+    final isEditing = _selectedCustomer != null;
+    return Row(
       children: [
-        Icon(Icons.edit_note, color: Color(0xFFF15A24), size: 18),
-        SizedBox(width: 8),
+        const Icon(Icons.edit_note, color: Color(0xFFF15A24), size: 18),
+        const SizedBox(width: 8),
         Text(
-          'Customer Details & Data Entry',
-          style: TextStyle(
+          isEditing ? 'Customer Details & Data Entry (Editing: ${_companyNameCtrl.text})' : 'Customer Details & Data Entry (New Entry)',
+          style: const TextStyle(
             color: Color(0xFFF15A24),
             fontSize: 13,
             fontWeight: FontWeight.bold,
             letterSpacing: 0.3,
           ),
+        ),
+        const Spacer(),
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFFF15A24),
+            side: const BorderSide(color: Color(0xFFF15A24)),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+          ),
+          icon: const Icon(Icons.refresh_rounded, size: 14),
+          label: const Text('Clear Form / New Entry', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+          onPressed: _clearForm,
         ),
       ],
     );

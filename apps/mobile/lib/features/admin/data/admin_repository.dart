@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saark_erp_mobile/core/network/dio_client.dart';
@@ -12,6 +13,10 @@ class AdminUserItem {
   final String? designation;
   final String status;
   final String? departmentName;
+  final String? departmentId;
+  final String? employeeId;
+  final String? employeeCode;
+  final List<String> assignedModules;
   final List<String> roles;
   final bool faceVerificationEnabled;
   final String faceVerificationStatus;
@@ -27,6 +32,10 @@ class AdminUserItem {
     this.designation,
     required this.status,
     this.departmentName,
+    this.departmentId,
+    this.employeeId,
+    this.employeeCode,
+    this.assignedModules = const [],
     required this.roles,
     this.faceVerificationEnabled = false,
     this.faceVerificationStatus = 'NOT_ENROLLED',
@@ -45,6 +54,23 @@ class AdminUserItem {
         }
       }
     }
+
+    final emp = json['employee'] is Map ? json['employee'] as Map<String, dynamic> : null;
+    final employeeId = emp?['id']?.toString();
+    final employeeCode = emp?['employeeCode']?.toString();
+    final deptId = json['departmentId']?.toString() ?? json['department']?['id']?.toString() ?? emp?['departmentId']?.toString();
+
+    List<String> modules = [];
+    final rawModules = json['assignedModules'] ?? emp?['assignedModules'];
+    if (rawModules is List) {
+      modules = rawModules.map((e) => e.toString()).toList();
+    } else if (rawModules is String && rawModules.trim().startsWith('[')) {
+      try {
+        final decoded = jsonDecode(rawModules);
+        if (decoded is List) modules = decoded.map((e) => e.toString()).toList();
+      } catch (_) {}
+    }
+
     return AdminUserItem(
       id: json['id'] ?? '',
       username: json['username'] ?? '',
@@ -54,6 +80,10 @@ class AdminUserItem {
       designation: json['designation'],
       status: json['status'] ?? 'ACTIVE',
       departmentName: json['department']?['name'],
+      departmentId: deptId,
+      employeeId: employeeId,
+      employeeCode: employeeCode,
+      assignedModules: modules,
       roles: rolesList,
       faceVerificationEnabled: json['faceVerificationEnabled'] == true,
       faceVerificationStatus: json['faceVerificationStatus'] ?? 'NOT_ENROLLED',

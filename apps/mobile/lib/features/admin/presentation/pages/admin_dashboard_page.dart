@@ -917,7 +917,21 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
 
     String selectedDeptId = employee.departmentId ?? (_departments.isNotEmpty ? _departments.first.id : '');
     String selectedStatus = employee.status;
-    List<String> selectedModules = List<String>.from(employee.assignedModules.isNotEmpty ? employee.assignedModules : ['SALES_MARKETING']);
+    List<String> selectedModules = List<String>.from(employee.assignedModules.isNotEmpty
+        ? employee.assignedModules
+        : () {
+            final dept = _departments.firstWhere(
+              (d) => d.id == selectedDeptId,
+              orElse: () => DepartmentItem(id: '', name: employee.departmentName ?? '', code: ''),
+            );
+            final code = (dept.code.isNotEmpty ? dept.code : dept.name).toUpperCase();
+            if (code.contains('PROD')) return ['PRODUCTION', 'TASKS'];
+            if (code.contains('HR')) return ['HR', 'ATTENDANCE'];
+            if (code.contains('IT') || code.contains('ADMIN')) return ['ADMINISTRATION'];
+            if (code.contains('ACC') || code.contains('FIN')) return ['ACCOUNTS'];
+            if (code.contains('SALES') || code.contains('MKT')) return ['SALES_MARKETING'];
+            return <String>[];
+          }());
     String? selectedRoleId = _roles.isNotEmpty ? _roles.first.id : null;
     bool obscurePassword = true;
     bool isSubmitting = false;
@@ -2261,19 +2275,19 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                                       final matchedEmp = _requests.firstWhere(
                                         (r) => r.email.toLowerCase() == u.email.toLowerCase() || (r.username != null && r.username == u.username),
                                         orElse: () => Employee(
-                                          id: u.id,
-                                          employeeCode: 'EMP-${u.username}',
+                                          id: u.employeeId ?? u.id,
+                                          employeeCode: u.employeeCode ?? 'EMP-${u.username}',
                                           userId: u.id,
                                           firstName: u.fullName.split(' ').first,
                                           lastName: u.fullName.split(' ').length > 1 ? u.fullName.split(' ').sublist(1).join(' ') : '',
                                           email: u.email,
                                           phone: u.phone ?? '',
                                           designation: u.designation ?? 'Staff',
-                                          departmentId: null,
+                                          departmentId: u.departmentId,
                                           departmentName: u.departmentName,
                                           status: u.status,
                                           username: u.username,
-                                          assignedModules: const [],
+                                          assignedModules: u.assignedModules,
                                           joiningDate: u.createdAt,
                                         ),
                                       );
