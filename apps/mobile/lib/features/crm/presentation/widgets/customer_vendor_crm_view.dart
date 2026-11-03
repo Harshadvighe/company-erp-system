@@ -690,6 +690,11 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
 
             const SizedBox(height: 14),
 
+            // ─── TOP SECTION: Search & Select Company (Placed at Top) ──────────
+            _buildSearchAndFilterSection(liveCustomers, isAdmin, currentUser),
+
+            const SizedBox(height: 16),
+
             // ─── SECTION 1: Customer Details & Data Entry Form ─────────────────
             _buildCustomerDetailsHeader(),
             const SizedBox(height: 10),
@@ -702,12 +707,7 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
 
             const SizedBox(height: 22),
 
-            // ─── SECTION 2: Customer Interaction History & Search ──────────────
-            _buildSearchAndFilterSection(liveCustomers, isAdmin, currentUser),
-
-            const SizedBox(height: 14),
-
-            // Customer Interaction History Table
+            // ─── SECTION 2: Customer Interaction History Table ────────────────
             _buildCustomerInteractionTable(liveCustomers, isAdmin, currentUser),
 
             const SizedBox(height: 10),
@@ -797,11 +797,12 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
               const Icon(Icons.search_rounded, color: Color(0xFFF15A24), size: 18),
               const SizedBox(width: 8),
               const Text(
-                'Search & Filter Customer Records',
+                'Search & Select Company',
                 style: TextStyle(
                   color: Color(0xFFF15A24),
-                  fontSize: 12.5,
+                  fontSize: 13,
                   fontWeight: FontWeight.bold,
+                  letterSpacing: 0.2,
                 ),
               ),
               const Spacer(),
@@ -830,15 +831,75 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
           const SizedBox(height: 10),
           LayoutBuilder(
             builder: (context, constraints) {
-              final isWide = constraints.maxWidth > 900;
-              return isWide
-                  ? Row(
+              final isWide = constraints.maxWidth > 950;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (isWide)
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Expanded(flex: 6, child: _buildSearchTextField()),
-                        const SizedBox(width: 10),
-                        // Team Member Dropdown Filter
+                        const Text(
+                          'Search Company / GST / Contact / Owner / Country / State / District / Location: ',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(child: _buildSearchTextField()),
+                        const SizedBox(width: 8),
+                        _buildSearchButtons(),
+                        const SizedBox(width: 8),
+                        // Member filter dropdown for admin/team
+                        Container(
+                          height: 32,
+                          width: 170,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF131518),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: const Color(0xFF383D48)),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: members.contains(_selectedMemberFilter) ? _selectedMemberFilter : 'ALL',
+                              dropdownColor: const Color(0xFF1E2127),
+                              isExpanded: true,
+                              icon: const Icon(Icons.person_search_rounded, color: Color(0xFFF15A24), size: 16),
+                              style: const TextStyle(color: Colors.white, fontSize: 11.5),
+                              items: members.map((m) {
+                                return DropdownMenuItem<String>(
+                                  value: m,
+                                  child: Text(m == 'ALL' ? '👤 All Members' : '👤 $m', overflow: TextOverflow.ellipsis),
+                                );
+                              }).toList(),
+                              onChanged: (val) {
+                                if (val != null) setState(() => _selectedMemberFilter = val);
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  else ...[
+                    const Text(
+                      'Search Company / GST / Contact / Owner / Country / State / District / Location:',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    _buildSearchTextField(),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        _buildSearchButtons(),
+                        const SizedBox(width: 8),
                         Expanded(
-                          flex: 4,
                           child: Container(
                             height: 32,
                             padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -857,7 +918,7 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
                                 items: members.map((m) {
                                   return DropdownMenuItem<String>(
                                     value: m,
-                                    child: Text(m == 'ALL' ? '👤 All Team Members' : '👤 Member: $m', overflow: TextOverflow.ellipsis),
+                                    child: Text(m == 'ALL' ? '👤 All Members' : '👤 $m', overflow: TextOverflow.ellipsis),
                                   );
                                 }).toList(),
                                 onChanged: (val) {
@@ -867,48 +928,121 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        _buildSearchButtons(),
                       ],
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildSearchTextField(),
-                        const SizedBox(height: 8),
-                        Container(
-                          height: 32,
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF131518),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: const Color(0xFF383D48)),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: members.contains(_selectedMemberFilter) ? _selectedMemberFilter : 'ALL',
-                              dropdownColor: const Color(0xFF1E2127),
-                              isExpanded: true,
-                              icon: const Icon(Icons.person_search_rounded, color: Color(0xFFF15A24), size: 16),
-                              style: const TextStyle(color: Colors.white, fontSize: 11.5),
-                              items: members.map((m) {
-                                return DropdownMenuItem<String>(
-                                  value: m,
-                                  child: Text(m == 'ALL' ? '👤 All Team Members' : '👤 Member: $m', overflow: TextOverflow.ellipsis),
-                                );
-                              }).toList(),
-                              onChanged: (val) {
-                                if (val != null) setState(() => _selectedMemberFilter = val);
-                              },
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        _buildSearchButtons(),
-                      ],
-                    );
+                    ),
+                  ],
+                  if (_activeSearchQuery.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    _buildQuickMatchBar(liveCustomers),
+                  ],
+                ],
+              );
             },
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickMatchBar(List<Customer> liveCustomers) {
+    final query = _activeSearchQuery.toLowerCase();
+    final matchedCustomers = liveCustomers.where((c) {
+      return c.companyName.toLowerCase().contains(query) ||
+          (c.gstin != null && c.gstin!.toLowerCase().contains(query)) ||
+          c.phone.toLowerCase().contains(query) ||
+          c.contactPerson.toLowerCase().contains(query);
+    }).take(4).toList();
+
+    final matchedSamples = _sampleRows.where((s) {
+      return s.companyName.toLowerCase().contains(query) ||
+          s.gstNumber.toLowerCase().contains(query) ||
+          s.contactNumber.toLowerCase().contains(query) ||
+          s.contactPerson.toLowerCase().contains(query);
+    }).take(4).toList();
+
+    final totalCount = matchedCustomers.length + matchedSamples.length;
+    if (totalCount == 0) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFF131518),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: const Color(0xFF383D48)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.info_outline, color: Colors.white54, size: 14),
+            const SizedBox(width: 6),
+            Text(
+              'No existing company found matching "$_activeSearchQuery". Enter new details below to register.',
+              style: const TextStyle(color: Colors.white70, fontSize: 11),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF131518),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: const Color(0xFFF15A24).withOpacity(0.4)),
+      ),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.check_circle_outline, color: Color(0xFF10B981), size: 14),
+              const SizedBox(width: 5),
+              Text(
+                'Found $totalCount match(es) - Click to load into form:',
+                style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          ...matchedCustomers.map((c) => ActionChip(
+                avatar: const Icon(Icons.business, size: 13, color: Color(0xFFF15A24)),
+                label: Text(
+                  '${c.companyName} (${c.gstin?.isNotEmpty == true ? c.gstin! : c.phone})',
+                  style: const TextStyle(color: Colors.white, fontSize: 11),
+                ),
+                backgroundColor: const Color(0xFF1E2127),
+                side: const BorderSide(color: Color(0xFFF15A24)),
+                onPressed: () {
+                  _populateFromLiveCustomer(c);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('✅ Loaded "${c.companyName}" details into form!'),
+                      backgroundColor: const Color(0xFF10B981),
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                },
+              )),
+          ...matchedSamples.map((s) => ActionChip(
+                avatar: const Icon(Icons.business, size: 13, color: Color(0xFFF15A24)),
+                label: Text(
+                  '${s.companyName} (${s.gstNumber.isNotEmpty ? s.gstNumber : s.contactNumber})',
+                  style: const TextStyle(color: Colors.white, fontSize: 11),
+                ),
+                backgroundColor: const Color(0xFF1E2127),
+                side: const BorderSide(color: Color(0xFFF15A24)),
+                onPressed: () {
+                  _populateFromSampleRow(s);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('✅ Loaded "${s.companyName}" details into form!'),
+                      backgroundColor: const Color(0xFF10B981),
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                },
+              )),
         ],
       ),
     );
@@ -925,7 +1059,7 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           filled: true,
           fillColor: const Color(0xFF131518),
-          hintText: 'Search by Company Name, GSTIN No, Mobile No, or Staff Name...',
+          hintText: 'Type company, GSTIN, contact name or location...',
           hintStyle: const TextStyle(color: Colors.white38, fontSize: 11),
           prefixIcon: const Icon(Icons.search, size: 15, color: Color(0xFFF15A24)),
           suffixIcon: _searchCtrl.text.isNotEmpty
@@ -971,8 +1105,8 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
         const SizedBox(width: 6),
         ElevatedButton.icon(
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF282B33),
-            foregroundColor: Colors.white70,
+            backgroundColor: const Color(0xFFF15A24),
+            foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
             minimumSize: const Size(0, 32),
