@@ -448,8 +448,38 @@ class AdminRepository {
   }
 
   Future<Map<String, dynamic>> resendWelcomeEmail(String employeeId, {String? password}) async {
-    final response = await _dio.post('/admin/employee-requests//resend-email', data: {
+    final response = await _dio.post('/admin/employee-requests/$employeeId/resend-email', data: {
       if (password != null && password.isNotEmpty) 'password': password,
+    });
+    return response.data['data'] ?? response.data;
+  }
+
+  Future<Map<String, dynamic>> updateEmployeeDetails(
+    String employeeId, {
+    String? firstName,
+    String? lastName,
+    String? email,
+    String? phone,
+    String? departmentId,
+    String? designation,
+    String? status,
+    String? username,
+    String? password,
+    String? roleId,
+    List<String>? assignedModules,
+  }) async {
+    final response = await _dio.put('/admin/employee-requests/$employeeId', data: {
+      if (firstName != null) 'firstName': firstName,
+      if (lastName != null) 'lastName': lastName,
+      if (email != null) 'email': email,
+      if (phone != null) 'phone': phone,
+      if (departmentId != null) 'departmentId': departmentId,
+      if (designation != null) 'designation': designation,
+      if (status != null) 'status': status,
+      if (username != null) 'username': username,
+      if (password != null && password.isNotEmpty) 'password': password,
+      if (roleId != null) 'roleId': roleId,
+      if (assignedModules != null) 'assignedModules': assignedModules,
     });
     return response.data['data'] ?? response.data;
   }

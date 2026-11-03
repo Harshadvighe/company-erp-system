@@ -273,6 +273,17 @@ export class AdminController {
     return this.adminService.rejectEmployeeRequest(id, reason, req.user);
   }
 
+
+  @Put('employee-requests/:id')
+  @ApiOperation({ summary: 'Update employee details and linked user account from Administration' })
+  updateEmployeeRequest(
+    @Param('id') id: string,
+    @Body() dto: any,
+    @Req() req: any,
+  ) {
+    return this.adminService.updateEmployeeRequest(id, dto, req.user);
+  }
+
   // ─── SETTINGS & SYSTEM CONFIGURATION ────────────────────────────────────────
 
   @Get('settings')

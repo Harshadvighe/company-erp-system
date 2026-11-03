@@ -1063,6 +1063,107 @@ export class AdminService {
     };
   }
 
+
+  async updateEmployeeRequest(
+    employeeId: string,
+    dto: {
+      firstName?: string;
+      lastName?: string;
+      email?: string;
+      phone?: string;
+      departmentId?: string;
+      designation?: string;
+      status?: string;
+      username?: string;
+      password?: string;
+      roleId?: string;
+      assignedModules?: string[] | string;
+    },
+    adminUser?: any,
+  ) {
+    const employee = await this.prisma.employee.findFirst({
+      where: {
+        OR: [{ id: employeeId }, { employeeCode: employeeId }],
+      },
+      include: { department: true, user: true },
+    });
+
+    if (!employee) throw new NotFoundException(`Employee '${employeeId}' not found`);
+
+    const updateEmployeeData: any = {};
+    if (dto.firstName) updateEmployeeData.firstName = dto.firstName.trim();
+    if (dto.lastName) updateEmployeeData.lastName = dto.lastName.trim();
+    if (dto.email) updateEmployeeData.email = dto.email.trim();
+    if (dto.phone !== undefined) updateEmployeeData.phone = dto.phone.trim();
+    if (dto.departmentId !== undefined) updateEmployeeData.departmentId = dto.departmentId || null;
+    if (dto.designation !== undefined) updateEmployeeData.designation = dto.designation.trim();
+    if (dto.status) updateEmployeeData.status = dto.status;
+    if (dto.assignedModules !== undefined) {
+      updateEmployeeData.assignedModules = Array.isArray(dto.assignedModules)
+        ? JSON.stringify(dto.assignedModules)
+        : dto.assignedModules;
+    }
+
+    const updated = await this.prisma.employee.update({
+      where: { id: employee.id },
+      data: updateEmployeeData,
+      include: { department: true, user: true },
+    });
+
+    // Also sync linked user account if exists
+    const linkedUserId = employee.userId || employee.user?.id;
+    if (linkedUserId) {
+      const userUpdateData: any = {};
+      if (dto.firstName || dto.lastName) {
+        userUpdateData.fullName = `${dto.firstName ?? employee.firstName} ${dto.lastName ?? employee.lastName}`.trim();
+      }
+      if (dto.email) userUpdateData.email = dto.email.trim();
+      if (dto.phone !== undefined) userUpdateData.phone = dto.phone.trim();
+      if (dto.departmentId !== undefined) userUpdateData.departmentId = dto.departmentId || null;
+      if (dto.designation !== undefined) userUpdateData.designation = dto.designation.trim();
+      if (dto.status) userUpdateData.status = dto.status;
+      if (dto.username) userUpdateData.username = dto.username.trim();
+      if (dto.password && dto.password.length >= 6) {
+        userUpdateData.passwordHash = await bcrypt.hash(dto.password, 12);
+      }
+      if (dto.assignedModules !== undefined) {
+        userUpdateData.assignedModules = updateEmployeeData.assignedModules;
+      }
+
+      await this.prisma.user.update({
+        where: { id: linkedUserId },
+        data: userUpdateData,
+      });
+
+      if (dto.roleId) {
+        await this.prisma.userRole.deleteMany({ where: { userId: linkedUserId } });
+        await this.prisma.userRole.create({
+          data: { userId: linkedUserId, roleId: dto.roleId },
+        });
+      }
+    }
+
+    try {
+      await this.prisma.auditLog.create({
+        data: {
+          userId: adminUser?.id || linkedUserId,
+          userEmail: adminUser?.email || employee.email,
+          action: 'UPDATE',
+          module: 'ADMIN_HR',
+          entityType: 'EMPLOYEE',
+          entityId: employee.id,
+          details: `Admin updated employee details for ${updated.employeeCode} (${updated.firstName} ${updated.lastName})`,
+        },
+      });
+    } catch (_) {}
+
+    return {
+      success: true,
+      message: `Employee ${updated.employeeCode} updated successfully`,
+      employee: updated,
+    };
+  }
+
   // ─── SETTINGS & SYSTEM CONFIGURATION ────────────────────────────────────────
 
   async getSettings() {

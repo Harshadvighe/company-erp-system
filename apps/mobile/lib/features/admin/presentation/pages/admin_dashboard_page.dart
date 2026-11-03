@@ -886,6 +886,600 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
     );
   }
 
+
+  static const List<Map<String, dynamic>> _adminModuleOptions = [
+    {'key': 'SALES_MARKETING', 'title': 'Sales & Marketing', 'icon': Icons.campaign_rounded},
+    {'key': 'B2B_TRADING', 'title': 'B2B Trading', 'icon': Icons.storefront_rounded},
+    {'key': 'PRODUCTION', 'title': 'Production Process', 'icon': Icons.precision_manufacturing_rounded},
+    {'key': 'PANEL_MANUFACTURING', 'title': 'Panel Manufacturing', 'icon': Icons.electrical_services_rounded},
+    {'key': 'QUALITY_CONTROL', 'title': 'Quality Control (QC/QA)', 'icon': Icons.verified_rounded},
+    {'key': 'PROJECTS', 'title': 'Project Management', 'icon': Icons.folder_open_rounded},
+    {'key': 'TASKS', 'title': 'Task Manager', 'icon': Icons.task_alt_rounded},
+    {'key': 'ACCOUNTS', 'title': 'Accounts & Finance', 'icon': Icons.account_balance_rounded},
+    {'key': 'HR', 'title': 'HR (Human Resources)', 'icon': Icons.people_alt_rounded},
+    {'key': 'ATTENDANCE', 'title': 'Attendance', 'icon': Icons.access_time_rounded},
+    {'key': 'PURCHASE', 'title': 'Purchase / Procurement', 'icon': Icons.shopping_bag_rounded},
+    {'key': 'INVENTORY', 'title': 'Stores / Warehouse', 'icon': Icons.warehouse_rounded},
+    {'key': 'MAINTENANCE', 'title': 'Maintenance', 'icon': Icons.home_repair_service_rounded},
+    {'key': 'RESEARCH_DEVELOPMENT', 'title': 'R&D / Engineering', 'icon': Icons.science_rounded},
+    {'key': 'ASSET_MANAGEMENT', 'title': 'Asset Management', 'icon': Icons.domain_rounded},
+    {'key': 'ADMINISTRATION', 'title': 'Administration & IT', 'icon': Icons.admin_panel_settings_rounded},
+  ];
+
+  void _showEditEmployeeDialog(Employee employee) {
+    final firstNameCtrl = TextEditingController(text: employee.firstName);
+    final lastNameCtrl = TextEditingController(text: employee.lastName);
+    final emailCtrl = TextEditingController(text: employee.email);
+    final phoneCtrl = TextEditingController(text: employee.phone);
+    final desigCtrl = TextEditingController(text: employee.designation);
+    final usernameCtrl = TextEditingController(text: employee.username ?? employee.email.split('@').first.toLowerCase());
+    final passwordCtrl = TextEditingController();
+
+    String selectedDeptId = employee.departmentId ?? (_departments.isNotEmpty ? _departments.first.id : '');
+    String selectedStatus = employee.status;
+    List<String> selectedModules = List<String>.from(employee.assignedModules.isNotEmpty ? employee.assignedModules : ['SALES_MARKETING']);
+    String? selectedRoleId = _roles.isNotEmpty ? _roles.first.id : null;
+    bool obscurePassword = true;
+    bool isSubmitting = false;
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: AppTheme.darkSurface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+                side: const BorderSide(color: AppTheme.darkBorder),
+              ),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Icon(Icons.edit_note_rounded, color: AppTheme.primary, size: 22),
+                  ),
+                  AppSpacing.gapW12,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Edit Employee & Account Details: ${employee.fullName}',
+                          style: const TextStyle(fontSize: 16, fontWeight: AppTypography.bold, color: AppTypography.darkTextPrimary),
+                        ),
+                        Text(
+                          'Employee Code: ${employee.employeeCode} | Work Email: ${employee.email}',
+                          style: const TextStyle(fontSize: 12, color: AppTypography.darkTextSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 680,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Section 1: Personal & Contact Details
+                      const Text(
+                        '1. EMPLOYEE PERSONAL & CONTACT INFORMATION',
+                        style: TextStyle(color: AppTheme.primary, fontSize: 11, fontWeight: AppTypography.bold, letterSpacing: 0.5),
+                      ),
+                      AppSpacing.gapH8,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('First Name:', style: TextStyle(color: AppTypography.darkTextSecondary, fontSize: 11)),
+                                AppSpacing.gapH4,
+                                _buildDialogInput(controller: firstNameCtrl, hint: 'First Name', prefixIcon: const Icon(Icons.person_outline, size: 16, color: AppTypography.darkTextMuted)),
+                              ],
+                            ),
+                          ),
+                          AppSpacing.gapW12,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Last Name:', style: TextStyle(color: AppTypography.darkTextSecondary, fontSize: 11)),
+                                AppSpacing.gapH4,
+                                _buildDialogInput(controller: lastNameCtrl, hint: 'Last Name', prefixIcon: const Icon(Icons.person_outline, size: 16, color: AppTypography.darkTextMuted)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      AppSpacing.gapH12,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Work Email:', style: TextStyle(color: AppTypography.darkTextSecondary, fontSize: 11)),
+                                AppSpacing.gapH4,
+                                _buildDialogInput(controller: emailCtrl, hint: 'email@company.com', prefixIcon: const Icon(Icons.email_outlined, size: 16, color: AppTypography.darkTextMuted)),
+                              ],
+                            ),
+                          ),
+                          AppSpacing.gapW12,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Phone Number:', style: TextStyle(color: AppTypography.darkTextSecondary, fontSize: 11)),
+                                AppSpacing.gapH4,
+                                _buildDialogInput(controller: phoneCtrl, hint: '+91 98765 43210', prefixIcon: const Icon(Icons.phone_outlined, size: 16, color: AppTypography.darkTextMuted)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      AppSpacing.gapH16,
+
+                      // Section 2: Department, Designation & Status
+                      const Text(
+                        '2. DEPARTMENT, DESIGNATION & APPROVAL STATUS',
+                        style: TextStyle(color: AppTheme.primary, fontSize: 11, fontWeight: AppTypography.bold, letterSpacing: 0.5),
+                      ),
+                      AppSpacing.gapH8,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Official Department:', style: TextStyle(color: AppTypography.darkTextSecondary, fontSize: 11)),
+                                AppSpacing.gapH4,
+                                Container(
+                                  height: 38,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.darkBackground,
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: AppTheme.darkBorder),
+                                  ),
+                                  child: DropdownButtonHideUnderline(
+                                    child: DropdownButton<String>(
+                                      value: _departments.any((d) => d.id == selectedDeptId) ? selectedDeptId : null,
+                                      dropdownColor: AppTheme.darkSurface,
+                                      hint: const Text('Select Department', style: TextStyle(color: AppTypography.darkTextMuted, fontSize: 12)),
+                                      icon: const Icon(Icons.arrow_drop_down, color: AppTypography.darkTextSecondary),
+                                      isExpanded: true,
+                                      style: const TextStyle(color: AppTypography.darkTextPrimary, fontSize: 12),
+                                      items: _departments.map((d) {
+                                        return DropdownMenuItem<String>(
+                                          value: d.id,
+                                          child: Text('${d.name} (${d.code})', overflow: TextOverflow.ellipsis),
+                                        );
+                                      }).toList(),
+                                      onChanged: (v) {
+                                        if (v != null) setDialogState(() => selectedDeptId = v);
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          AppSpacing.gapW12,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Official Designation:', style: TextStyle(color: AppTypography.darkTextSecondary, fontSize: 11)),
+                                AppSpacing.gapH4,
+                                _buildDialogInput(controller: desigCtrl, hint: 'e.g. Sales Executive', prefixIcon: const Icon(Icons.badge_outlined, size: 16, color: AppTypography.darkTextMuted)),
+                              ],
+                            ),
+                          ),
+                          AppSpacing.gapW12,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Approval Status:', style: TextStyle(color: AppTypography.darkTextSecondary, fontSize: 11)),
+                                AppSpacing.gapH4,
+                                Container(
+                                  height: 38,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.darkBackground,
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: AppTheme.darkBorder),
+                                  ),
+                                  child: DropdownButtonHideUnderline(
+                                    child: DropdownButton<String>(
+                                      value: selectedStatus,
+                                      dropdownColor: AppTheme.darkSurface,
+                                      icon: const Icon(Icons.arrow_drop_down, color: AppTypography.darkTextSecondary),
+                                      isExpanded: true,
+                                      style: const TextStyle(color: AppTypography.darkTextPrimary, fontSize: 12),
+                                      items: const [
+                                        DropdownMenuItem(value: 'ACTIVE', child: Text('Approved / Active', style: TextStyle(color: Colors.greenAccent))),
+                                        DropdownMenuItem(value: 'PENDING_APPROVAL', child: Text('Pending Approval', style: TextStyle(color: Colors.orangeAccent))),
+                                        DropdownMenuItem(value: 'INACTIVE', child: Text('Inactive / Disabled', style: TextStyle(color: Colors.redAccent))),
+                                      ],
+                                      onChanged: (v) {
+                                        if (v != null) setDialogState(() => selectedStatus = v);
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      AppSpacing.gapH16,
+
+                      // Section 3: Assigned ERP Modules (Checkable)
+                      Row(
+                        children: [
+                          const Text(
+                            '3. ASSIGNED ERP MODULE ACCESS & PERMISSIONS',
+                            style: TextStyle(color: AppTheme.primary, fontSize: 11, fontWeight: AppTypography.bold, letterSpacing: 0.5),
+                          ),
+                          const Spacer(),
+                          TextButton(
+                            onPressed: () {
+                              setDialogState(() {
+                                selectedModules = _adminModuleOptions.map((m) => m['key'] as String).toList();
+                              });
+                            },
+                            child: const Text('Select All', style: TextStyle(color: AppTheme.primary, fontSize: 11)),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              setDialogState(() {
+                                selectedModules = ['SALES_MARKETING'];
+                              });
+                            },
+                            child: const Text('Reset', style: TextStyle(color: AppTypography.darkTextMuted, fontSize: 11)),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppTheme.darkBackground,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: AppTheme.darkBorder),
+                        ),
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: _adminModuleOptions.map((mod) {
+                            final key = mod['key'] as String;
+                            final title = mod['title'] as String;
+                            final icon = mod['icon'] as IconData;
+                            final isChecked = selectedModules.contains(key);
+
+                            return InkWell(
+                              onTap: () {
+                                setDialogState(() {
+                                  if (isChecked) {
+                                    if (selectedModules.length > 1) {
+                                      selectedModules.remove(key);
+                                    }
+                                  } else {
+                                    selectedModules.add(key);
+                                  }
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(4),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: isChecked ? AppTheme.primary.withValues(alpha: 0.18) : Colors.white.withValues(alpha: 0.04),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                    color: isChecked ? AppTheme.primary : AppTheme.darkBorder,
+                                    width: isChecked ? 1.5 : 1.0,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      isChecked ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
+                                      size: 15,
+                                      color: isChecked ? AppTheme.primary : AppTypography.darkTextMuted,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Icon(icon, size: 14, color: isChecked ? Colors.white : AppTypography.darkTextSecondary),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      title,
+                                      style: TextStyle(
+                                        color: isChecked ? Colors.white : AppTypography.darkTextSecondary,
+                                        fontSize: 11,
+                                        fontWeight: isChecked ? FontWeight.bold : FontWeight.normal,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                      AppSpacing.gapH16,
+
+                      // Section 4: Login Account & Password Update
+                      const Text(
+                        '4. ERP LOGIN USERNAME & PASSWORD UPDATE',
+                        style: TextStyle(color: AppTheme.primary, fontSize: 11, fontWeight: AppTypography.bold, letterSpacing: 0.5),
+                      ),
+                      AppSpacing.gapH8,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Login Username:', style: TextStyle(color: AppTypography.darkTextSecondary, fontSize: 11)),
+                                AppSpacing.gapH4,
+                                _buildDialogInput(controller: usernameCtrl, hint: 'Username', prefixIcon: const Icon(Icons.account_circle_outlined, size: 16, color: AppTypography.darkTextMuted)),
+                              ],
+                            ),
+                          ),
+                          AppSpacing.gapW12,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Text('Reset Password (Optional):', style: TextStyle(color: AppTypography.darkTextSecondary, fontSize: 11)),
+                                    const Spacer(),
+                                    InkWell(
+                                      onTap: () {
+                                        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#%*';
+                                        final rand = Random();
+                                        final gen = List.generate(10, (_) => chars[rand.nextInt(chars.length)]).join();
+                                        setDialogState(() {
+                                          passwordCtrl.text = gen;
+                                          obscurePassword = false;
+                                        });
+                                      },
+                                      child: const Text('Generate', style: TextStyle(color: AppTheme.primary, fontSize: 11, fontWeight: AppTypography.bold)),
+                                    ),
+                                  ],
+                                ),
+                                AppSpacing.gapH4,
+                                _buildDialogInput(
+                                  controller: passwordCtrl,
+                                  hint: 'Leave blank to keep current',
+                                  obscureText: obscurePassword,
+                                  prefixIcon: const Icon(Icons.lock_outline, size: 16, color: AppTypography.darkTextMuted),
+                                  suffixIcon: IconButton(
+                                    icon: Icon(obscurePassword ? Icons.visibility_off : Icons.visibility, size: 16, color: AppTypography.darkTextMuted),
+                                    onPressed: () => setDialogState(() => obscurePassword = !obscurePassword),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSubmitting ? null : () => Navigator.pop(ctx),
+                  child: const Text('Cancel', style: TextStyle(color: AppTypography.darkTextSecondary)),
+                ),
+                ElevatedButton.icon(
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          final sm = ScaffoldMessenger.of(context);
+                          final nav = Navigator.of(ctx);
+                          setDialogState(() => isSubmitting = true);
+
+                          final firstName = firstNameCtrl.text.trim();
+                          final lastName = lastNameCtrl.text.trim();
+                          final email = emailCtrl.text.trim();
+                          final phone = phoneCtrl.text.trim();
+                          final desig = desigCtrl.text.trim();
+                          final username = usernameCtrl.text.trim();
+                          final password = passwordCtrl.text.trim();
+
+                          if (firstName.isEmpty || email.isEmpty) {
+                            setDialogState(() => isSubmitting = false);
+                            sm.showSnackBar(
+                              const SnackBar(content: Text('First Name and Email are required'), backgroundColor: AppTheme.error),
+                            );
+                            return;
+                          }
+
+                          try {
+                            final repo = ref.read(adminRepositoryProvider);
+                            await repo.updateEmployeeDetails(
+                              employee.id,
+                              firstName: firstName,
+                              lastName: lastName,
+                              email: email,
+                              phone: phone,
+                              departmentId: selectedDeptId.isNotEmpty ? selectedDeptId : null,
+                              designation: desig.isNotEmpty ? desig : null,
+                              status: selectedStatus,
+                              username: username.isNotEmpty ? username : null,
+                              password: password.isNotEmpty ? password : null,
+                              roleId: selectedRoleId,
+                              assignedModules: selectedModules,
+                            );
+
+                            if (mounted) {
+                              nav.pop();
+                              sm.showSnackBar(
+                                SnackBar(
+                                  content: Text('✅ Employee ${employee.employeeCode} ($firstName $lastName) updated successfully!'),
+                                  backgroundColor: const Color(0xFF2E7D32),
+                                ),
+                              );
+                              _refreshRequests();
+                            }
+                          } catch (err) {
+                            setDialogState(() => isSubmitting = false);
+                            String errorMsg = err.toString();
+                            if (err is DioException && err.response?.data != null) {
+                              final d = err.response!.data;
+                              if (d is Map && d['message'] != null) {
+                                errorMsg = d['message'].toString();
+                              }
+                            }
+                            if (mounted) {
+                              sm.showSnackBar(
+                                SnackBar(content: Text('Update failed: $errorMsg'), backgroundColor: AppTheme.error),
+                              );
+                            }
+                          }
+                        },
+                  icon: isSubmitting
+                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.save_rounded, size: 16),
+                  label: Text(isSubmitting ? 'Saving...' : 'Save & Update Employee'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showResendEmailDialog(Employee employee) {
+    final passwordCtrl = TextEditingController(text: 'Saark@2026');
+    bool obscurePassword = false;
+    bool isSubmitting = false;
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: AppTheme.darkSurface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+                side: const BorderSide(color: AppTheme.darkBorder),
+              ),
+              title: Row(
+                children: [
+                  const Icon(Icons.mark_email_read_outlined, color: AppTheme.primary, size: 22),
+                  const SizedBox(width: 10),
+                  Text('Resend Credentials: ${employee.fullName}', style: const TextStyle(fontSize: 15, color: Colors.white, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Send login credentials and portal access email directly to:', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                  const SizedBox(height: 4),
+                  Text(employee.email, style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold, fontSize: 13)),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      const Text('Password to include in email:', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                      const Spacer(),
+                      InkWell(
+                        onTap: () {
+                          const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#%*';
+                          final rand = Random();
+                          final gen = List.generate(10, (_) => chars[rand.nextInt(chars.length)]).join();
+                          setDialogState(() => passwordCtrl.text = gen);
+                        },
+                        child: const Text('Generate', style: TextStyle(color: AppTheme.primary, fontSize: 11, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  _buildDialogInput(
+                    controller: passwordCtrl,
+                    hint: 'Password',
+                    obscureText: obscurePassword,
+                    prefixIcon: const Icon(Icons.lock_outline, size: 16, color: AppTypography.darkTextMuted),
+                    suffixIcon: IconButton(
+                      icon: Icon(obscurePassword ? Icons.visibility_off : Icons.visibility, size: 16, color: AppTypography.darkTextMuted),
+                      onPressed: () => setDialogState(() => obscurePassword = !obscurePassword),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSubmitting ? null : () => Navigator.pop(ctx),
+                  child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+                ),
+                ElevatedButton.icon(
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          final sm = ScaffoldMessenger.of(context);
+                          final nav = Navigator.of(ctx);
+                          setDialogState(() => isSubmitting = true);
+                          try {
+                            await ref.read(adminRepositoryProvider).resendWelcomeEmail(
+                              employee.id,
+                              password: passwordCtrl.text.trim(),
+                            );
+                            if (mounted) {
+                              nav.pop();
+                              sm.showSnackBar(
+                                SnackBar(
+                                  content: Text('✅ Credentials email dispatched to ${employee.email}'),
+                                  backgroundColor: const Color(0xFF2E7D32),
+                                ),
+                              );
+                            }
+                          } catch (err) {
+                            setDialogState(() => isSubmitting = false);
+                            if (mounted) {
+                              sm.showSnackBar(
+                                SnackBar(content: Text('Failed to send email: $err'), backgroundColor: AppTheme.error),
+                              );
+                            }
+                          }
+                        },
+                  icon: isSubmitting
+                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.send_rounded, size: 14),
+                  label: Text(isSubmitting ? 'Sending...' : 'Send Email Now'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildDialogInput({
     required TextEditingController controller,
     required String hint,
@@ -1387,34 +1981,48 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                                       ),
                                     )),
                                     DataCell(
-                                      isPending
-                                          ? ElevatedButton.icon(
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (isPending) ...[
+                                            ElevatedButton.icon(
                                               onPressed: () => _showProvisioningDialog(r),
-                                              icon: const Icon(Icons.how_to_reg_rounded, size: 14),
-                                              label: const Text('Review & Provision User'),
+                                              icon: const Icon(Icons.how_to_reg_rounded, size: 13),
+                                              label: const Text('Review & Provision'),
                                               style: ElevatedButton.styleFrom(
                                                 backgroundColor: AppTheme.primary,
                                                 foregroundColor: Colors.white,
-                                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(3)),
                                                 textStyle: const TextStyle(fontSize: 11, fontWeight: AppTypography.bold),
                                               ),
-                                            )
-                                          : Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                              decoration: BoxDecoration(
-                                                color: Colors.white.withValues(alpha: 0.06),
-                                                borderRadius: BorderRadius.circular(3),
-                                              ),
-                                              child: const Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Icon(Icons.check_circle, color: AppTheme.success, size: 14),
-                                                  SizedBox(width: 4),
-                                                  Text('User Provisioned', style: TextStyle(color: AppTypography.darkTextSecondary, fontSize: 11)),
-                                                ],
-                                              ),
                                             ),
+                                            const SizedBox(width: 6),
+                                          ],
+                                          // Edit Employee Option
+                                          ElevatedButton.icon(
+                                            onPressed: () => _showEditEmployeeDialog(r),
+                                            icon: const Icon(Icons.edit_note_rounded, size: 14),
+                                            label: const Text('Edit Details'),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(0xFF1E293B),
+                                              foregroundColor: Colors.lightBlueAccent,
+                                              side: const BorderSide(color: Color(0xFF334155)),
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(3)),
+                                              textStyle: const TextStyle(fontSize: 11, fontWeight: AppTypography.bold),
+                                            ),
+                                          ),
+                                          if (!isPending) ...[
+                                            const SizedBox(width: 6),
+                                            IconButton(
+                                              icon: const Icon(Icons.mark_email_read_outlined, size: 16, color: AppTheme.primary),
+                                              tooltip: 'Resend Credentials Email',
+                                              onPressed: () => _showResendEmailDialog(r),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
                                     ),
                                   ],
                                 );
@@ -1646,6 +2254,32 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                                       onPressed: () => _unlockUserAccount(u),
                                     ),
                                   ],
+                                  IconButton(
+                                    icon: const Icon(Icons.edit_note_rounded, color: Colors.cyanAccent, size: 18),
+                                    tooltip: 'Edit Employee / User Details',
+                                    onPressed: () {
+                                      final matchedEmp = _requests.firstWhere(
+                                        (r) => r.email.toLowerCase() == u.email.toLowerCase() || (r.username != null && r.username == u.username),
+                                        orElse: () => Employee(
+                                          id: u.id,
+                                          employeeCode: 'EMP-${u.username}',
+                                          userId: u.id,
+                                          firstName: u.fullName.split(' ').first,
+                                          lastName: u.fullName.split(' ').length > 1 ? u.fullName.split(' ').sublist(1).join(' ') : '',
+                                          email: u.email,
+                                          phone: u.phone ?? '',
+                                          designation: u.designation ?? 'Staff',
+                                          departmentId: null,
+                                          departmentName: u.departmentName,
+                                          status: u.status,
+                                          username: u.username,
+                                          assignedModules: const [],
+                                          joiningDate: u.createdAt,
+                                        ),
+                                      );
+                                      _showEditEmployeeDialog(matchedEmp);
+                                    },
+                                  ),
                                   IconButton(
                                     icon: const Icon(Icons.vpn_key_rounded, color: AppTheme.primary, size: 16),
                                     tooltip: 'Reset User Password',
