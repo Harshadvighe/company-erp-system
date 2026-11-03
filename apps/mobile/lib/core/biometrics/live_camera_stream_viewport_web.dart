@@ -41,6 +41,30 @@ class LiveCameraStreamViewportState extends State<LiveCameraStreamViewport>
   String? _viewId;
   bool _cameraReady = false;
   String _statusMessage = 'Starting camera...';
+  String? _fallbackPhotoBase64;
+
+  void _pickFallbackPhoto() {
+    final uploadInput = html.FileUploadInputElement()..accept = 'image/*';
+    uploadInput.click();
+    uploadInput.onChange.listen((e) {
+      final files = uploadInput.files;
+      if (files != null && files.isNotEmpty) {
+        final file = files[0];
+        final reader = html.FileReader();
+        reader.onLoadEnd.listen((e) {
+          if (mounted) {
+            setState(() {
+              _fallbackPhotoBase64 = reader.result as String?;
+              _cameraReady = true;
+              _statusMessage = 'Face photo attached';
+            });
+            widget.onFrameCaptured?.call(_fallbackPhotoBase64);
+          }
+        });
+        reader.readAsDataUrl(file);
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -114,6 +138,7 @@ class LiveCameraStreamViewportState extends State<LiveCameraStreamViewport>
   /// Captures the current video frame and returns it as base64-encoded JPEG
   @override
   Future<String?> snapCurrentFrame() async {
+    if (_fallbackPhotoBase64 != null) return _fallbackPhotoBase64;
     final video = _videoElement;
     if (video == null || !_cameraReady) return null;
 
@@ -158,9 +183,17 @@ class LiveCameraStreamViewportState extends State<LiveCameraStreamViewport>
               Positioned.fill(
                 child: HtmlElementView(viewType: _viewId!),
               )
+            else if (_fallbackPhotoBase64 != null)
+              Positioned.fill(
+                child: Image.memory(
+                  base64Decode(_fallbackPhotoBase64!.split(',').last),
+                  fit: BoxFit.cover,
+                ),
+              )
             else
               Positioned.fill(
                 child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: const BoxDecoration(
                     gradient: RadialGradient(
                       center: Alignment.center,
@@ -172,18 +205,57 @@ class LiveCameraStreamViewportState extends State<LiveCameraStreamViewport>
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.videocam_off_rounded,
-                          size: 48,
-                          color: Colors.white.withValues(alpha: 0.2),
+                          size: 36,
+                          color: Color(0xFFF15A24),
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _statusMessage,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Colors.white38,
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Camera Access Blocked / Denied',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
                           ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Click 🔒 or ⚙️ in browser address bar\nSet Camera to "Allow", then click Retry',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.white60,
+                            height: 1.3,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: _initCamera,
+                              icon: const Icon(Icons.refresh_rounded, size: 14),
+                              label: const Text('Allow & Retry', style: TextStyle(fontSize: 11)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFF15A24),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            OutlinedButton.icon(
+                              onPressed: _pickFallbackPhoto,
+                              icon: const Icon(Icons.upload_file_rounded, size: 14, color: Colors.white70),
+                              label: const Text('Upload Photo', style: TextStyle(fontSize: 11, color: Colors.white70)),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Colors.white24),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),

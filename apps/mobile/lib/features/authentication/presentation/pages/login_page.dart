@@ -86,6 +86,16 @@ class _LoginPageState extends ConsumerState<LoginPage>
           ? null
           : await _cameraKey.currentState?.snapCurrentFrame();
 
+      if (!isEmergencyAdmin && (liveFaceData == null || liveFaceData.isEmpty)) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _errorMessage = 'Camera access is required for 2FA biometric verification. Please click "Allow & Retry" or "Upload Photo" below.';
+          });
+        }
+        return;
+      }
+
       final loginResult = await authService.login(
         _emailController.text.trim(),
         _passwordController.text,

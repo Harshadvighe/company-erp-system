@@ -96,3 +96,4 @@ When HR creates or edits an employee profile:
 Generated on: Monday, November 2, 2026
 Saark Exploration Pvt. Ltd. | Industrial Automation & ERP Platform
 ================================================================================
+
