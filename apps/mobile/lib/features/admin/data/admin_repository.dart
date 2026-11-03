@@ -447,6 +447,13 @@ class AdminRepository {
     return response.data['data'] ?? response.data;
   }
 
+  Future<Map<String, dynamic>> resendWelcomeEmail(String employeeId, {String? password}) async {
+    final response = await _dio.post('/admin/employee-requests//resend-email', data: {
+      if (password != null && password.isNotEmpty) 'password': password,
+    });
+    return response.data['data'] ?? response.data;
+  }
+
   Future<Map<String, dynamic>> rejectEmployeeRequest(String employeeId, {String? reason}) async {
     final response = await _dio.post('/admin/employee-requests/$employeeId/reject', data: {
       'reason': reason ?? 'Rejected by Administrator',

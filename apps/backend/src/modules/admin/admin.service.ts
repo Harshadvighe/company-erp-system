@@ -753,10 +753,6 @@ export class AdminService {
 
     if (!employee) throw new NotFoundException(`Employee '${employeeId}' not found`);
 
-    if (employee.userId) {
-      throw new BadRequestException('This employee already has a linked user account');
-    }
-
     const targetDeptId = dto.departmentId || employee.departmentId;
     const modulesToAssign = (dto as any).assignedModules
       ? (typeof (dto as any).assignedModules === 'string' ? (dto as any).assignedModules : JSON.stringify((dto as any).assignedModules))
@@ -764,57 +760,85 @@ export class AdminService {
     const passwordHash = await bcrypt.hash(dto.password, 12);
     let user: any;
 
-    const existingEmail = await this.prisma.user.findUnique({ where: { email: employee.email } });
-    if (existingEmail) {
-      // Check if this user account is already assigned to a DIFFERENT employee
-      const otherEmployee = await this.prisma.employee.findFirst({
-        where: { userId: existingEmail.id, id: { not: employee.id } },
-      });
-      if (otherEmployee) {
-        throw new ConflictException(
-          `User with email "${employee.email}" is already linked to employee ${otherEmployee.employeeCode} (${otherEmployee.firstName} ${otherEmployee.lastName})`,
-        );
-      }
-
-      // Check if the requested username is taken by a different account
-      if (existingEmail.username !== dto.username) {
-        const usernameConflict = await this.prisma.user.findUnique({ where: { username: dto.username } });
-        if (usernameConflict && usernameConflict.id !== existingEmail.id) {
-          throw new ConflictException(`Username "${dto.username}" is already in use by another account`);
+    if (employee.userId) {
+      // Employee account was pre-provisioned during HR onboarding; update credentials & activate
+      const existingLinkedUser = await this.prisma.user.findUnique({ where: { id: employee.userId } });
+      if (existingLinkedUser) {
+        if (dto.username && dto.username !== existingLinkedUser.username) {
+          const usernameConflict = await this.prisma.user.findUnique({ where: { username: dto.username } });
+          if (usernameConflict && usernameConflict.id !== existingLinkedUser.id) {
+            throw new ConflictException(`Username "${dto.username}" is already in use by another account`);
+          }
         }
+        user = await this.prisma.user.update({
+          where: { id: existingLinkedUser.id },
+          data: {
+            username: dto.username || existingLinkedUser.username,
+            passwordHash,
+            fullName: `${employee.firstName} ${employee.lastName}`.trim(),
+            phone: employee.phone,
+            designation: employee.designation,
+            departmentId: targetDeptId,
+            status: 'ACTIVE',
+            assignedModules: modulesToAssign,
+          },
+        });
       }
+    }
 
-      // Update existing unlinked user account with new credentials and department
-      user = await this.prisma.user.update({
-        where: { id: existingEmail.id },
-        data: {
-          username: dto.username,
-          passwordHash,
-          fullName: `${employee.firstName} ${employee.lastName}`.trim(),
-          phone: employee.phone,
-          designation: employee.designation,
-          departmentId: targetDeptId,
-          status: 'ACTIVE',
-          assignedModules: modulesToAssign,
-        },
-      });
-    } else {
-      const existingUsername = await this.prisma.user.findUnique({ where: { username: dto.username } });
-      if (existingUsername) throw new ConflictException(`Username "${dto.username}" is already in use`);
+    if (!user) {
+      const existingEmail = await this.prisma.user.findUnique({ where: { email: employee.email } });
+      if (existingEmail) {
+        // Check if this user account is already assigned to a DIFFERENT employee
+        const otherEmployee = await this.prisma.employee.findFirst({
+          where: { userId: existingEmail.id, id: { not: employee.id } },
+        });
+        if (otherEmployee) {
+          throw new ConflictException(
+            `User with email "${employee.email}" is already linked to employee ${otherEmployee.employeeCode} (${otherEmployee.firstName} ${otherEmployee.lastName})`,
+          );
+        }
 
-      user = await this.prisma.user.create({
-        data: {
-          username: dto.username,
-          email: employee.email,
-          passwordHash,
-          fullName: `${employee.firstName} ${employee.lastName}`.trim(),
-          phone: employee.phone,
-          designation: employee.designation,
-          departmentId: targetDeptId,
-          status: 'ACTIVE',
-          assignedModules: modulesToAssign,
-        },
-      });
+        // Check if the requested username is taken by a different account
+        if (existingEmail.username !== dto.username) {
+          const usernameConflict = await this.prisma.user.findUnique({ where: { username: dto.username } });
+          if (usernameConflict && usernameConflict.id !== existingEmail.id) {
+            throw new ConflictException(`Username "${dto.username}" is already in use by another account`);
+          }
+        }
+
+        // Update existing unlinked user account with new credentials and department
+        user = await this.prisma.user.update({
+          where: { id: existingEmail.id },
+          data: {
+            username: dto.username,
+            passwordHash,
+            fullName: `${employee.firstName} ${employee.lastName}`.trim(),
+            phone: employee.phone,
+            designation: employee.designation,
+            departmentId: targetDeptId,
+            status: 'ACTIVE',
+            assignedModules: modulesToAssign,
+          },
+        });
+      } else {
+        const existingUsername = await this.prisma.user.findUnique({ where: { username: dto.username } });
+        if (existingUsername) throw new ConflictException(`Username "${dto.username}" is already in use`);
+
+        user = await this.prisma.user.create({
+          data: {
+            username: dto.username,
+            email: employee.email,
+            passwordHash,
+            fullName: `${employee.firstName} ${employee.lastName}`.trim(),
+            phone: employee.phone,
+            designation: employee.designation,
+            departmentId: targetDeptId,
+            status: 'ACTIVE',
+            assignedModules: modulesToAssign,
+          },
+        });
+      }
     }
 
     // Refresh user roles
@@ -1083,7 +1107,7 @@ export class AdminService {
     return this.mailService.sendDirectTestEmail(to);
   }
 
-  async resendWelcomeEmail(employeeIdOrCode: string) {
+  async resendWelcomeEmail(employeeIdOrCode: string, customPassword?: string) {
     const employee = await this.prisma.employee.findFirst({
       where: { OR: [{ id: employeeIdOrCode }, { employeeCode: employeeIdOrCode }] },
       include: { department: true, user: true },
@@ -1097,11 +1121,21 @@ export class AdminService {
 
     const settings = await this.getSettings();
     const username = employee.user?.username || employee.email.split('@')[0];
+    const passwordToSend = customPassword && customPassword.trim().length >= 6 ? customPassword.trim() : 'Saark@2026';
+
+    if (customPassword && employee.user?.id) {
+      const passwordHash = await bcrypt.hash(passwordToSend, 10);
+      await this.prisma.user.update({
+        where: { id: employee.user.id },
+        data: { passwordHash, failedFaceAttempts: 0, faceLockoutUntil: null },
+      });
+    }
+
     const sent = await this.mailService.sendWelcomeEmployeeEmail({
       to: employee.email,
       fullName: `${employee.firstName} ${employee.lastName}`.trim(),
       username,
-      password: 'Saark@2026',
+      password: passwordToSend,
       employeeCode: employee.employeeCode,
       departmentName: employee.department?.name,
       designation: employee.designation,
@@ -1642,6 +1676,20 @@ export class AdminService {
         faceLockoutUntil: null,
       },
     });
+
+    // Auto-dispatch updated credentials to employee work email
+    try {
+      if (user.email) {
+        await this.mailService.sendCredentialsUpdatedEmail({
+          to: user.email,
+          fullName: user.fullName,
+          username: user.username,
+          newPassword: passwordToSet,
+        });
+      }
+    } catch (mailErr: any) {
+      this.logger.warn(`Could not dispatch password reset email to ${user.email}: ${mailErr.message}`);
+    }
 
     try {
       await this.prisma.auditLog.create({

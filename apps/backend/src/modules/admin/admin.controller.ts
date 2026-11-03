@@ -301,8 +301,8 @@ export class AdminController {
 
   @Post('employee-requests/:id/resend-email')
   @ApiOperation({ summary: 'Resend welcome onboarding credentials email to employee' })
-  resendWelcomeEmail(@Param('id') id: string) {
-    return this.adminService.resendWelcomeEmail(id);
+  resendWelcomeEmail(@Param('id') id: string, @Body() body?: { password?: string }) {
+    return this.adminService.resendWelcomeEmail(id, body?.password);
   }
 
   // ─── AUDIT TRAIL & COMPLIANCE ACCESS LOGS ──────────────────────────────────
