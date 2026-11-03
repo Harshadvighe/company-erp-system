@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:convert';
+import 'package:saark_erp_mobile/core/auth/auth_provider.dart';
+import 'package:saark_erp_mobile/core/utils/web_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -33,6 +37,13 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
   // ─── Search Controllers ────────────────────────────────────────────────────
   final TextEditingController _searchCtrl = TextEditingController();
   String _activeSearchQuery = '';
+  String _selectedMemberFilter = 'ALL';
+
+  // ─── Meeting Alert Scheduler ────────────────────────────────────────────────
+  Timer? _meetingAlertTimer;
+  final Set<String> _alerted2HrMeetings = {};
+  final Set<String> _alerted30MinMeetings = {};
+  final Set<String> _snoozedMeetings = {};
 
   // ─── Table Selection ───────────────────────────────────────────────────────
   int? _selectedCustomerIndex;
@@ -113,6 +124,195 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
       ref.read(customerListProvider.notifier).loadCustomers();
     });
     _sampleRows = [];
+    _startMeetingAlertTimer();
+  }
+
+  @override
+  void dispose() {
+    _meetingAlertTimer?.cancel();
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  void _startMeetingAlertTimer() {
+    _meetingAlertTimer?.cancel();
+    _meetingAlertTimer = Timer.periodic(const Duration(seconds: 25), (_) {
+      if (!mounted) return;
+      _checkMeetingAlerts();
+    });
+  }
+
+  void _checkMeetingAlerts() {
+    final now = DateTime.now();
+    for (final r in _displayedCustomerRows) {
+      DateTime? meetingDt = r.nextMeetingDatetime;
+      if (meetingDt == null && r.nextMeeting.isNotEmpty && r.nextMeeting != 'Upcoming') {
+        meetingDt = DateTime.tryParse(r.nextMeeting);
+      }
+      if (meetingDt == null && r.convDate.isNotEmpty) {
+        final d = DateTime.tryParse(r.convDate);
+        if (d != null && r.callTime.isNotEmpty && r.callTime.contains(':')) {
+          try {
+            final parts = r.callTime.trim().split(' ')[0].split(':');
+            final h = int.tryParse(parts[0]) ?? 10;
+            final m = int.tryParse(parts[1]) ?? 0;
+            final isPm = r.callTime.toUpperCase().contains('PM') && h < 12;
+            meetingDt = DateTime(d.year, d.month, d.day, isPm ? h + 12 : h, m);
+          } catch (_) {}
+        }
+      }
+
+      if (meetingDt == null) continue;
+
+      final diff = meetingDt.difference(now);
+      final key = '${r.companyName}_${meetingDt.millisecondsSinceEpoch}';
+
+      // 2 Hours Warning (between 30 min and 120 min)
+      if (diff.inMinutes > 30 && diff.inMinutes <= 120) {
+        if (!_alerted2HrMeetings.contains(key)) {
+          _alerted2HrMeetings.add(key);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.alarm, color: Colors.white, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '⏰ Upcoming Meeting in ${diff.inHours}h ${diff.inMinutes % 60}m: ${r.companyName} (${r.contactNumber}) - ${r.remark.isNotEmpty ? r.remark : "Follow-up"}',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: const Color(0xFFD97706),
+              duration: const Duration(seconds: 8),
+              action: SnackBarAction(
+                label: 'View',
+                textColor: Colors.white,
+                onPressed: () {
+                  if (r.liveCustomer != null) _populateFromLiveCustomer(r.liveCustomer!);
+                  else _populateFromSampleRow(r);
+                },
+              ),
+            ),
+          );
+        }
+      }
+
+      // 30 Minutes Continuous / Urgent Alert (between -30 and 30 min)
+      if (diff.inMinutes <= 30 && diff.inMinutes >= -30) {
+        if (!_alerted30MinMeetings.contains(key) && !_snoozedMeetings.contains(key)) {
+          _showMeetingAlertPopup(
+            companyName: r.companyName,
+            phone: r.contactNumber,
+            reason: r.remark.isNotEmpty ? r.remark : 'Scheduled Customer Meeting & Presentation',
+            timeStr: '${meetingDt.year}-${meetingDt.month.toString().padLeft(2, "0")}-${meetingDt.day.toString().padLeft(2, "0")} ${meetingDt.hour.toString().padLeft(2, "0")}:${meetingDt.minute.toString().padLeft(2, "0")}',
+            meetingKey: key,
+            row: r,
+          );
+        }
+      }
+    }
+  }
+
+  void _showMeetingAlertPopup({
+    required String companyName,
+    required String phone,
+    required String reason,
+    required String timeStr,
+    required String meetingKey,
+    required _CustomerRowData row,
+  }) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1E2127),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: const BorderSide(color: Color(0xFFF15A24), width: 2),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF15A24).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(Icons.notification_important_rounded, color: Color(0xFFF15A24), size: 24),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  '🚨 SCHEDULED MEETING ALERT (within 30 Mins)',
+                  style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF14161A),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: const Color(0xFF2E323A)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('🏢 Company: $companyName', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    Text('📞 Mobile Number: $phone', style: const TextStyle(color: Color(0xFF10B981), fontSize: 13, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    Text('📌 Agenda / Reason: $reason', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                    const SizedBox(height: 6),
+                    Text('⏰ Scheduled Time: $timeStr', style: const TextStyle(color: Color(0xFFF15A24), fontSize: 12, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton.icon(
+              icon: const Icon(Icons.snooze, size: 16, color: Colors.orangeAccent),
+              label: const Text('Snooze 5 Min', style: TextStyle(color: Colors.orangeAccent)),
+              onPressed: () {
+                _snoozedMeetings.add(meetingKey);
+                Navigator.pop(ctx);
+                Timer(const Duration(minutes: 5), () {
+                  _snoozedMeetings.remove(meetingKey);
+                });
+              },
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF15A24), foregroundColor: Colors.white),
+              icon: const Icon(Icons.edit_note, size: 16),
+              label: const Text('Open & Update Details'),
+              onPressed: () {
+                Navigator.pop(ctx);
+                _alerted30MinMeetings.add(meetingKey);
+                if (row.liveCustomer != null) _populateFromLiveCustomer(row.liveCustomer!);
+                else _populateFromSampleRow(row);
+              },
+            ),
+            TextButton(
+              onPressed: () {
+                _alerted30MinMeetings.add(meetingKey);
+                Navigator.pop(ctx);
+              },
+              child: const Text('Dismiss', style: TextStyle(color: Colors.grey)),
+            ),
+          ],
+        );
+      },
+    );
   }
 
     void _populateFromSampleRow(_CustomerRowData row) {
@@ -389,6 +589,14 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
               meetingTime: _meetingScheduleTimeCtrl.text,
               nextMeeting: _nextMeetingTimeCtrl.text,
               remark: _callRemark,
+              email: null,
+              address: _addressCtrl.text.trim(),
+              addedByName: ref.read(currentUserProvider)?.fullName.isNotEmpty == true
+                  ? ref.read(currentUserProvider)!.fullName
+                  : (ref.read(currentUserProvider)?.username ?? 'Current User'),
+              createdByUserId: ref.read(currentUserProvider)?.id,
+              createdAt: DateTime.now(),
+              nextMeetingDatetime: DateTime.tryParse(_nextMeetingTimeCtrl.text.trim()),
             ),
           );
         });
@@ -406,6 +614,14 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
   @override
   Widget build(BuildContext context) {
     final customerState = ref.watch(customerListProvider);
+    final currentUser = ref.watch(currentUserProvider);
+    final bool isAdmin = currentUser != null && (
+      currentUser.username.toLowerCase() == 'saarkadmin' ||
+      currentUser.username.toLowerCase() == 'admin' ||
+      currentUser.roles.any((r) => r.toUpperCase().contains('ADMIN') || r.toUpperCase().contains('SUPER')) ||
+      currentUser.permissions.contains('ALL') ||
+      currentUser.permissions.contains('CUSTOMERS:VIEW_ALL')
+    );
     final liveCustomers = customerState.customers;
 
     return SingleChildScrollView(
@@ -487,12 +703,12 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
             const SizedBox(height: 22),
 
             // ─── SECTION 2: Customer Interaction History & Search ──────────────
-            _buildSearchAndFilterSection(),
+            _buildSearchAndFilterSection(liveCustomers, isAdmin, currentUser),
 
             const SizedBox(height: 14),
 
             // Customer Interaction History Table
-            _buildCustomerInteractionTable(liveCustomers),
+            _buildCustomerInteractionTable(liveCustomers, isAdmin, currentUser),
 
             const SizedBox(height: 10),
 
@@ -549,7 +765,23 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
   }
 
   // ─── SECTION 1: Search & Filter Bar ────────────────────────────────────────
-  Widget _buildSearchAndFilterSection() {
+  Widget _buildSearchAndFilterSection(List<Customer> liveCustomers, bool isAdmin, AuthUser? user) {
+    // Collect unique team members for filtering
+    final Set<String> members = {'ALL'};
+    for (final c in liveCustomers) {
+      if (c.addedByName != null && c.addedByName!.trim().isNotEmpty) {
+        members.add(c.addedByName!.trim());
+      }
+      if (c.ownerName != null && c.ownerName!.trim().isNotEmpty) {
+        members.add(c.ownerName!.trim());
+      }
+      if (c.salesOwnerName != null && c.salesOwnerName!.trim().isNotEmpty) {
+        members.add(c.salesOwnerName!.trim());
+      }
+    }
+    // Standard system usernames
+    members.addAll(['Saarkadmin', 'pooja.saark', 'nikhilsaark', 'athrav.saark', 'salessaark9']);
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -560,26 +792,81 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Search & Select Company',
-            style: TextStyle(
-              color: Color(0xFFF15A24),
-              fontSize: 12.5,
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            children: [
+              const Icon(Icons.search_rounded, color: Color(0xFFF15A24), size: 18),
+              const SizedBox(width: 8),
+              const Text(
+                'Search & Filter Customer Records',
+                style: TextStyle(
+                  color: Color(0xFFF15A24),
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              if (isAdmin)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF15A24).withOpacity(0.18),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: const Color(0xFFF15A24).withOpacity(0.5)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.admin_panel_settings, color: Color(0xFFF15A24), size: 14),
+                      const SizedBox(width: 5),
+                      Text(
+                        'Admin View: All Records (${user?.username ?? "Saarkadmin"})',
+                        style: const TextStyle(color: Color(0xFFF15A24), fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           LayoutBuilder(
             builder: (context, constraints) {
-              final isWide = constraints.maxWidth > 800;
+              final isWide = constraints.maxWidth > 900;
               return isWide
                   ? Row(
                       children: [
-                        const Text(
-                          'Search Company / GST / Contact / Owner / Country / State / District / Location: ',
-                          style: TextStyle(color: Colors.white70, fontSize: 11),
+                        Expanded(flex: 6, child: _buildSearchTextField()),
+                        const SizedBox(width: 10),
+                        // Team Member Dropdown Filter
+                        Expanded(
+                          flex: 4,
+                          child: Container(
+                            height: 32,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF131518),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: const Color(0xFF383D48)),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: members.contains(_selectedMemberFilter) ? _selectedMemberFilter : 'ALL',
+                                dropdownColor: const Color(0xFF1E2127),
+                                isExpanded: true,
+                                icon: const Icon(Icons.person_search_rounded, color: Color(0xFFF15A24), size: 16),
+                                style: const TextStyle(color: Colors.white, fontSize: 11.5),
+                                items: members.map((m) {
+                                  return DropdownMenuItem<String>(
+                                    value: m,
+                                    child: Text(m == 'ALL' ? '👤 All Team Members' : '👤 Member: $m', overflow: TextOverflow.ellipsis),
+                                  );
+                                }).toList(),
+                                onChanged: (val) {
+                                  if (val != null) setState(() => _selectedMemberFilter = val);
+                                },
+                              ),
+                            ),
+                          ),
                         ),
-                        Expanded(child: _buildSearchTextField()),
                         const SizedBox(width: 8),
                         _buildSearchButtons(),
                       ],
@@ -587,12 +874,35 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
                   : Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Search Company / GST / Contact / Owner / Country / State / District / Location:',
-                          style: TextStyle(color: Colors.white70, fontSize: 11),
-                        ),
-                        const SizedBox(height: 6),
                         _buildSearchTextField(),
+                        const SizedBox(height: 8),
+                        Container(
+                          height: 32,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF131518),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: const Color(0xFF383D48)),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: members.contains(_selectedMemberFilter) ? _selectedMemberFilter : 'ALL',
+                              dropdownColor: const Color(0xFF1E2127),
+                              isExpanded: true,
+                              icon: const Icon(Icons.person_search_rounded, color: Color(0xFFF15A24), size: 16),
+                              style: const TextStyle(color: Colors.white, fontSize: 11.5),
+                              items: members.map((m) {
+                                return DropdownMenuItem<String>(
+                                  value: m,
+                                  child: Text(m == 'ALL' ? '👤 All Team Members' : '👤 Member: $m', overflow: TextOverflow.ellipsis),
+                                );
+                              }).toList(),
+                              onChanged: (val) {
+                                if (val != null) setState(() => _selectedMemberFilter = val);
+                              },
+                            ),
+                          ),
+                        ),
                         const SizedBox(height: 8),
                         _buildSearchButtons(),
                       ],
@@ -615,8 +925,18 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           filled: true,
           fillColor: const Color(0xFF131518),
-          hintText: 'Type company, GSTIN, contact name or location...',
+          hintText: 'Search by Company Name, GSTIN No, Mobile No, or Staff Name...',
           hintStyle: const TextStyle(color: Colors.white38, fontSize: 11),
+          prefixIcon: const Icon(Icons.search, size: 15, color: Color(0xFFF15A24)),
+          suffixIcon: _searchCtrl.text.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.close, size: 14, color: Colors.white54),
+                  onPressed: () {
+                    _searchCtrl.clear();
+                    setState(() => _activeSearchQuery = '');
+                  },
+                )
+              : null,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(4),
             borderSide: const BorderSide(color: Color(0xFF383D48)),
@@ -626,6 +946,7 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
             borderSide: const BorderSide(color: Color(0xFFF15A24)),
           ),
         ),
+        onChanged: (val) => setState(() => _activeSearchQuery = val.trim()),
         onSubmitted: (val) => setState(() => _activeSearchQuery = val.trim()),
       ),
     );
@@ -650,9 +971,9 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
         const SizedBox(width: 6),
         ElevatedButton.icon(
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFF15A24),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            backgroundColor: const Color(0xFF282B33),
+            foregroundColor: Colors.white70,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
             minimumSize: const Size(0, 32),
           ),
@@ -660,7 +981,10 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
           label: const Text('Reset', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
           onPressed: () {
             _searchCtrl.clear();
-            setState(() => _activeSearchQuery = '');
+            setState(() {
+              _activeSearchQuery = '';
+              _selectedMemberFilter = 'ALL';
+            });
             ref.read(customerListProvider.notifier).loadCustomers();
           },
         ),
@@ -668,8 +992,94 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
     );
   }
 
+  // ─── Summary Count Badges ──────────────────────────────────────────────────
+  Widget _buildMetricsSummaryBar({
+    required int totalCount,
+    required int todayCount,
+    required int filteredCount,
+    required bool hasFilter,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF181B20),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: const Color(0xFF282B33)),
+      ),
+      child: Row(
+        children: [
+          // Total Entries Badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2563EB).withOpacity(0.18),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: const Color(0xFF3B82F6)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.people_alt_rounded, size: 14, color: Color(0xFF60A5FA)),
+                const SizedBox(width: 6),
+                Text(
+                  'Total Entries: $totalCount',
+                  style: const TextStyle(color: Color(0xFF93C5FD), fontSize: 11.5, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          // Today's Entries Badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981).withOpacity(0.18),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: const Color(0xFF10B981)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.today_rounded, size: 14, color: Color(0xFF34D399)),
+                const SizedBox(width: 6),
+                Text(
+                  'Today\'s New Entries: $todayCount',
+                  style: const TextStyle(color: Color(0xFF6EE7B7), fontSize: 11.5, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
+          if (hasFilter) ...[
+            const SizedBox(width: 10),
+            // Filtered Match Badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF15A24).withOpacity(0.2),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: const Color(0xFFF15A24)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.filter_list_rounded, size: 14, color: Color(0xFFF15A24)),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Showing: $filteredCount of $totalCount',
+                    style: const TextStyle(color: Color(0xFFFF8A65), fontSize: 11.5, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   // ─── SECTION 2: Customer Interaction History Table ─────────────────────────
-  Widget _buildCustomerInteractionTable(List<Customer> liveCustomers) {
+  Widget _buildCustomerInteractionTable(List<Customer> liveCustomers, bool isAdmin, AuthUser? user) {
     final combinedRows = <_CustomerRowData>[];
     for (int i = 0; i < liveCustomers.length; i++) {
       final c = liveCustomers[i];
@@ -680,11 +1090,14 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
         contactPerson: c.contactPerson,
         designation: c.designation ?? '',
         contactNumber: c.phone,
+        email: c.email,
+        address: c.address,
         country: c.country.isNotEmpty ? c.country : 'India',
         state: c.state.isNotEmpty ? c.state : 'Maharashtra',
         district: c.district.isNotEmpty ? c.district : 'Pune',
         location: c.city.isNotEmpty ? c.city : '',
-        ownerName: c.ownerName ?? '',
+        ownerName: c.ownerName ?? c.salesOwnerName ?? '',
+        addedByName: c.addedByName ?? 'Saark Staff',
         products: c.products.isNotEmpty ? c.products.join(', ') : '',
         valuablePct: c.valuationPercentage,
         rating: c.customerRating,
@@ -697,6 +1110,7 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
         meetingTime: '',
         nextMeeting: '',
         remark: '',
+        createdAt: c.createdAt,
         liveCustomer: c,
       ));
     }
@@ -706,150 +1120,250 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
       }
     }
 
-    // Filter rows based on search
-    final filteredSampleRows = combinedRows.where((r) {
+    // Role-based visibility:
+    // If Admin (Saarkadmin / admin): show all entries
+    // If standard staff: show their own entries or all if no strict ownership
+    final visibleRows = combinedRows.where((r) {
+      if (isAdmin) return true;
+      if (user == null) return true;
+      final staffName = user.fullName.toLowerCase();
+      final username = user.username.toLowerCase();
+      final addedBy = (r.addedByName ?? '').toLowerCase();
+      final owner = r.ownerName.toLowerCase();
+      return addedBy.contains(username) || addedBy.contains(staffName) || owner.contains(username) || owner.contains(staffName) || addedBy.isEmpty;
+    }).toList();
+
+    // Today's Date String
+    final todayStr = DateTime.now().toString().split(' ').first;
+    final todayCount = visibleRows.where((r) {
+      if (r.convDate == todayStr) return true;
+      if (r.createdAt != null && r.createdAt!.toString().startsWith(todayStr)) return true;
+      return false;
+    }).length;
+
+    // Filter rows based on search and member filter
+    final filteredSampleRows = visibleRows.where((r) {
+      // 1. Team member filter
+      if (_selectedMemberFilter != 'ALL') {
+        final m = _selectedMemberFilter.toLowerCase();
+        final addedBy = (r.addedByName ?? '').toLowerCase();
+        final owner = r.ownerName.toLowerCase();
+        if (!addedBy.contains(m) && !owner.contains(m)) return false;
+      }
+
+      // 2. Query search: Company name, GSTN, Mobile No, Contact person, location, or member
       if (_activeSearchQuery.isEmpty) return true;
       final q = _activeSearchQuery.toLowerCase();
+      final qDigits = q.replaceAll(RegExp(r'\D'), '');
+      final phoneDigits = r.contactNumber.replaceAll(RegExp(r'\D'), '');
+
       return r.companyName.toLowerCase().contains(q) ||
           r.gstNumber.toLowerCase().contains(q) ||
           r.contactPerson.toLowerCase().contains(q) ||
+          (qDigits.isNotEmpty && phoneDigits.contains(qDigits)) ||
+          r.contactNumber.toLowerCase().contains(q) ||
           r.ownerName.toLowerCase().contains(q) ||
+          (r.addedByName ?? '').toLowerCase().contains(q) ||
           r.location.toLowerCase().contains(q) ||
           r.state.toLowerCase().contains(q);
     }).toList();
-    _displayedCustomerRows = filteredSampleRows;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF16181C),
-        border: Border.all(color: const Color(0xFF2C3038)),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+    _displayedCustomerRows = filteredSampleRows;
+    final hasFilter = _activeSearchQuery.isNotEmpty || _selectedMemberFilter != 'ALL';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Metrics Badges: Total Entries & Today's Entries
+        _buildMetricsSummaryBar(
+          totalCount: visibleRows.length,
+          todayCount: todayCount,
+          filteredCount: filteredSampleRows.length,
+          hasFilter: hasFilter,
+        ),
+
+        // Quick Match Notification Banner if 1 match found
+        if (filteredSampleRows.length == 1 && hasFilter) ...[
           Container(
+            margin: const EdgeInsets.only(bottom: 8),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            color: const Color(0xFF1E2127),
-            child: const Text(
-              'Customer Interaction History',
-              style: TextStyle(
-                color: Color(0xFFF15A24),
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981).withOpacity(0.15),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: const Color(0xFF10B981)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '⚡ Entry Found: "${filteredSampleRows.first.companyName}" | GST: ${filteredSampleRows.first.gstNumber} | Mobile: ${filteredSampleRows.first.contactNumber}',
+                    style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF10B981),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    minimumSize: const Size(0, 26),
+                  ),
+                  icon: const Icon(Icons.arrow_upward_rounded, size: 12),
+                  label: const Text('Load into Form', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
+                  onPressed: () {
+                    final row = filteredSampleRows.first;
+                    if (row.liveCustomer != null) _populateFromLiveCustomer(row.liveCustomer!);
+                    else _populateFromSampleRow(row);
+                  },
+                ),
+              ],
             ),
           ),
-          if (filteredSampleRows.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 30),
-              child: Center(
-                child: Column(
+        ],
+
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF16181C),
+            border: Border.all(color: const Color(0xFF2C3038)),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                color: const Color(0xFF1E2127),
+                child: Row(
                   children: [
-                    const Icon(Icons.people_outline, color: Color(0xFF6B7280), size: 36),
-                    const SizedBox(height: 8),
+                    const Text(
+                      'Customer Interaction History',
+                      style: TextStyle(
+                        color: Color(0xFFF15A24),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Spacer(),
                     Text(
-                      liveCustomers.isEmpty
-                          ? 'No saved customer records found in database.\nEnter details above and click "Save Customer Record" to add your first customer.'
-                          : 'No customers match search "$_activeSearchQuery".',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
+                      'Showing ${filteredSampleRows.length} entries',
+                      style: const TextStyle(color: Colors.white54, fontSize: 11),
                     ),
                   ],
                 ),
               ),
-            )
-          else
-            SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 1600),
-              child: DataTable(
-                headingRowColor: WidgetStateProperty.all(const Color(0xFF1C1E24)),
-                headingRowHeight: 34,
-                dataRowMinHeight: 32,
-                dataRowMaxHeight: 34,
-                horizontalMargin: 10,
-                columnSpacing: 14,
-                border: TableBorder.all(color: const Color(0xFF282B33), width: 0.8),
-                columns: const [
-                  DataColumn(label: Text('#', style: _headerStyle)),
-                  DataColumn(label: Text('Company Name', style: _headerStyle)),
-                  DataColumn(label: Text('GST Number', style: _headerStyle)),
-                  DataColumn(label: Text('Contact Person', style: _headerStyle)),
-                  DataColumn(label: Text('Designation', style: _headerStyle)),
-                  DataColumn(label: Text('Contact Number', style: _headerStyle)),
-                  DataColumn(label: Text('Country', style: _headerStyle)),
-                  DataColumn(label: Text('State', style: _headerStyle)),
-                  DataColumn(label: Text('District', style: _headerStyle)),
-                  DataColumn(label: Text('Location', style: _headerStyle)),
-                  DataColumn(label: Text('Owner Name', style: _headerStyle)),
-                  DataColumn(label: Text('Products', style: _headerStyle)),
-                  DataColumn(label: Text('Valuable %', style: _headerStyle)),
-                  DataColumn(label: Text('Rating', style: _headerStyle)),
-                  DataColumn(label: Text('Activity', style: _headerStyle)),
-                  DataColumn(label: Text('Mobile Rec', style: _headerStyle)),
-                  DataColumn(label: Text('Data Sent', style: _headerStyle)),
-                  DataColumn(label: Text('Enquiry', style: _headerStyle)),
-                  DataColumn(label: Text('Call Time', style: _headerStyle)),
-                  DataColumn(label: Text('Conv Date', style: _headerStyle)),
-                  DataColumn(label: Text('Meeting Time', style: _headerStyle)),
-                  DataColumn(label: Text('Next Meeting', style: _headerStyle)),
-                  DataColumn(label: Text('Remark', style: _headerStyle)),
-                ],
-                rows: List.generate(filteredSampleRows.length, (idx) {
-                  final row = filteredSampleRows[idx];
-                  final isSelected = _selectedCustomerIndex == idx;
-                  return DataRow(
-                    selected: isSelected,
-                    color: WidgetStateProperty.resolveWith<Color>((states) {
-                      if (isSelected) return const Color(0xFFF15A24).withValues(alpha: 0.25);
-                      return idx.isEven ? const Color(0xFF14161A) : const Color(0xFF181B20);
-                    }),
-                    onSelectChanged: (_) {
-                      setState(() => _selectedCustomerIndex = idx);
-                      if (row.liveCustomer != null) {
-                        _populateFromLiveCustomer(row.liveCustomer!);
-                      } else {
-                        _populateFromSampleRow(row);
-                      }
-                    },
-                    cells: [
-                      DataCell(Text('${row.index}', style: _cellStyleBold)),
-                      DataCell(Text(row.companyName, style: _cellStyleBold)),
-                      DataCell(Text(row.gstNumber, style: _cellStyle)),
-                      DataCell(Text(row.contactPerson, style: _cellStyle)),
-                      DataCell(Text(row.designation, style: _cellStyle)),
-                      DataCell(Text(row.contactNumber, style: _cellStyle)),
-                      DataCell(Text(row.country, style: _cellStyle)),
-                      DataCell(Text(row.state, style: _cellStyle)),
-                      DataCell(Text(row.district, style: _cellStyle)),
-                      DataCell(Text(row.location, style: _cellStyle)),
-                      DataCell(Text(row.ownerName, style: _cellStyle)),
-                      DataCell(Text(row.products, style: _cellStyle)),
-                      DataCell(Text('${row.valuablePct}%', style: _cellStyle)),
-                      DataCell(Text('${row.rating}★', style: _cellStyle)),
-                      DataCell(Text('${row.activityCount}', style: _cellStyle)),
-                      DataCell(Text('${row.mobileRec}', style: _cellStyle)),
-                      DataCell(Text(row.dataSent, style: _cellStyle)),
-                      DataCell(Text(row.enquiry, style: _cellStyle)),
-                      DataCell(Text(row.callTime, style: _cellStyle)),
-                      DataCell(Text(row.convDate, style: _cellStyle)),
-                      DataCell(Text(row.meetingTime, style: _cellStyle)),
-                      DataCell(Text(row.nextMeeting, style: _cellStyle)),
-                      DataCell(Text(row.remark, style: _cellStyle)),
-                    ],
-                  );
-                }),
-              ),
-            ),
+              if (filteredSampleRows.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 30),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        const Icon(Icons.search_off_rounded, color: Color(0xFF6B7280), size: 36),
+                        const SizedBox(height: 8),
+                        Text(
+                          hasFilter
+                              ? 'No entries match Company / GST / Mobile / Member: "$_activeSearchQuery"\\nTry another keyword or click Reset.'
+                              : 'No saved customer records found in database.\\nEnter details above and click "Save Customer Record" to add your first customer.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12.5),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minWidth: 1600),
+                    child: DataTable(
+                      headingRowColor: WidgetStateProperty.all(const Color(0xFF1C1E24)),
+                      headingRowHeight: 34,
+                      dataRowMinHeight: 32,
+                      dataRowMaxHeight: 34,
+                      horizontalMargin: 10,
+                      columnSpacing: 14,
+                      border: TableBorder.all(color: const Color(0xFF282B33), width: 0.8),
+                      columns: const [
+                        DataColumn(label: Text('#', style: _headerStyle)),
+                        DataColumn(label: Text('Company Name', style: _headerStyle)),
+                        DataColumn(label: Text('GST Number', style: _headerStyle)),
+                        DataColumn(label: Text('Contact Person', style: _headerStyle)),
+                        DataColumn(label: Text('Designation', style: _headerStyle)),
+                        DataColumn(label: Text('Contact Number', style: _headerStyle)),
+                        DataColumn(label: Text('Country', style: _headerStyle)),
+                        DataColumn(label: Text('State', style: _headerStyle)),
+                        DataColumn(label: Text('District', style: _headerStyle)),
+                        DataColumn(label: Text('Location', style: _headerStyle)),
+                        DataColumn(label: Text('Added By / Owner', style: _headerStyle)),
+                        DataColumn(label: Text('Products', style: _headerStyle)),
+                        DataColumn(label: Text('Valuable %', style: _headerStyle)),
+                        DataColumn(label: Text('Rating', style: _headerStyle)),
+                        DataColumn(label: Text('Activity', style: _headerStyle)),
+                        DataColumn(label: Text('Mobile Rec', style: _headerStyle)),
+                        DataColumn(label: Text('Data Sent', style: _headerStyle)),
+                        DataColumn(label: Text('Enquiry', style: _headerStyle)),
+                        DataColumn(label: Text('Call Time', style: _headerStyle)),
+                        DataColumn(label: Text('Conv Date', style: _headerStyle)),
+                        DataColumn(label: Text('Meeting Time', style: _headerStyle)),
+                        DataColumn(label: Text('Next Meeting', style: _headerStyle)),
+                        DataColumn(label: Text('Remark', style: _headerStyle)),
+                      ],
+                      rows: List.generate(filteredSampleRows.length, (idx) {
+                        final row = filteredSampleRows[idx];
+                        final isSelected = _selectedCustomerIndex == idx;
+                        return DataRow(
+                          selected: isSelected,
+                          color: WidgetStateProperty.resolveWith<Color>((states) {
+                            if (isSelected) return const Color(0xFFF15A24).withOpacity(0.25);
+                            return idx.isEven ? const Color(0xFF14161A) : const Color(0xFF181B20);
+                          }),
+                          onSelectChanged: (_) {
+                            setState(() => _selectedCustomerIndex = idx);
+                            if (row.liveCustomer != null) {
+                              _populateFromLiveCustomer(row.liveCustomer!);
+                            } else {
+                              _populateFromSampleRow(row);
+                            }
+                          },
+                          cells: [
+                            DataCell(Text('${row.index}', style: _cellStyleBold)),
+                            DataCell(Text(row.companyName, style: _cellStyleBold)),
+                            DataCell(Text(row.gstNumber, style: _cellStyle)),
+                            DataCell(Text(row.contactPerson, style: _cellStyle)),
+                            DataCell(Text(row.designation, style: _cellStyle)),
+                            DataCell(Text(row.contactNumber, style: _cellStyle)),
+                            DataCell(Text(row.country, style: _cellStyle)),
+                            DataCell(Text(row.state, style: _cellStyle)),
+                            DataCell(Text(row.district, style: _cellStyle)),
+                            DataCell(Text(row.location, style: _cellStyle)),
+                            DataCell(Text(row.addedByName ?? row.ownerName, style: _cellStyleBold)),
+                            DataCell(Text(row.products, style: _cellStyle)),
+                            DataCell(Text('${row.valuablePct}%', style: _cellStyle)),
+                            DataCell(Text('${row.rating}★', style: _cellStyle)),
+                            DataCell(Text('${row.activityCount}', style: _cellStyle)),
+                            DataCell(Text('${row.mobileRec}', style: _cellStyle)),
+                            DataCell(Text(row.dataSent, style: _cellStyle)),
+                            DataCell(Text(row.enquiry, style: _cellStyle)),
+                            DataCell(Text(row.callTime, style: _cellStyle)),
+                            DataCell(Text(row.convDate, style: _cellStyle)),
+                            DataCell(Text(row.meetingTime, style: _cellStyle)),
+                            DataCell(Text(row.nextMeeting, style: _cellStyle)),
+                            DataCell(Text(row.remark, style: _cellStyle)),
+                          ],
+                        );
+                      }),
+                    ),
+                  ),
+                ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  // Table Control Action Buttons directly below table
+  // ─── Table Control Action Buttons (with Excel Import & Export) ──────────────
   Widget _buildTableControlButtons() {
     return Wrap(
       spacing: 10,
@@ -928,22 +1442,230 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
             }
           },
         ),
+        // Export to Excel Button
         ElevatedButton.icon(
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFF15A24),
+            backgroundColor: const Color(0xFF059669),
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
           ),
-          icon: const Icon(Icons.upload_file, size: 15),
-          label: const Text('Import Excel / CSV / PDF', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+          icon: const Icon(Icons.file_download_outlined, size: 16),
+          label: const Text('Export to Excel (.csv)', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+          onPressed: () => _exportCustomersToExcel(_displayedCustomerRows),
+        ),
+        // Import from Excel Button
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF2563EB),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+          ),
+          icon: const Icon(Icons.upload_file_rounded, size: 16),
+          label: const Text('Import Excel / CSV', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
           onPressed: _showImportDialog,
         ),
       ],
     );
   }
 
-  // ─── SECTION 3: Customer Details & Data Entry Header ───────────────────────
+  // ─── Excel Export & Import Implementations ─────────────────────────────────
+  void _exportCustomersToExcel(List<_CustomerRowData> rows) {
+    if (rows.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No customer records to export.'), backgroundColor: Colors.redAccent),
+      );
+      return;
+    }
+    final buffer = StringBuffer();
+    // CSV Header
+    buffer.writeln('Index,Company Name,GST Number,Contact Person,Designation,Contact Number,Email,Address,City,District,State,Country,Products,Valuation %,Rating,Total Activities,Enquiries,Next Meeting,Conv Date,Added By');
+
+    for (int i = 0; i < rows.length; i++) {
+      final r = rows[i];
+      final line = [
+        '${i + 1}',
+        '"${r.companyName.replaceAll('"', '""')}"',
+        '"${r.gstNumber.replaceAll('"', '""')}"',
+        '"${r.contactPerson.replaceAll('"', '""')}"',
+        '"${r.designation.replaceAll('"', '""')}"',
+        '"${r.contactNumber.replaceAll('"', '""')}"',
+        '"${(r.email ?? '').replaceAll('"', '""')}"',
+        '"${(r.address ?? '').replaceAll('"', '""')}"',
+        '"${r.location.replaceAll('"', '""')}"',
+        '"${r.district.replaceAll('"', '""')}"',
+        '"${r.state.replaceAll('"', '""')}"',
+        '"${r.country.replaceAll('"', '""')}"',
+        '"${r.products.replaceAll('"', '""')}"',
+        '${r.valuablePct}',
+        '${r.rating}',
+        '${r.activityCount}',
+        '"${r.enquiry}"',
+        '"${r.nextMeeting.replaceAll('"', '""')}"',
+        '"${r.convDate.replaceAll('"', '""')}"',
+        '"${(r.addedByName ?? "Saark Staff").replaceAll('"', '""')}"',
+      ].join(',');
+      buffer.writeln(line);
+    }
+
+    final dateStr = DateTime.now().toString().split(' ').first;
+    downloadExcelFile(buffer.toString(), 'Saark_CRM_Customers_$dateStr.csv');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('✅ Exported ${rows.length} customer records to CSV/Excel!'),
+        backgroundColor: const Color(0xFF10B981),
+      ),
+    );
+  }
+
+  void _showImportDialog() {
+    final pasteCtrl = TextEditingController();
+    bool isProcessing = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1E2127),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            title: Row(
+              children: [
+                const Icon(Icons.upload_file_rounded, color: Color(0xFFF15A24), size: 22),
+                const SizedBox(width: 8),
+                const Text('Import Customers (Excel / CSV)', style: TextStyle(color: Colors.white, fontSize: 16)),
+              ],
+            ),
+            content: SizedBox(
+              width: 550,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Select a .csv or .xlsx file, or paste comma/tab separated customer rows below:',
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFF15A24),
+                        side: const BorderSide(color: Color(0xFFF15A24)),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      ),
+                      icon: const Icon(Icons.file_open_rounded, size: 16),
+                      label: const Text('Browse File (.csv / .xlsx)'),
+                      onPressed: () {
+                        pickAndUploadWebFile(
+                          fieldType: 'EXCEL',
+                          onFilePicked: (fileName, bytes) {
+                            try {
+                              final text = utf8.decode(bytes, allowMalformed: true);
+                              setDialogState(() {
+                                pasteCtrl.text = text;
+                              });
+                            } catch (_) {}
+                          },
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    const Text('Expected Columns: Company Name, GSTIN, Contact Person, Phone, City, State', style: TextStyle(color: Colors.white38, fontSize: 11)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: pasteCtrl,
+                      maxLines: 7,
+                      style: const TextStyle(color: Colors.white, fontSize: 11, fontFamily: 'monospace'),
+                      decoration: InputDecoration(
+                        hintText: "Example:\nWin Win Engineering, 36AACCU7891K1Z5, R.HYMAV, 9849993371, Pune, Maharashtra\nApex Systems,, Rahul Sharma, 9822001122, Mumbai, Maharashtra",
+                        hintStyle: const TextStyle(color: Colors.white24, fontSize: 11),
+                        filled: true,
+                        fillColor: const Color(0xFF131518),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: Color(0xFF383D48))),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: Colors.grey))),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF15A24), foregroundColor: Colors.white),
+                icon: isProcessing
+                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Icon(Icons.cloud_upload_rounded, size: 16),
+                label: Text(isProcessing ? 'Importing...' : 'Start Import'),
+                onPressed: isProcessing
+                    ? null
+                    : () async {
+                        final raw = pasteCtrl.text.trim();
+                        if (raw.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Please select a file or paste customer rows to import.'), backgroundColor: Colors.redAccent),
+                          );
+                          return;
+                        }
+                        setDialogState(() => isProcessing = true);
+                        int importedCount = 0;
+                        final lines = raw.split(RegExp(r'\r?\n'));
+                        final repo = ref.read(customersRepositoryProvider);
+
+                        for (final line in lines) {
+                          final trimmed = line.trim();
+                          if (trimmed.isEmpty || trimmed.toLowerCase().startsWith('company name') || trimmed.toLowerCase().startsWith('index')) {
+                            continue;
+                          }
+                          final parts = trimmed.contains('\t') ? trimmed.split('\t') : trimmed.split(',');
+                          if (parts.isNotEmpty && parts[0].trim().isNotEmpty) {
+                            final compName = parts[0].trim().replaceAll('"', '');
+                            final gst = parts.length > 1 ? parts[1].trim().replaceAll('"', '') : null;
+                            final person = parts.length > 2 && parts[2].trim().isNotEmpty ? parts[2].trim().replaceAll('"', '') : 'Contact';
+                            final phone = parts.length > 3 && parts[3].trim().isNotEmpty ? parts[3].trim().replaceAll('"', '') : '9876543210';
+                            final city = parts.length > 4 && parts[4].trim().isNotEmpty ? parts[4].trim().replaceAll('"', '') : 'Pune';
+                            final state = parts.length > 5 && parts[5].trim().isNotEmpty ? parts[5].trim().replaceAll('"', '') : 'Maharashtra';
+
+                            try {
+                              await repo.createCustomer({
+                                'companyName': compName,
+                                'gstin': (gst != null && gst.isNotEmpty) ? gst : null,
+                                'contactPerson': person,
+                                'phone': phone,
+                                'email': '${compName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '')}@example.com',
+                                'city': city,
+                                'state': state,
+                                'district': city,
+                                'address': '$city Industrial Area',
+                                'country': 'India',
+                                'pincode': '411001',
+                              });
+                              importedCount++;
+                            } catch (_) {}
+                          }
+                        }
+
+                        await ref.read(customerListProvider.notifier).loadCustomers();
+                        if (mounted) {
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('✅ Successfully imported $importedCount customer(s) into database!'),
+                              backgroundColor: const Color(0xFF10B981),
+                            ),
+                          );
+                        }
+                      },
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+    // ─── SECTION 3: Customer Details & Data Entry Header ───────────────────────
   Widget _buildCustomerDetailsHeader() {
     final isEditing = _selectedCustomer != null;
     return Row(
@@ -1732,87 +2454,6 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
   }
 
   // ─── Helpers: Dialogs and Form Row Builders ────────────────────────────────
-  void _showGraphDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E2127),
-        title: const Text('Lead Distribution & Customer Analytics', style: TextStyle(color: Colors.white, fontSize: 15)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Product Category Distribution:', style: TextStyle(color: Color(0xFFF15A24), fontWeight: FontWeight.bold, fontSize: 12)),
-            const SizedBox(height: 8),
-            _buildProgressBar('Booster Pump Control Panels', 0.45, '45%'),
-            const SizedBox(height: 6),
-            _buildProgressBar('STP Automation Panels', 0.25, '25%'),
-            const SizedBox(height: 6),
-            _buildProgressBar('Water Meter Integration', 0.18, '18%'),
-            const SizedBox(height: 6),
-            _buildProgressBar('BMS & IoT Remote Gateways', 0.12, '12%'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Close', style: TextStyle(color: Color(0xFFF15A24))),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProgressBar(String label, double value, String pct) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
-            Text(pct, style: const TextStyle(color: Color(0xFFF15A24), fontSize: 11, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        const SizedBox(height: 3),
-        LinearProgressIndicator(
-          value: value,
-          backgroundColor: const Color(0xFF131518),
-          color: const Color(0xFFF15A24),
-          minHeight: 6,
-          borderRadius: BorderRadius.circular(3),
-        ),
-      ],
-    );
-  }
-
-  void _showImportDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E2127),
-        title: const Text('Import Customer Directory', style: TextStyle(color: Colors.white, fontSize: 15)),
-        content: const Text(
-          'Supported Formats: Excel (.xlsx, .xls), CSV (.csv), or Scanned PDF files.\n\n'
-          'The importer will map Company Name, GSTIN, Contact, Email, Location and auto-populate existing records.',
-          style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: Colors.grey))),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF15A24), foregroundColor: Colors.white),
-            onPressed: () {
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Bulk customers imported from csv_data/customers_detailed.csv!'), backgroundColor: Color(0xFF10B981)),
-              );
-            },
-            child: const Text('Select File & Import'),
-          ),
-        ],
-      ),
-    );
-  }
 
   void _showCallLogsDialog() {
     showDialog(
@@ -2419,6 +3060,12 @@ class _CustomerRowData {
   final String nextMeeting;
   final String remark;
   final Customer? liveCustomer;
+  final String? email;
+  final String? address;
+  final String? addedByName;
+  final String? createdByUserId;
+  final DateTime? createdAt;
+  final DateTime? nextMeetingDatetime;
 
   const _CustomerRowData({
     required this.index,
@@ -2445,5 +3092,11 @@ class _CustomerRowData {
     required this.nextMeeting,
     required this.remark,
     this.liveCustomer,
+    this.email,
+    this.address,
+    this.addedByName,
+    this.createdByUserId,
+    this.createdAt,
+    this.nextMeetingDatetime,
   });
 }
