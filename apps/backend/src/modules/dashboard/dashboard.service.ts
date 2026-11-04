@@ -93,4 +93,60 @@ export class DashboardService {
       recentAuditLogs,
     };
   }
+
+  async getTodayBirthdays() {
+    const today = new Date();
+    const todayMonth = today.getMonth();
+    const todayDay = today.getDate();
+
+    const employees = await this.prisma.employee.findMany({
+      where: {
+        dateOfBirth: { not: null },
+        status: { notIn: ['RESIGNED', 'TERMINATED'] },
+      },
+      select: {
+        id: true,
+        employeeCode: true,
+        firstName: true,
+        middleName: true,
+        lastName: true,
+        email: true,
+        phone: true,
+        designation: true,
+        avatarUrl: true,
+        userId: true,
+        dateOfBirth: true,
+        department: { select: { id: true, name: true, code: true } },
+        user: { select: { id: true, username: true, email: true } },
+      },
+    });
+
+    return employees
+      .filter((emp) => {
+        if (!emp.dateOfBirth) return false;
+        const dob = new Date(emp.dateOfBirth);
+        return dob.getMonth() === todayMonth && dob.getDate() === todayDay;
+      })
+      .map((emp) => {
+        const fullName = [emp.firstName, emp.middleName, emp.lastName]
+          .filter(Boolean)
+          .join(' ')
+          .trim();
+        return {
+          id: emp.id,
+          employeeCode: emp.employeeCode,
+          fullName,
+          firstName: emp.firstName,
+          lastName: emp.lastName,
+          email: emp.email,
+          phone: emp.phone,
+          designation: emp.designation,
+          departmentName: emp.department?.name || 'Saark Team',
+          userId: emp.userId || emp.user?.id || null,
+          username: emp.user?.username || null,
+          avatarUrl: emp.avatarUrl,
+        };
+      });
+  }
+
 }

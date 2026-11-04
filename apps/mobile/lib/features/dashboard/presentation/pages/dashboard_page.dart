@@ -6,6 +6,7 @@ import 'package:saark_erp_mobile/core/auth/auth_provider.dart';
 import 'package:saark_erp_mobile/core/network/dio_client.dart';
 import 'package:saark_erp_mobile/features/customers/data/customers_repository.dart';
 import 'package:saark_erp_mobile/features/crm/data/crm_repository.dart';
+import 'package:saark_erp_mobile/features/dashboard/presentation/widgets/birthday_celebration_banner.dart';
 
 // ─── Providers ────────────────────────────────────────────────────────────────
 
@@ -41,6 +42,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   Future<void> _refreshAll() async {
     setState(() => _isRefreshing = true);
     ref.invalidate(_dashboardDataProvider);
+    ref.invalidate(todayBirthdaysProvider);
     ref.invalidate(_followUpsProvider);
     await ref.read(customerListProvider.notifier).loadCustomers();
     if (mounted) setState(() => _isRefreshing = false);

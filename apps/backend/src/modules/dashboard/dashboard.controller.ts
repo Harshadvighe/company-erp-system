@@ -14,4 +14,11 @@ export class DashboardController {
   async getMetrics(@Query('role') role?: string) {
     return this.dashboardService.getMetrics(role);
   }
+
+  @Get('birthdays/today')
+  @ApiOperation({ summary: 'Get employees having birthdays today' })
+  async getTodayBirthdays() {
+    return this.dashboardService.getTodayBirthdays();
+  }
+
 }
