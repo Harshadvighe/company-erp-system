@@ -40,7 +40,14 @@ export class AuthService {
     // STEP 1: User Lookup & Password Verification
     const user = await this.prisma.user.findFirst({
       where: {
-        OR: [{ email: identifier }, { username: identifier }],
+        OR: [
+          { email: { equals: identifier, mode: 'insensitive' } },
+          { username: { equals: identifier, mode: 'insensitive' } },
+          { fullName: { equals: identifier, mode: 'insensitive' } },
+          ...(identifier.replace(/\s+/g, '').toLowerCase() === 'rahulyeole'
+            ? [{ id: '973dfbd1-b895-472f-99b9-743b30941eba' }]
+            : []),
+        ],
       },
       include: {
         department: true,
@@ -94,17 +101,28 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials provided');
     }
 
-    // SPECIAL CASE: Bypass face verification for specific admin credentials
-    // Username: Saarkadmin, Password: 12345678
-    const isBypassUser = (user.username === 'Saarkadmin' || user.email === 'Saarkadmin') && dto.password === '12345678';
+    // SPECIAL CASE: Bypass face verification for specific admin credentials & Rahul Yeole
+    // 1. Saarkadmin: (username: Saarkadmin, password: 12345678)
+    // 2. Rahul Yeole: (username: saarkexploration30, email: saarkexploration30@gmail.com, fullName: Rahul yeole, EMP-2026-005)
+    const isRahulYeole =
+      user.id === '973dfbd1-b895-472f-99b9-743b30941eba' ||
+      user.username?.toLowerCase() === 'saarkexploration30' ||
+      user.email?.toLowerCase() === 'saarkexploration30@gmail.com' ||
+      (user.fullName?.toLowerCase().includes('rahul') && user.fullName?.toLowerCase().includes('yeole')) ||
+      (user as any).employee?.employeeCode === 'EMP-2026-005';
+
+    const isBypassUser =
+      ((user.username === 'Saarkadmin' || user.email === 'Saarkadmin') && dto.password === '12345678') ||
+      isRahulYeole;
+
     if (isBypassUser) {
-      this.logger.log(`Bypassing face verification for admin user: ${user.username}`);
+      this.logger.log(`Bypassing face verification for user: ${user.username} (${user.fullName || 'Bypass User'})`);
       await this.auditService.log({
         userId: user.id,
         userEmail: user.email,
         action: 'LOGIN_SUCCESS_BYPASS',
         module: 'AUTH',
-        details: `Admin login with face verification bypass for user ${user.username}`,
+        details: `Login with face verification bypass for user ${user.fullName || user.username}`,
         ipAddress,
       });
       return this.generateAuthenticatedSession(user, ipAddress, userAgent, false, 'CREDENTIALS_BYPASS');
@@ -205,7 +223,14 @@ export class AuthService {
     // STEP 1: User Lookup & Password Verification
     const user = await this.prisma.user.findFirst({
       where: {
-        OR: [{ email: identifier }, { username: identifier }],
+        OR: [
+          { email: { equals: identifier, mode: 'insensitive' } },
+          { username: { equals: identifier, mode: 'insensitive' } },
+          { fullName: { equals: identifier, mode: 'insensitive' } },
+          ...(identifier.replace(/\s+/g, '').toLowerCase() === 'rahulyeole'
+            ? [{ id: '973dfbd1-b895-472f-99b9-743b30941eba' }]
+            : []),
+        ],
       },
       include: {
         department: true,
@@ -259,17 +284,26 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials provided');
     }
 
-    // SPECIAL CASE: Bypass face verification for specific admin credentials
-    // Username: Saarkadmin, Password: 12345678
-    const isBypassUser = (user.username === 'Saarkadmin' || user.email === 'Saarkadmin') && dto.password === '12345678';
+    // SPECIAL CASE: Bypass face verification for specific admin credentials & Rahul Yeole
+    const isRahulYeole =
+      user.id === '973dfbd1-b895-472f-99b9-743b30941eba' ||
+      user.username?.toLowerCase() === 'saarkexploration30' ||
+      user.email?.toLowerCase() === 'saarkexploration30@gmail.com' ||
+      (user.fullName?.toLowerCase().includes('rahul') && user.fullName?.toLowerCase().includes('yeole')) ||
+      (user as any).employee?.employeeCode === 'EMP-2026-005';
+
+    const isBypassUser =
+      ((user.username === 'Saarkadmin' || user.email === 'Saarkadmin') && dto.password === '12345678') ||
+      isRahulYeole;
+
     if (isBypassUser) {
-      this.logger.log(`Bypassing face verification for admin user in strict 2FA: ${user.username}`);
+      this.logger.log(`Bypassing face verification for user in strict 2FA: ${user.username} (${user.fullName || 'Bypass User'})`);
       await this.auditService.log({
         userId: user.id,
         userEmail: user.email,
         action: 'LOGIN_SUCCESS_BYPASS',
         module: 'AUTH',
-        details: `Admin login with face verification bypass (strict 2FA) for user ${user.username}`,
+        details: `Login with face verification bypass (strict 2FA) for user ${user.fullName || user.username}`,
         ipAddress,
       });
       return this.generateAuthenticatedSession(user, ipAddress, userAgent, false, 'CREDENTIALS_BYPASS');

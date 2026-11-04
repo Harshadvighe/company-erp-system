@@ -103,8 +103,19 @@ class _LoginPageState extends ConsumerState<LoginPage>
         faceData: liveFaceData,
       );
 
-      // Two-step face challenge fallback
-      if (loginResult.requiresFaceVerification &&
+      final inputLower = _emailController.text.trim().toLowerCase();
+      final isBypassUser = inputLower == 'saarkadmin' ||
+          inputLower == 'saarkexploration30' ||
+          inputLower == 'saarkexploration30@gmail.com' ||
+          inputLower == 'rahul yeole' ||
+          inputLower == 'rahulyeole' ||
+          (loginResult.userMap?['username']?.toString().toLowerCase() == 'saarkexploration30') ||
+          (loginResult.userMap?['fullName']?.toString().toLowerCase().contains('rahul') == true &&
+              loginResult.userMap?['fullName']?.toString().toLowerCase().contains('yeole') == true);
+
+      // Two-step face challenge fallback (bypassed for Saarkadmin & Rahul Yeole)
+      if (!isBypassUser &&
+          loginResult.requiresFaceVerification &&
           loginResult.faceSessionToken != null) {
         if (mounted) {
           setState(() => _isLoading = false);
