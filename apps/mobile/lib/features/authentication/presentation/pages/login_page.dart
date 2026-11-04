@@ -144,7 +144,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
             if (mounted &&
                 GoRouterState.of(context).matchedLocation == '/login') {
               final user = ref.read(currentUserProvider);
-              final target = (user != null && !user.isAdmin && user.assignedModules.isNotEmpty)
+              final target = (user != null && !user.isAdmin && user.assignedModules.length == 1)
                   ? user.getPrimaryModuleRoute()
                   : '/dashboard';
               context.go(target);
@@ -162,7 +162,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
       if (mounted &&
           GoRouterState.of(context).matchedLocation == '/login') {
         final user = ref.read(currentUserProvider);
-        final target = (user != null && !user.isAdmin && user.assignedModules.isNotEmpty)
+        final target = (user != null && !user.isAdmin && user.assignedModules.length == 1)
             ? user.getPrimaryModuleRoute()
             : (loginResult.targetRoute ?? '/dashboard');
         context.go(target);

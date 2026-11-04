@@ -181,7 +181,7 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
       state: _selectedState,
       district: _selectedDistrict,
       location: _locationCtrl.text.trim(),
-      ownerName: _ownerNameCtrl.text.trim(),
+      ownerName: _ownerNameCtrl.text.trim().isNotEmpty ? _ownerNameCtrl.text.trim() : (currentUser?.fullName.isNotEmpty == true ? currentUser!.fullName : 'Shivanand Ram Kadam'),
       products: _selectedProducts.join(', '),
       valuablePct: double.tryParse(_valuablePercentCtrl.text) ?? 50.0,
       rating: double.tryParse(_ratingCtrl.text) ?? 4.5,
@@ -229,7 +229,7 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
         'pincode': '411041',
         'website': _websiteCtrl.text.trim(),
         'customerRating': double.tryParse(_ratingCtrl.text) ?? 4.5,
-        'ownerName': _ownerNameCtrl.text.trim(),
+        'ownerName': _ownerNameCtrl.text.trim().isNotEmpty ? _ownerNameCtrl.text.trim() : (currentUser?.fullName.isNotEmpty == true ? currentUser!.fullName : 'Shivanand Ram Kadam'),
         'staffCount': int.tryParse(_staffCountCtrl.text) ?? 20,
         'turnover': _selectedTurnover,
         'products': _selectedProducts.toList(),
@@ -1377,7 +1377,21 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
         final m = _selectedMemberFilter.toLowerCase();
         final addedBy = (r.addedByName ?? '').toLowerCase();
         final owner = r.ownerName.toLowerCase();
-        if (!addedBy.contains(m) && !owner.contains(m)) return false;
+        bool matches = addedBy.contains(m) || owner.contains(m);
+        if (!matches) {
+          if (m == 'salessaark9' && (addedBy.contains('shivanand') || owner.contains('shivanand') || owner.contains('kadam'))) {
+            matches = true;
+          } else if (m == 'pooja.saark' && (addedBy.contains('pooja') || owner.contains('pooja') || owner.contains('sonawane'))) {
+            matches = true;
+          } else if (m == 'nikhilsaark' && (addedBy.contains('nikhil') || owner.contains('nikhil') || owner.contains('yadav'))) {
+            matches = true;
+          } else if (m == 'athrav.saark' && (addedBy.contains('atharav') || owner.contains('atharav') || owner.contains('darwatakar'))) {
+            matches = true;
+          } else if (m == 'saarkexploration30' && (addedBy.contains('rahul') || owner.contains('rahul') || owner.contains('yeole'))) {
+            matches = true;
+          }
+        }
+        if (!matches) return false;
       }
 
       // 2. Query search: Company name, GSTN, Mobile No, Contact person, location, or member (if Admin)

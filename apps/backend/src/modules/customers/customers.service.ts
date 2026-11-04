@@ -428,22 +428,23 @@ export class CustomersService {
   }
 
   async create(dto: any, userId?: string, userEmail?: string) {
-    // Smart Upsert: If customer with this GSTIN or Company Name already exists, update instead of throwing 409
+    // Smart Upsert: If customer with this GSTIN or Company Name already exists (including soft-deleted), reactivate and update
     if (dto.gstin && dto.gstin.trim() !== '') {
       const exists = await this.prisma.customer.findFirst({
-        where: { gstin: dto.gstin.trim(), status: { not: 'DELETED' } },
+        where: { gstin: dto.gstin.trim() },
       });
       if (exists) {
+        dto.status = 'ACTIVE';
         return this.update(exists.id, dto, userId, userEmail);
       }
     } else if (dto.companyName && dto.companyName.trim() !== '') {
       const existsName = await this.prisma.customer.findFirst({
         where: {
           companyName: { equals: dto.companyName.trim(), mode: 'insensitive' },
-          status: { not: 'DELETED' },
         },
       });
       if (existsName) {
+        dto.status = 'ACTIVE';
         return this.update(existsName.id, dto, userId, userEmail);
       }
     }
@@ -483,14 +484,19 @@ export class CustomersService {
     const customerCode = await this.sequenceService.nextCustomerCode();
 
     let assignedStaffId = dto.assignedStaffId;
-    let ownerName = dto.ownerName;
-    if (!assignedStaffId && userId) {
+    let ownerName = (dto.ownerName && dto.ownerName.trim().length > 0) ? dto.ownerName.trim() : null;
+    if (userId) {
       const userStaff = await this.prisma.staff.findFirst({ where: { userId } });
       if (userStaff) {
-        assignedStaffId = userStaff.id;
+        if (!assignedStaffId) assignedStaffId = userStaff.id;
         if (!ownerName) ownerName = userStaff.fullName;
       }
+      if (!ownerName) {
+        const u = await this.prisma.user.findUnique({ where: { id: userId }, select: { fullName: true } });
+        if (u?.fullName) ownerName = u.fullName;
+      }
     }
+    if (!ownerName) ownerName = 'Shivanand Ram Kadam';
 
     const companyName = (dto.companyName || 'New Customer').trim();
     const contactPerson = dto.contactPerson || companyName;
@@ -643,6 +649,11 @@ export class CustomersService {
       'source', 'customerRating', 'gstStatus', 'noGstReason', 'status',
     ];
     fields.forEach((f) => { if (dto[f] !== undefined) updatable[f] = dto[f]; });
+
+    // If existing record was soft-deleted, reactivate to ACTIVE
+    if (existing.status === 'DELETED' && !dto.status) {
+      updatable.status = 'ACTIVE';
+    }
 
     const customer = await this.prisma.customer.update({
       where: { id },

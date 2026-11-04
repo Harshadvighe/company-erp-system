@@ -182,33 +182,72 @@ class AuthUser {
 
   bool hasPermission(String module, String action) {
     if (isAdmin) return true;
+    final act = action.toUpperCase();
     if (assignedModules.isNotEmpty) {
       final mod = module.toUpperCase();
       if (mod == 'CRM' || mod == 'CUSTOMERS' || mod == 'SALES' || mod == 'LEADS' || mod == 'QUOTATIONS') {
-        if (!assignedModules.contains('SALES_MARKETING') && !assignedModules.contains('B2B_TRADING')) return false;
+        if (assignedModules.contains('SALES_MARKETING') || assignedModules.contains('B2B_TRADING')) {
+          if (act != 'DELETE' || permissions.contains('$module:$action')) return true;
+        } else {
+          return false;
+        }
       } else if (mod == 'PRODUCTION' || mod == 'PANELS' || mod == 'QC' || mod == 'BOM') {
-        if (!assignedModules.contains('PRODUCTION') &&
-            !assignedModules.contains('PANEL_MANUFACTURING') &&
-            !assignedModules.contains('QUALITY_CONTROL') &&
-            !assignedModules.contains('RESEARCH_DEVELOPMENT')) {
+        if (assignedModules.contains('PRODUCTION') ||
+            assignedModules.contains('PANEL_MANUFACTURING') ||
+            assignedModules.contains('QUALITY_CONTROL') ||
+            assignedModules.contains('RESEARCH_DEVELOPMENT')) {
+          if (act != 'DELETE' || permissions.contains('$module:$action')) return true;
+        } else {
           return false;
         }
       } else if (mod == 'HR' || mod == 'STAFF' || mod == 'PAYROLL') {
-        if (!assignedModules.contains('HR')) return false;
+        if (assignedModules.contains('HR')) {
+          if (act != 'DELETE' || permissions.contains('$module:$action')) return true;
+        } else {
+          return false;
+        }
       } else if (mod == 'ATTENDANCE') {
-        if (!assignedModules.contains('ATTENDANCE') && !assignedModules.contains('HR')) return false;
+        if (assignedModules.contains('ATTENDANCE') || assignedModules.contains('HR')) {
+          if (act != 'DELETE' || permissions.contains('$module:$action')) return true;
+        } else {
+          return false;
+        }
       } else if (mod == 'ACCOUNTS' || mod == 'FINANCE' || mod == 'INVOICES' || mod == 'PAYMENTS') {
-        if (!assignedModules.contains('ACCOUNTS')) return false;
+        if (assignedModules.contains('ACCOUNTS')) {
+          if (act != 'DELETE' || permissions.contains('$module:$action')) return true;
+        } else {
+          return false;
+        }
       } else if (mod == 'PURCHASE') {
-        if (!assignedModules.contains('PURCHASE')) return false;
+        if (assignedModules.contains('PURCHASE')) {
+          if (act != 'DELETE' || permissions.contains('$module:$action')) return true;
+        } else {
+          return false;
+        }
       } else if (mod == 'INVENTORY' || mod == 'STORES' || mod == 'WAREHOUSE') {
-        if (!assignedModules.contains('INVENTORY') && !assignedModules.contains('ASSET_MANAGEMENT')) return false;
+        if (assignedModules.contains('INVENTORY') || assignedModules.contains('ASSET_MANAGEMENT')) {
+          if (act != 'DELETE' || permissions.contains('$module:$action')) return true;
+        } else {
+          return false;
+        }
       } else if (mod == 'PROJECTS') {
-        if (!assignedModules.contains('PROJECTS')) return false;
-      } else if (mod == 'TASKS') {
-        if (!assignedModules.contains('TASKS') && !assignedModules.contains('MAINTENANCE')) return false;
+        if (assignedModules.contains('PROJECTS')) {
+          if (act != 'DELETE' || permissions.contains('$module:$action')) return true;
+        } else {
+          return false;
+        }
+      } else if (mod == 'TASKS' || mod == 'MY_WORK') {
+        if (assignedModules.contains('TASKS') || assignedModules.contains('MAINTENANCE')) {
+          if (act != 'DELETE' || permissions.contains('$module:$action')) return true;
+        } else {
+          return false;
+        }
       } else if (mod == 'ADMIN' || mod == 'SETTINGS') {
-        if (!assignedModules.contains('ADMINISTRATION')) return false;
+        if (assignedModules.contains('ADMINISTRATION')) {
+          return true;
+        } else {
+          return false;
+        }
       }
     }
     return permissions.contains('$module:$action');

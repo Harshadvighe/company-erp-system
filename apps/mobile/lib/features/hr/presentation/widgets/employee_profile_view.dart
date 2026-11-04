@@ -952,6 +952,7 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
           _selectedRecordId = updated.id;
           _isSaving = false;
         });
+        _loadData();
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
