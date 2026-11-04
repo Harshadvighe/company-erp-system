@@ -1250,33 +1250,47 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
     final combinedRows = <_CustomerRowData>[];
     for (int i = 0; i < liveCustomers.length; i++) {
       final c = liveCustomers[i];
+      _CustomerRowData? cached;
+      try {
+        cached = _sampleRows.firstWhere(
+          (s) => s.companyName.toLowerCase() == c.companyName.toLowerCase() ||
+                 (c.gstin != null && c.gstin!.isNotEmpty && s.gstNumber.toLowerCase() == c.gstin!.toLowerCase()),
+        );
+      } catch (_) {
+        cached = null;
+      }
+
       combinedRows.add(_CustomerRowData(
         index: combinedRows.length + 1,
         companyName: c.companyName,
-        gstNumber: c.gstin?.isNotEmpty == true ? c.gstin! : 'UNREGISTERED',
-        contactPerson: c.contactPerson,
-        designation: c.designation ?? '',
-        contactNumber: c.phone,
-        email: c.email,
-        address: c.address,
-        country: c.country.isNotEmpty ? c.country : 'India',
-        state: c.state.isNotEmpty ? c.state : 'Maharashtra',
-        district: c.district.isNotEmpty ? c.district : 'Pune',
-        location: c.city.isNotEmpty ? c.city : '',
-        ownerName: c.ownerName ?? c.salesOwnerName ?? '',
-        addedByName: c.addedByName ?? 'Saark Staff',
-        products: c.products.isNotEmpty ? c.products.join(', ') : '',
-        valuablePct: c.valuationPercentage,
-        rating: c.customerRating,
-        activityCount: c.activityCount,
-        mobileRec: 1,
-        dataSent: 'Yes',
-        enquiry: c.enquiryCount > 0 ? 'Yes' : 'No',
-        callTime: '',
-        convDate: c.createdAt.toString().split(' ').first,
-        meetingTime: '',
-        nextMeeting: '',
-        remark: '',
+        gstNumber: c.gstin?.isNotEmpty == true ? c.gstin! : (cached?.gstNumber ?? 'UNREGISTERED'),
+        contactPerson: c.contactPerson.isNotEmpty ? c.contactPerson : (cached?.contactPerson ?? ''),
+        designation: (c.designation?.isNotEmpty == true ? c.designation! : cached?.designation) ?? '',
+        contactNumber: c.phone.isNotEmpty ? c.phone : (cached?.contactNumber ?? ''),
+        email: c.email.isNotEmpty ? c.email : (cached?.email ?? ''),
+        address: c.address.isNotEmpty ? c.address : (cached?.address ?? ''),
+        country: c.country.isNotEmpty ? c.country : (cached?.country ?? 'India'),
+        state: c.state.isNotEmpty ? c.state : (cached?.state ?? 'Maharashtra'),
+        district: c.district.isNotEmpty ? c.district : (cached?.district ?? 'Pune'),
+        location: c.city.isNotEmpty ? c.city : (cached?.location ?? ''),
+        ownerName: (c.ownerName ?? c.salesOwnerName ?? '').isNotEmpty
+            ? (c.ownerName ?? c.salesOwnerName ?? '')
+            : (cached?.ownerName ?? ''),
+        addedByName: c.addedByName ?? cached?.addedByName ?? 'Saark Staff',
+        createdByUserId: cached?.createdByUserId,
+        products: c.products.isNotEmpty ? c.products.join(', ') : (cached?.products ?? ''),
+        valuablePct: c.valuationPercentage > 0 ? c.valuationPercentage : (cached?.valuablePct ?? 50.0),
+        rating: c.customerRating > 0 ? c.customerRating : (cached?.rating ?? 4.5),
+        activityCount: c.activityCount > 0 ? c.activityCount : (cached?.activityCount ?? 1),
+        mobileRec: cached?.mobileRec ?? 1,
+        dataSent: cached?.dataSent ?? 'Yes',
+        enquiry: c.enquiryCount > 0 ? 'Yes' : (cached?.enquiry ?? 'No'),
+        callTime: cached?.callTime ?? '',
+        convDate: (cached?.convDate.isNotEmpty == true) ? cached!.convDate : c.createdAt.toString().split(' ').first,
+        meetingTime: cached?.meetingTime ?? '',
+        nextMeeting: cached?.nextMeeting ?? '',
+        nextMeetingDatetime: cached?.nextMeetingDatetime,
+        remark: cached?.remark ?? '',
         createdAt: c.createdAt,
         liveCustomer: c,
       ));
