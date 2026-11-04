@@ -746,7 +746,7 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
             const SizedBox(height: 10),
 
             // Table Action Buttons ([Open Company Data], [Delete], [Import])
-            _buildTableControlButtons(),
+            _buildTableControlButtons(isAdmin),
           ],
 
           const SizedBox(height: 28),
@@ -858,6 +858,26 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
                       ),
                     ],
                   ),
+                )
+              else if (user != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.person_outline, color: Colors.white70, size: 14),
+                      const SizedBox(width: 5),
+                      Text(
+                        'Logged In: ${user.fullName.isNotEmpty ? user.fullName : user.username}',
+                        style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
                 ),
             ],
           ),
@@ -872,69 +892,26 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        const Text(
-                          'Search Company / GST / Contact / Owner / Country / State / District / Location: ',
-                          style: TextStyle(
+                        Text(
+                          isAdmin
+                              ? 'Search Company / GST / Contact / Member / Owner / Location: '
+                              : 'Search Company / GST / Contact / Location: ',
+                          style: const TextStyle(
                             color: Colors.white70,
                             fontSize: 11.5,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Expanded(child: _buildSearchTextField()),
+                        Expanded(child: _buildSearchTextField(isAdmin)),
                         const SizedBox(width: 8),
                         _buildSearchButtons(),
-                        const SizedBox(width: 8),
-                        // Member filter dropdown for admin/team
-                        Container(
-                          height: 32,
-                          width: 170,
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF131518),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: const Color(0xFF383D48)),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: members.contains(_selectedMemberFilter) ? _selectedMemberFilter : 'ALL',
-                              dropdownColor: const Color(0xFF1E2127),
-                              isExpanded: true,
-                              icon: const Icon(Icons.person_search_rounded, color: Color(0xFFF15A24), size: 16),
-                              style: const TextStyle(color: Colors.white, fontSize: 11.5),
-                              items: members.map((m) {
-                                return DropdownMenuItem<String>(
-                                  value: m,
-                                  child: Text(m == 'ALL' ? '👤 All Members' : '👤 $m', overflow: TextOverflow.ellipsis),
-                                );
-                              }).toList(),
-                              onChanged: (val) {
-                                if (val != null) setState(() => _selectedMemberFilter = val);
-                              },
-                            ),
-                          ),
-                        ),
-                      ],
-                    )
-                  else ...[
-                    const Text(
-                      'Search Company / GST / Contact / Owner / Country / State / District / Location:',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    _buildSearchTextField(),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        _buildSearchButtons(),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Container(
+                        if (isAdmin) ...[
+                          const SizedBox(width: 8),
+                          // Member filter dropdown for admin only
+                          Container(
                             height: 32,
+                            width: 170,
                             padding: const EdgeInsets.symmetric(horizontal: 8),
                             decoration: BoxDecoration(
                               color: const Color(0xFF131518),
@@ -960,7 +937,58 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
                               ),
                             ),
                           ),
-                        ),
+                        ],
+                      ],
+                    )
+                  else ...[
+                    Text(
+                      isAdmin
+                          ? 'Search Company / GST / Contact / Member / Owner / Location:'
+                          : 'Search Company / GST / Contact / Location:',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    _buildSearchTextField(isAdmin),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        _buildSearchButtons(),
+                        if (isAdmin) ...[
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Container(
+                              height: 32,
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF131518),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: const Color(0xFF383D48)),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  value: members.contains(_selectedMemberFilter) ? _selectedMemberFilter : 'ALL',
+                                  dropdownColor: const Color(0xFF1E2127),
+                                  isExpanded: true,
+                                  icon: const Icon(Icons.person_search_rounded, color: Color(0xFFF15A24), size: 16),
+                                  style: const TextStyle(color: Colors.white, fontSize: 11.5),
+                                  items: members.map((m) {
+                                    return DropdownMenuItem<String>(
+                                      value: m,
+                                      child: Text(m == 'ALL' ? '👤 All Members' : '👤 $m', overflow: TextOverflow.ellipsis),
+                                    );
+                                  }).toList(),
+                                  onChanged: (val) {
+                                    if (val != null) setState(() => _selectedMemberFilter = val);
+                                  },
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ],
@@ -1081,7 +1109,7 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
     );
   }
 
-  Widget _buildSearchTextField() {
+  Widget _buildSearchTextField(bool isAdmin) {
     return SizedBox(
       height: 32,
       child: TextField(
@@ -1092,7 +1120,9 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           filled: true,
           fillColor: const Color(0xFF131518),
-          hintText: 'Type company, GSTIN, contact name or location...',
+          hintText: isAdmin
+              ? 'Type company, GSTIN, mobile, contact or member name...'
+              : 'Type company, GSTIN, mobile, contact name or location...',
           hintStyle: const TextStyle(color: Colors.white38, fontSize: 11),
           prefixIcon: const Icon(Icons.search, size: 15, color: Color(0xFFF15A24)),
           suffixIcon: _searchCtrl.text.isNotEmpty
@@ -1324,15 +1354,15 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
 
     // Filter rows based on search and member filter
     final filteredSampleRows = visibleRows.where((r) {
-      // 1. Team member filter
-      if (_selectedMemberFilter != 'ALL') {
+      // 1. Team member filter (Admin only)
+      if (isAdmin && _selectedMemberFilter != 'ALL') {
         final m = _selectedMemberFilter.toLowerCase();
         final addedBy = (r.addedByName ?? '').toLowerCase();
         final owner = r.ownerName.toLowerCase();
         if (!addedBy.contains(m) && !owner.contains(m)) return false;
       }
 
-      // 2. Query search: Company name, GSTN, Mobile No, Contact person, location, or member
+      // 2. Query search: Company name, GSTN, Mobile No, Contact person, location, or member (if Admin)
       if (_activeSearchQuery.isEmpty) return true;
       final q = _activeSearchQuery.toLowerCase();
       final qDigits = q.replaceAll(RegExp(r'\D'), '');
@@ -1343,9 +1373,10 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
           r.contactPerson.toLowerCase().contains(q) ||
           (qDigits.isNotEmpty && phoneDigits.contains(qDigits)) ||
           r.contactNumber.toLowerCase().contains(q) ||
-          r.ownerName.toLowerCase().contains(q) ||
-          (r.addedByName ?? '').toLowerCase().contains(q) ||
+          (isAdmin && r.ownerName.toLowerCase().contains(q)) ||
+          (isAdmin && (r.addedByName ?? '').toLowerCase().contains(q)) ||
           r.location.toLowerCase().contains(q) ||
+          r.district.toLowerCase().contains(q) ||
           r.state.toLowerCase().contains(q);
     }).toList();
 
@@ -1465,30 +1496,31 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
                       horizontalMargin: 10,
                       columnSpacing: 14,
                       border: TableBorder.all(color: const Color(0xFF282B33), width: 0.8),
-                      columns: const [
-                        DataColumn(label: Text('#', style: _headerStyle)),
-                        DataColumn(label: Text('Company Name', style: _headerStyle)),
-                        DataColumn(label: Text('GST Number', style: _headerStyle)),
-                        DataColumn(label: Text('Contact Person', style: _headerStyle)),
-                        DataColumn(label: Text('Designation', style: _headerStyle)),
-                        DataColumn(label: Text('Contact Number', style: _headerStyle)),
-                        DataColumn(label: Text('Country', style: _headerStyle)),
-                        DataColumn(label: Text('State', style: _headerStyle)),
-                        DataColumn(label: Text('District', style: _headerStyle)),
-                        DataColumn(label: Text('Location', style: _headerStyle)),
-                        DataColumn(label: Text('Added By / Owner', style: _headerStyle)),
-                        DataColumn(label: Text('Products', style: _headerStyle)),
-                        DataColumn(label: Text('Valuable %', style: _headerStyle)),
-                        DataColumn(label: Text('Rating', style: _headerStyle)),
-                        DataColumn(label: Text('Activity', style: _headerStyle)),
-                        DataColumn(label: Text('Mobile Rec', style: _headerStyle)),
-                        DataColumn(label: Text('Data Sent', style: _headerStyle)),
-                        DataColumn(label: Text('Enquiry', style: _headerStyle)),
-                        DataColumn(label: Text('Call Time', style: _headerStyle)),
-                        DataColumn(label: Text('Conv Date', style: _headerStyle)),
-                        DataColumn(label: Text('Meeting Time', style: _headerStyle)),
-                        DataColumn(label: Text('Next Meeting', style: _headerStyle)),
-                        DataColumn(label: Text('Remark', style: _headerStyle)),
+                      columns: [
+                        const DataColumn(label: Text('#', style: _headerStyle)),
+                        const DataColumn(label: Text('Company Name', style: _headerStyle)),
+                        const DataColumn(label: Text('GST Number', style: _headerStyle)),
+                        const DataColumn(label: Text('Contact Person', style: _headerStyle)),
+                        const DataColumn(label: Text('Designation', style: _headerStyle)),
+                        const DataColumn(label: Text('Contact Number', style: _headerStyle)),
+                        const DataColumn(label: Text('Country', style: _headerStyle)),
+                        const DataColumn(label: Text('State', style: _headerStyle)),
+                        const DataColumn(label: Text('District', style: _headerStyle)),
+                        const DataColumn(label: Text('Location', style: _headerStyle)),
+                        if (isAdmin)
+                          const DataColumn(label: Text('Added By / Owner', style: _headerStyle)),
+                        const DataColumn(label: Text('Products', style: _headerStyle)),
+                        const DataColumn(label: Text('Valuable %', style: _headerStyle)),
+                        const DataColumn(label: Text('Rating', style: _headerStyle)),
+                        const DataColumn(label: Text('Activity', style: _headerStyle)),
+                        const DataColumn(label: Text('Mobile Rec', style: _headerStyle)),
+                        const DataColumn(label: Text('Data Sent', style: _headerStyle)),
+                        const DataColumn(label: Text('Enquiry', style: _headerStyle)),
+                        const DataColumn(label: Text('Call Time', style: _headerStyle)),
+                        const DataColumn(label: Text('Conv Date', style: _headerStyle)),
+                        const DataColumn(label: Text('Meeting Time', style: _headerStyle)),
+                        const DataColumn(label: Text('Next Meeting', style: _headerStyle)),
+                        const DataColumn(label: Text('Remark', style: _headerStyle)),
                       ],
                       rows: List.generate(filteredSampleRows.length, (idx) {
                         final row = filteredSampleRows[idx];
@@ -1518,7 +1550,8 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
                             DataCell(Text(row.state, style: _cellStyle)),
                             DataCell(Text(row.district, style: _cellStyle)),
                             DataCell(Text(row.location, style: _cellStyle)),
-                            DataCell(Text(row.addedByName ?? row.ownerName, style: _cellStyleBold)),
+                            if (isAdmin)
+                              DataCell(Text(row.addedByName ?? row.ownerName, style: _cellStyleBold)),
                             DataCell(Text(row.products, style: _cellStyle)),
                             DataCell(Text('${row.valuablePct}%', style: _cellStyle)),
                             DataCell(Text('${row.rating}★', style: _cellStyle)),
@@ -1545,7 +1578,7 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
   }
 
   // ─── Table Control Action Buttons (with Excel Import & Export) ──────────────
-  Widget _buildTableControlButtons() {
+  Widget _buildTableControlButtons(bool isAdmin) {
     return Wrap(
       spacing: 10,
       runSpacing: 8,
@@ -1633,7 +1666,7 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
           ),
           icon: const Icon(Icons.file_download_outlined, size: 16),
           label: const Text('Export to Excel (.csv)', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-          onPressed: () => _exportCustomersToExcel(_displayedCustomerRows),
+          onPressed: () => _exportCustomersToExcel(_displayedCustomerRows, isAdmin),
         ),
         // Import from Excel Button
         ElevatedButton.icon(
@@ -1652,7 +1685,7 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
   }
 
   // ─── Excel Export & Import Implementations ─────────────────────────────────
-  void _exportCustomersToExcel(List<_CustomerRowData> rows) {
+  void _exportCustomersToExcel(List<_CustomerRowData> rows, bool isAdmin) {
     if (rows.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No customer records to export.'), backgroundColor: Colors.redAccent),
@@ -1661,7 +1694,11 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
     }
     final buffer = StringBuffer();
     // CSV Header
-    buffer.writeln('Index,Company Name,GST Number,Contact Person,Designation,Contact Number,Email,Address,City,District,State,Country,Products,Valuation %,Rating,Total Activities,Enquiries,Next Meeting,Conv Date,Added By');
+    if (isAdmin) {
+      buffer.writeln('Index,Company Name,GST Number,Contact Person,Designation,Contact Number,Email,Address,City,District,State,Country,Added By,Products,Valuation %,Rating,Total Activities,Enquiries,Next Meeting,Conv Date');
+    } else {
+      buffer.writeln('Index,Company Name,GST Number,Contact Person,Designation,Contact Number,Email,Address,City,District,State,Country,Products,Valuation %,Rating,Total Activities,Enquiries,Next Meeting,Conv Date');
+    }
 
     for (int i = 0; i < rows.length; i++) {
       final r = rows[i];
@@ -1678,6 +1715,7 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
         '"${r.district.replaceAll('"', '""')}"',
         '"${r.state.replaceAll('"', '""')}"',
         '"${r.country.replaceAll('"', '""')}"',
+        if (isAdmin) '"${(r.addedByName ?? r.ownerName).replaceAll('"', '""')}"',
         '"${r.products.replaceAll('"', '""')}"',
         '${r.valuablePct}',
         '${r.rating}',
@@ -1685,7 +1723,6 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
         '"${r.enquiry}"',
         '"${r.nextMeeting.replaceAll('"', '""')}"',
         '"${r.convDate.replaceAll('"', '""')}"',
-        '"${(r.addedByName ?? "Saark Staff").replaceAll('"', '""')}"',
       ].join(',');
       buffer.writeln(line);
     }
