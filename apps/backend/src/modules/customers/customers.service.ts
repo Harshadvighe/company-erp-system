@@ -428,10 +428,24 @@ export class CustomersService {
   }
 
   async create(dto: any, userId?: string, userEmail?: string) {
-    // Check GST uniqueness
-    if (dto.gstin) {
-      const exists = await this.prisma.customer.findFirst({ where: { gstin: dto.gstin } });
-      if (exists) throw new ConflictException(`A customer with GSTIN ${dto.gstin} already exists`);
+    // Smart Upsert: If customer with this GSTIN or Company Name already exists, update instead of throwing 409
+    if (dto.gstin && dto.gstin.trim() !== '') {
+      const exists = await this.prisma.customer.findFirst({
+        where: { gstin: dto.gstin.trim(), status: { not: 'DELETED' } },
+      });
+      if (exists) {
+        return this.update(exists.id, dto, userId, userEmail);
+      }
+    } else if (dto.companyName && dto.companyName.trim() !== '') {
+      const existsName = await this.prisma.customer.findFirst({
+        where: {
+          companyName: { equals: dto.companyName.trim(), mode: 'insensitive' },
+          status: { not: 'DELETED' },
+        },
+      });
+      if (existsName) {
+        return this.update(existsName.id, dto, userId, userEmail);
+      }
     }
 
     const customer = await this.prisma.$transaction((tx) =>

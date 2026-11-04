@@ -42,6 +42,7 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
 
   // ─── Meeting Alert Scheduler ────────────────────────────────────────────────
   Timer? _meetingAlertTimer;
+  Timer? _liveSyncTimer;
   final Set<String> _alerted2HrMeetings = {};
   final Set<String> _alerted30MinMeetings = {};
   final Set<String> _snoozedMeetings = {};
@@ -127,6 +128,7 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
       ref.read(customerListProvider.notifier).loadCustomers();
     });
     _startMeetingAlertTimer();
+    _startLiveSyncTimer();
   }
 
   Future<void> _loadPersistedCustomRows() async {
@@ -217,7 +219,7 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
         'gstin': _gstNumberCtrl.text.trim().isNotEmpty ? _gstNumberCtrl.text.trim() : null,
         'contactPerson': _contactPersonCtrl.text.trim().isNotEmpty ? _contactPersonCtrl.text.trim() : 'Contact',
         'designation': _designationCtrl.text.trim(),
-        'email': '${companyName.toLowerCase().replaceAll(' ', '')}@example.com',
+        'email': _selectedCustomer?.email.isNotEmpty == true ? _selectedCustomer!.email : '${companyName.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')}_${DateTime.now().millisecondsSinceEpoch % 10000}@saark.in',
         'phone': _contactNumberCtrl.text.trim().isNotEmpty ? _contactNumberCtrl.text.trim() : '9876543210',
         'address': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : 'Industrial Area',
         'city': _locationCtrl.text.trim().isNotEmpty ? _locationCtrl.text.trim() : _selectedDistrict,
@@ -239,13 +241,18 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
         'nextMeetingDatetime': nextMeetingDt?.toIso8601String(),
       };
 
-      if (_selectedCustomer != null) {
+      final isUpdatingExisting = _selectedCustomer != null &&
+          _selectedCustomer!.companyName.trim().toLowerCase() == companyName.toLowerCase();
+
+      if (isUpdatingExisting) {
         await repo.updateCustomer(_selectedCustomer!.id, payload);
       } else {
         await repo.createCustomer(payload);
       }
 
-      await ref.read(customerListProvider.notifier).loadCustomers();
+      _selectedCustomer = null;
+      _selectedCustomerIndex = null;
+      await ref.read(customerListProvider.notifier).loadCustomers(limit: 100, silent: false);
 
       if (mounted) {
         setState(() => _isSaving = false);
@@ -272,8 +279,19 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
   @override
   void dispose() {
     _meetingAlertTimer?.cancel();
+    _liveSyncTimer?.cancel();
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+    void _startLiveSyncTimer() {
+    _liveSyncTimer?.cancel();
+    _liveSyncTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (!mounted) return;
+      if (!_isSaving) {
+        ref.read(customerListProvider.notifier).loadCustomers(limit: 100, silent: true);
+      }
+    });
   }
 
   void _startMeetingAlertTimer() {

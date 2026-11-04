@@ -119,7 +119,7 @@ class Customer {
       status: json['status'] ?? 'ACTIVE',
       ownerName: json['ownerName'] ?? assignedStaff?['fullName'],
       salesOwnerName: assignedStaff?['fullName'] ?? json['ownerName'],
-      addedByName: createdByUser?['fullName'],
+      addedByName: createdByUser?['fullName'] ?? json['ownerName'] ?? assignedStaff?['fullName'] ?? 'Saark Staff',
       staffCount: json['staffCount'] ?? json['numEmployees'] ?? 0,
       turnover: json['turnover'],
       products: prods,
@@ -412,19 +412,23 @@ class CustomerListNotifier extends StateNotifier<CustomerListState> {
     String? search,
     String? type,
     int page = 1,
+    int limit = 100,
     String? sortBy,
     Map<String, dynamic> filters = const {},
+    bool silent = false,
   }) async {
-    state = state.copyWith(isLoading: true, error: null);
+    if (!silent) {
+      state = state.copyWith(isLoading: true, error: null);
+    }
     try {
-      final result =
-          await _repo.getCustomers(
-            search: search,
-            type: type,
-            page: page,
-            sortBy: sortBy,
-            filters: filters,
-          );
+      final result = await _repo.getCustomers(
+        search: search,
+        type: type,
+        page: page,
+        limit: limit,
+        sortBy: sortBy,
+        filters: filters,
+      );
       final data = result['data'] as Map<String, dynamic>? ?? result;
       final customers = (data['data'] as List? ?? [])
           .map((c) => Customer.fromJson(c as Map<String, dynamic>))
