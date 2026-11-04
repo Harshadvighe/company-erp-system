@@ -74,6 +74,56 @@ class RouterNotifier extends ChangeNotifier {
       if (dept.contains('ACCOUNT') || dept.contains('FINANCE') || roles.any((r) => r.contains('ACCOUNT') || r.contains('FINANCE'))) return '/accounts';
       return '/dashboard';
     }
+
+    if (isLoggedIn && !isLoginPage) {
+      final user = authState.user;
+      final loc = state.matchedLocation;
+
+      // Allow dashboard, profile, and my-work for all authenticated users
+      if (loc == '/dashboard' || loc == '/my-work' || loc == '/profile') {
+        return null;
+      }
+
+      // If user is non-admin and has assignedModules restricted, enforce module route guards
+      if (user != null && !user.isAdmin && user.assignedModules.isNotEmpty) {
+        if (loc.startsWith('/admin') && !user.canAccessModule('ADMINISTRATION')) {
+          return user.getPrimaryModuleRoute();
+        }
+        if (loc.startsWith('/hr') && !user.canAccessModule('HR')) {
+          return user.getPrimaryModuleRoute();
+        }
+        if ((loc.startsWith('/sales-marketing') || loc.startsWith('/crm')) &&
+            !user.canAccessModule('SALES_MARKETING') && !user.canAccessModule('B2B_TRADING')) {
+          return user.getPrimaryModuleRoute();
+        }
+        if (loc.startsWith('/production') &&
+            !user.canAccessModule('PRODUCTION') &&
+            !user.canAccessModule('PANEL_MANUFACTURING') &&
+            !user.canAccessModule('QUALITY_CONTROL') &&
+            !user.canAccessModule('RESEARCH_DEVELOPMENT')) {
+          return user.getPrimaryModuleRoute();
+        }
+        if (loc.startsWith('/accounts') && !user.canAccessModule('ACCOUNTS')) {
+          return user.getPrimaryModuleRoute();
+        }
+        if (loc.startsWith('/attendance') && !user.canAccessModule('ATTENDANCE') && !user.canAccessModule('HR')) {
+          return user.getPrimaryModuleRoute();
+        }
+        if (loc.startsWith('/purchase') && !user.canAccessModule('PURCHASE')) {
+          return user.getPrimaryModuleRoute();
+        }
+        if (loc.startsWith('/inventory') && !user.canAccessModule('INVENTORY') && !user.canAccessModule('ASSET_MANAGEMENT')) {
+          return user.getPrimaryModuleRoute();
+        }
+        if (loc.startsWith('/projects') && !user.canAccessModule('PROJECTS')) {
+          return user.getPrimaryModuleRoute();
+        }
+        if (loc.startsWith('/tasks') && !user.canAccessModule('TASKS')) {
+          return user.getPrimaryModuleRoute();
+        }
+      }
+    }
+
     return null;
   }
 }

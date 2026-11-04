@@ -142,6 +142,22 @@ export class AuthService {
         { expiresIn: '5m' },
       );
 
+      let userAssignedModules: string[] = [];
+      try {
+        const rawModules = user.assignedModules || (user as any).employee?.assignedModules;
+        if (rawModules) {
+          if (Array.isArray(rawModules)) {
+            userAssignedModules = rawModules;
+          } else if (typeof rawModules === 'string' && rawModules.trim().length > 0) {
+            const parsed = JSON.parse(rawModules);
+            if (Array.isArray(parsed)) userAssignedModules = parsed;
+          }
+        }
+      } catch (_) {
+        userAssignedModules = [];
+      }
+      const target = this.resolveUserTargetModule(user);
+
       return {
         requiresFaceVerification: true,
         faceSessionToken,
@@ -152,9 +168,14 @@ export class AuthService {
           fullName: user.fullName,
           designation: user.designation,
           department: user.department?.name,
-          employeeId: user.staff?.employeeId,
+          employeeId: user.staff?.employeeId || (user as any).employee?.employeeCode,
           profilePhoto: user.staff?.profilePhoto,
+          assignedModules: userAssignedModules,
+          targetRoute: target.targetRoute,
+          targetModule: target.targetModule,
         },
+        targetRoute: target.targetRoute,
+        targetModule: target.targetModule,
         message: 'Dual-Factor Authentication required: Please provide live face biometric data.',
       };
     }
@@ -753,7 +774,7 @@ export class AuthService {
         designation: user.designation,
         department: user.department?.name,
         staffId: user.staff?.id,
-        employeeId: user.staff?.employeeId,
+        employeeId: user.staff?.employeeId || (user as any).employee?.employeeCode,
         faceVerificationEnabled: user.faceVerificationEnabled,
         faceVerificationStatus: user.faceVerificationStatus,
         roles,

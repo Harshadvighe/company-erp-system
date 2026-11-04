@@ -543,7 +543,9 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
       if (record.departmentId != null && _departments.any((d) => d.id == record.departmentId)) {
         _selectedDepartmentId = record.departmentId;
       }
-      _selectedModules = List<String>.from(record.assignedModules);
+      _selectedModules = record.assignedModules.isNotEmpty
+          ? List<String>.from(record.assignedModules)
+          : ['SALES_MARKETING'];
     });
 
     _loadBiometricStatus(record.dbId.isNotEmpty ? record.dbId : record.id);
@@ -760,6 +762,7 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
       _usernameController.clear();
       _passwordController.text = 'Saark@2026';
       _enableFaceAuth = true;
+      _selectedModules = ['SALES_MARKETING'];
       if (_departments.isNotEmpty) {
         final rndDept = _departments.firstWhere(
           (d) => d.code == 'RND' || d.name.toLowerCase().contains('research') || d.name.toLowerCase().contains('r&d'),
@@ -2600,7 +2603,7 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: SizedBox(
-            width: 1050,
+            width: 1180,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -2617,6 +2620,7 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
                     DataColumn(label: Text('Department', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
                     DataColumn(label: Text('Designation', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
                     DataColumn(label: Text('Work Email', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                    DataColumn(label: Text('Assigned Modules', style: TextStyle(color: Color(0xFFF26522), fontWeight: FontWeight.bold, fontSize: 12))),
                     DataColumn(label: Text('Status / Approval', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
                     DataColumn(label: Text('Date of Birth', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
                   ],
@@ -2659,6 +2663,22 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
                         )),
                         DataCell(Text(r.designation, style: const TextStyle(color: Color(0xFFC0C0C0), fontSize: 12))),
                         DataCell(Text(r.workEmail, style: const TextStyle(color: Color(0xFFC0C0C0), fontSize: 12))),
+                        DataCell(Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: r.assignedModules.isEmpty ? Colors.white10 : const Color(0xFFF26522).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(3),
+                            border: Border.all(color: r.assignedModules.isEmpty ? Colors.white24 : const Color(0xFFF26522).withValues(alpha: 0.4)),
+                          ),
+                          child: Text(
+                            r.assignedModules.isEmpty ? 'No Modules' : '${r.assignedModules.length} Modules',
+                            style: TextStyle(
+                              color: r.assignedModules.isEmpty ? Colors.white60 : const Color(0xFFF26522),
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        )),
                         DataCell(Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(

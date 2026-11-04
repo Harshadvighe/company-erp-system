@@ -107,7 +107,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               const SizedBox(height: 24),
 
               // 4. Dual Operational Hub: Clients & Priority Action Items
-              if (user?.canView('CUSTOMERS') == true || user?.canView('CRM') == true) ...[
+              if ((user?.canAccessModule('SALES_MARKETING') == true || user?.canAccessModule('B2B_TRADING') == true) && (user?.canView('CUSTOMERS') == true || user?.canView('CRM') == true)) ...[
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final canCustomers = user?.canView('CUSTOMERS') == true;
@@ -524,6 +524,46 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         icon: Icons.warehouse_rounded,
         route: '/inventory',
         accentColor: Color(0xFF64748B),
+      ));
+    }
+
+    if (user.canAccessModule('B2B_TRADING')) {
+      tiles.add(const _ConsoleTileData(
+        title: 'B2B Trading',
+        subtitle: 'B2B trading, enquiries & products',
+        icon: Icons.storefront_rounded,
+        route: '/crm/enquiries',
+        accentColor: Color(0xFFF97316),
+      ));
+    }
+
+    if (user.canAccessModule('MAINTENANCE')) {
+      tiles.add(const _ConsoleTileData(
+        title: 'Maintenance',
+        subtitle: 'Service tickets & preventive jobs',
+        icon: Icons.home_repair_service_rounded,
+        route: '/my-work',
+        accentColor: Color(0xFF14B8A6),
+      ));
+    }
+
+    if (user.canAccessModule('RESEARCH_DEVELOPMENT')) {
+      tiles.add(const _ConsoleTileData(
+        title: 'R&D / Engineering',
+        subtitle: 'Technical calculations & panel design',
+        icon: Icons.science_rounded,
+        route: '/production/specs',
+        accentColor: Color(0xFF6366F1),
+      ));
+    }
+
+    if (user.canAccessModule('ASSET_MANAGEMENT')) {
+      tiles.add(const _ConsoleTileData(
+        title: 'Asset Management',
+        subtitle: 'Fixed assets & machine registry',
+        icon: Icons.domain_rounded,
+        route: '/inventory?view=assets',
+        accentColor: Color(0xFF84CC16),
       ));
     }
 

@@ -182,6 +182,35 @@ class AuthUser {
 
   bool hasPermission(String module, String action) {
     if (isAdmin) return true;
+    if (assignedModules.isNotEmpty) {
+      final mod = module.toUpperCase();
+      if (mod == 'CRM' || mod == 'CUSTOMERS' || mod == 'SALES' || mod == 'LEADS' || mod == 'QUOTATIONS') {
+        if (!assignedModules.contains('SALES_MARKETING') && !assignedModules.contains('B2B_TRADING')) return false;
+      } else if (mod == 'PRODUCTION' || mod == 'PANELS' || mod == 'QC' || mod == 'BOM') {
+        if (!assignedModules.contains('PRODUCTION') &&
+            !assignedModules.contains('PANEL_MANUFACTURING') &&
+            !assignedModules.contains('QUALITY_CONTROL') &&
+            !assignedModules.contains('RESEARCH_DEVELOPMENT')) {
+          return false;
+        }
+      } else if (mod == 'HR' || mod == 'STAFF' || mod == 'PAYROLL') {
+        if (!assignedModules.contains('HR')) return false;
+      } else if (mod == 'ATTENDANCE') {
+        if (!assignedModules.contains('ATTENDANCE') && !assignedModules.contains('HR')) return false;
+      } else if (mod == 'ACCOUNTS' || mod == 'FINANCE' || mod == 'INVOICES' || mod == 'PAYMENTS') {
+        if (!assignedModules.contains('ACCOUNTS')) return false;
+      } else if (mod == 'PURCHASE') {
+        if (!assignedModules.contains('PURCHASE')) return false;
+      } else if (mod == 'INVENTORY' || mod == 'STORES' || mod == 'WAREHOUSE') {
+        if (!assignedModules.contains('INVENTORY') && !assignedModules.contains('ASSET_MANAGEMENT')) return false;
+      } else if (mod == 'PROJECTS') {
+        if (!assignedModules.contains('PROJECTS')) return false;
+      } else if (mod == 'TASKS') {
+        if (!assignedModules.contains('TASKS') && !assignedModules.contains('MAINTENANCE')) return false;
+      } else if (mod == 'ADMIN' || mod == 'SETTINGS') {
+        if (!assignedModules.contains('ADMINISTRATION')) return false;
+      }
+    }
     return permissions.contains('$module:$action');
   }
 

@@ -9,6 +9,7 @@ import 'package:saark_erp_mobile/core/widgets/saark_logo.dart';
 import 'package:saark_erp_mobile/features/authentication/data/auth_repository.dart';
 import 'package:saark_erp_mobile/core/storage/app_storage.dart';
 import 'package:saark_erp_mobile/core/constants/app_constants.dart';
+import 'package:saark_erp_mobile/core/auth/auth_provider.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -131,7 +132,11 @@ class _LoginPageState extends ConsumerState<LoginPage>
             );
             if (mounted &&
                 GoRouterState.of(context).matchedLocation == '/login') {
-              context.go('/dashboard');
+              final user = ref.read(currentUserProvider);
+              final target = (user != null && !user.isAdmin && user.assignedModules.isNotEmpty)
+                  ? user.getPrimaryModuleRoute()
+                  : '/dashboard';
+              context.go(target);
             }
           } else {
             setState(() {
@@ -145,7 +150,11 @@ class _LoginPageState extends ConsumerState<LoginPage>
 
       if (mounted &&
           GoRouterState.of(context).matchedLocation == '/login') {
-        context.go(loginResult.targetRoute ?? '/dashboard');
+        final user = ref.read(currentUserProvider);
+        final target = (user != null && !user.isAdmin && user.assignedModules.isNotEmpty)
+            ? user.getPrimaryModuleRoute()
+            : (loginResult.targetRoute ?? '/dashboard');
+        context.go(target);
       }
     } catch (e) {
       String message =
@@ -347,27 +356,6 @@ class _LoginPageState extends ConsumerState<LoginPage>
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildSecurityBadge(IconData icon, String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 13, color: color),
-          const SizedBox(width: 5),
-          Text(label,
-              style: TextStyle(
-                  fontSize: 11, color: color, fontWeight: FontWeight.w600)),
-        ],
       ),
     );
   }

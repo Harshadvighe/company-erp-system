@@ -413,7 +413,7 @@ export class HrService {
       ];
     }
 
-    return this.prisma.employee.findMany({
+    const employees = await this.prisma.employee.findMany({
       where,
       include: {
         department: true,
@@ -428,10 +428,21 @@ export class HrService {
             status: true,
             faceVerificationEnabled: true,
             faceVerificationStatus: true,
+            assignedModules: true,
           },
         },
       },
       orderBy: { employeeCode: 'asc' },
+    });
+
+    return employees.map((emp) => {
+      if (!emp.assignedModules && emp.user?.assignedModules) {
+        return {
+          ...emp,
+          assignedModules: emp.user.assignedModules,
+        };
+      }
+      return emp;
     });
   }
 
@@ -1067,15 +1078,28 @@ export class HrService {
           console.warn(`Could not dispatch credential change email: ${mErr.message}`);
         }
       }
-    } else if (dto.createUserAccount || (dto.username && dto.password)) {
-      // Provision user account for an employee without one
+    } else {
+      // Find if user already exists for this employee
       const reqUsername = dto.username?.trim() || (dto.email || existing.email).split('@')[0];
       const existingUser = await this.prisma.user.findFirst({
         where: { OR: [{ email: (dto.email || existing.email).trim() }, { username: reqUsername }] },
       });
+
       if (existingUser) {
-        throw new ConflictException(`User with username '${reqUsername}' or email already exists.`);
-      }
+        // Link employee to existing user account and sync modules/details
+        updatedUserId = existingUser.id;
+        const userUpdates: any = {};
+        if (serializedModules !== undefined) userUpdates.assignedModules = serializedModules;
+        if (dto.designation) userUpdates.designation = dto.designation;
+        if (validDepartmentId !== undefined) userUpdates.departmentId = validDepartmentId;
+        if (newPassword) userUpdates.passwordHash = await bcrypt.hash(newPassword, 10);
+        if (Object.keys(userUpdates).length > 0) {
+          await this.prisma.user.update({
+            where: { id: existingUser.id },
+            data: userUpdates,
+          });
+        }
+      } else if (dto.createUserAccount || (dto.username && dto.password)) {
 
       const rawPass = dto.password || 'Saark@2026';
       const passwordHash = await bcrypt.hash(rawPass, 10);
@@ -1131,8 +1155,9 @@ export class HrService {
         console.warn(`Could not dispatch welcome email: ${mErr.message}`);
       }
     }
+  }
 
-    return this.prisma.employee.update({
+    const updated = await this.prisma.employee.update({
       where: { id: existing.id },
       data: {
         userId: updatedUserId,
@@ -1173,10 +1198,19 @@ export class HrService {
             status: true,
             faceVerificationEnabled: true,
             faceVerificationStatus: true,
+            assignedModules: true,
           },
         },
       },
     });
+
+    if (!updated.assignedModules && updated.user?.assignedModules) {
+      return {
+        ...updated,
+        assignedModules: updated.user.assignedModules,
+      };
+    }
+    return updated;
   }
 
   // -------------------------------------------------------------

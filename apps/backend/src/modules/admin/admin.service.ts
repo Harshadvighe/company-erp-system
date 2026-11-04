@@ -733,15 +733,34 @@ export class AdminService {
       ];
     }
 
-    return this.prisma.employee.findMany({
+    const requests = await this.prisma.employee.findMany({
       where,
       include: {
         department: true,
         faceBiometric: {
           select: { id: true, isActive: true, enrolledAt: true },
         },
+        user: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            status: true,
+            assignedModules: true,
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
+    });
+
+    return requests.map((req) => {
+      if (!req.assignedModules && req.user?.assignedModules) {
+        return {
+          ...req,
+          assignedModules: req.user.assignedModules,
+        };
+      }
+      return req;
     });
   }
 
