@@ -64,6 +64,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       }
     }
 
+    let assignedModules: string[] = [];
+    if (user.assignedModules) {
+      try {
+        assignedModules = typeof user.assignedModules === 'string'
+          ? JSON.parse(user.assignedModules)
+          : user.assignedModules;
+      } catch (_) {}
+    }
+
     return {
       id: user.id,
       username: user.username,
@@ -74,6 +83,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       staffId,
       roles,
       permissions: Array.from(permissions),
+      assignedModules,
     };
   }
 }

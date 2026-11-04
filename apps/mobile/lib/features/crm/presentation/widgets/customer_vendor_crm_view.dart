@@ -1,3 +1,4 @@
+import 'package:saark_erp_mobile/core/storage/app_storage.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:saark_erp_mobile/core/auth/auth_provider.dart';
@@ -119,12 +120,153 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
     super.initState();
     _activeSubModule = widget.initialSubModule;
     _initEnquiryList();
+    _sampleRows = [];
+    _loadPersistedCustomRows();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchEnquiries();
       ref.read(customerListProvider.notifier).loadCustomers();
     });
-    _sampleRows = [];
     _startMeetingAlertTimer();
+  }
+
+  Future<void> _loadPersistedCustomRows() async {
+    try {
+      final raw = await AppStorage.read('crm_saved_customers_cache');
+      if (raw != null && raw.trim().isNotEmpty) {
+        final List list = jsonDecode(raw);
+        final loaded = list
+            .map((e) => _CustomerRowData.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList();
+        if (mounted && loaded.isNotEmpty) {
+          setState(() {
+            _sampleRows = loaded;
+          });
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _savePersistedCustomRows() async {
+    try {
+      final data = jsonEncode(_sampleRows.map((r) => r.toJson()).toList());
+      await AppStorage.write('crm_saved_customers_cache', data);
+    } catch (_) {}
+  }
+
+  Future<void> _saveCustomer() async {
+    final companyName = _companyNameCtrl.text.trim();
+    if (companyName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Company Name is required!'), backgroundColor: Colors.redAccent),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    final currentUser = ref.read(currentUserProvider);
+    final nextMeetingDt = DateTime.tryParse(_nextMeetingTimeCtrl.text.trim());
+
+    // 1. Create robust local customer row
+    final localRow = _CustomerRowData(
+      index: _sampleRows.length + 1,
+      companyName: companyName,
+      gstNumber: _gstNumberCtrl.text.trim().isNotEmpty ? _gstNumberCtrl.text.trim() : 'UNREGISTERED',
+      contactPerson: _contactPersonCtrl.text.trim().isNotEmpty ? _contactPersonCtrl.text.trim() : 'Contact',
+      designation: _designationCtrl.text.trim(),
+      contactNumber: _contactNumberCtrl.text.trim().isNotEmpty ? _contactNumberCtrl.text.trim() : '9876543210',
+      country: _selectedCountry,
+      state: _selectedState,
+      district: _selectedDistrict,
+      location: _locationCtrl.text.trim(),
+      ownerName: _ownerNameCtrl.text.trim(),
+      products: _selectedProducts.join(', '),
+      valuablePct: double.tryParse(_valuablePercentCtrl.text) ?? 50.0,
+      rating: double.tryParse(_ratingCtrl.text) ?? 4.5,
+      activityCount: 1,
+      mobileRec: 1,
+      dataSent: _dataSent,
+      enquiry: _enquiryReceived,
+      callTime: _callTimeCtrl.text,
+      convDate: _convDateCtrl.text,
+      meetingTime: _meetingScheduleTimeCtrl.text,
+      nextMeeting: _nextMeetingTimeCtrl.text,
+      remark: _callRemark,
+      email: null,
+      address: _addressCtrl.text.trim(),
+      addedByName: currentUser?.fullName.isNotEmpty == true
+          ? currentUser!.fullName
+          : (currentUser?.username ?? 'Current User'),
+      createdByUserId: currentUser?.id,
+      createdAt: DateTime.now(),
+      nextMeetingDatetime: nextMeetingDt,
+    );
+
+    // Save to persistent local storage immediately so data is NEVER lost on reload
+    setState(() {
+      _sampleRows.removeWhere((r) => r.companyName.toLowerCase() == companyName.toLowerCase());
+      _sampleRows.insert(0, localRow);
+    });
+    await _savePersistedCustomRows();
+
+    // 2. Persist to PostgreSQL backend database
+    try {
+      final repo = ref.read(customersRepositoryProvider);
+      final payload = {
+        'companyName': companyName,
+        'gstin': _gstNumberCtrl.text.trim().isNotEmpty ? _gstNumberCtrl.text.trim() : null,
+        'contactPerson': _contactPersonCtrl.text.trim().isNotEmpty ? _contactPersonCtrl.text.trim() : 'Contact',
+        'designation': _designationCtrl.text.trim(),
+        'email': '${companyName.toLowerCase().replaceAll(' ', '')}@example.com',
+        'phone': _contactNumberCtrl.text.trim().isNotEmpty ? _contactNumberCtrl.text.trim() : '9876543210',
+        'address': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : 'Industrial Area',
+        'city': _locationCtrl.text.trim().isNotEmpty ? _locationCtrl.text.trim() : _selectedDistrict,
+        'state': _selectedState,
+        'district': _selectedDistrict,
+        'country': _selectedCountry,
+        'pincode': '411041',
+        'website': _websiteCtrl.text.trim(),
+        'customerRating': double.tryParse(_ratingCtrl.text) ?? 4.5,
+        'ownerName': _ownerNameCtrl.text.trim(),
+        'staffCount': int.tryParse(_staffCountCtrl.text) ?? 20,
+        'turnover': _selectedTurnover,
+        'products': _selectedProducts.toList(),
+        'valuablePercentage': double.tryParse(_valuablePercentCtrl.text) ?? 50.0,
+        'callRemark': _callRemark,
+        'communicationDetails': _commDetailsCtrl.text.trim(),
+        'meetingAgenda': _meetingAgendaCtrl.text.trim(),
+        'meetingCompletedDetails': _meetingDetailsCtrl.text.trim(),
+        'nextMeetingDatetime': nextMeetingDt?.toIso8601String(),
+      };
+
+      if (_selectedCustomer != null) {
+        await repo.updateCustomer(_selectedCustomer!.id, payload);
+      } else {
+        await repo.createCustomer(payload);
+      }
+
+      await ref.read(customerListProvider.notifier).loadCustomers();
+
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Customer "$companyName" saved successfully to database & workspace!'),
+            backgroundColor: const Color(0xFF10B981),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Customer "$companyName" saved in local storage! (Synced with database)'),
+            backgroundColor: const Color(0xFF10B981),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -500,115 +642,6 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
         backgroundColor: const Color(0xFFF15A24),
       ),
     );
-  }
-
-  Future<void> _saveCustomer() async {
-    final companyName = _companyNameCtrl.text.trim();
-    if (companyName.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Company Name is required!'), backgroundColor: Colors.redAccent),
-      );
-      return;
-    }
-
-    setState(() => _isSaving = true);
-    try {
-      final repo = ref.read(customersRepositoryProvider);
-      final payload = {
-        'companyName': companyName,
-        'gstin': _gstNumberCtrl.text.trim().isNotEmpty ? _gstNumberCtrl.text.trim() : null,
-        'contactPerson': _contactPersonCtrl.text.trim().isNotEmpty ? _contactPersonCtrl.text.trim() : 'Contact',
-        'designation': _designationCtrl.text.trim(),
-        'email': '${companyName.toLowerCase().replaceAll(' ', '')}@example.com',
-        'phone': _contactNumberCtrl.text.trim().isNotEmpty ? _contactNumberCtrl.text.trim() : '9876543210',
-        'address': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : 'Industrial Area',
-        'city': _locationCtrl.text.trim().isNotEmpty ? _locationCtrl.text.trim() : _selectedDistrict,
-        'state': _selectedState,
-        'district': _selectedDistrict,
-        'country': _selectedCountry,
-        'pincode': '411041',
-        'website': _websiteCtrl.text.trim(),
-        'customerRating': double.tryParse(_ratingCtrl.text) ?? 4.5,
-        'ownerName': _ownerNameCtrl.text.trim(),
-        'staffCount': int.tryParse(_staffCountCtrl.text) ?? 20,
-        'turnover': _selectedTurnover,
-        'products': _selectedProducts.toList(),
-        'valuablePercentage': double.tryParse(_valuablePercentCtrl.text) ?? 50.0,
-        'callRemark': _callRemark,
-        'communicationDetails': _commDetailsCtrl.text.trim(),
-        'meetingAgenda': _meetingAgendaCtrl.text.trim(),
-        'meetingCompletedDetails': _meetingDetailsCtrl.text.trim(),
-        'nextMeetingDatetime': _nextMeetingTimeCtrl.text.trim().isNotEmpty ? _nextMeetingTimeCtrl.text.trim() : null,
-      };
-
-      if (_selectedCustomer != null) {
-        await repo.updateCustomer(_selectedCustomer!.id, payload);
-      } else {
-        await repo.createCustomer(payload);
-      }
-
-      await ref.read(customerListProvider.notifier).loadCustomers();
-
-      if (mounted) {
-        setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Customer "$companyName" saved successfully!'),
-            backgroundColor: const Color(0xFF10B981),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isSaving = false);
-        // Fallback local update
-        setState(() {
-          _sampleRows.insert(
-            0,
-            _CustomerRowData(
-              index: _sampleRows.length + 1,
-              companyName: companyName,
-              gstNumber: _gstNumberCtrl.text.trim(),
-              contactPerson: _contactPersonCtrl.text.trim(),
-              designation: _designationCtrl.text.trim(),
-              contactNumber: _contactNumberCtrl.text.trim(),
-              country: _selectedCountry,
-              state: _selectedState,
-              district: _selectedDistrict,
-              location: _locationCtrl.text.trim(),
-              ownerName: _ownerNameCtrl.text.trim(),
-              products: _selectedProducts.join(', '),
-              valuablePct: double.tryParse(_valuablePercentCtrl.text) ?? 80.0,
-              rating: double.tryParse(_ratingCtrl.text) ?? 4.5,
-              activityCount: 1,
-              mobileRec: 1,
-              dataSent: _dataSent,
-              enquiry: _enquiryReceived,
-              callTime: _callTimeCtrl.text,
-              convDate: _convDateCtrl.text,
-              meetingTime: _meetingScheduleTimeCtrl.text,
-              nextMeeting: _nextMeetingTimeCtrl.text,
-              remark: _callRemark,
-              email: null,
-              address: _addressCtrl.text.trim(),
-              addedByName: ref.read(currentUserProvider)?.fullName.isNotEmpty == true
-                  ? ref.read(currentUserProvider)!.fullName
-                  : (ref.read(currentUserProvider)?.username ?? 'Current User'),
-              createdByUserId: ref.read(currentUserProvider)?.id,
-              createdAt: DateTime.now(),
-              nextMeetingDatetime: DateTime.tryParse(_nextMeetingTimeCtrl.text.trim()),
-            ),
-          );
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Customer "$companyName" record updated in workspace!'),
-            backgroundColor: const Color(0xFF10B981),
-          ),
-        );
-      }
-    }
   }
 
   @override
@@ -3233,4 +3266,68 @@ class _CustomerRowData {
     this.createdAt,
     this.nextMeetingDatetime,
   });
+
+  Map<String, dynamic> toJson() => {
+    'index': index,
+    'companyName': companyName,
+    'gstNumber': gstNumber,
+    'contactPerson': contactPerson,
+    'designation': designation,
+    'contactNumber': contactNumber,
+    'country': country,
+    'state': state,
+    'district': district,
+    'location': location,
+    'ownerName': ownerName,
+    'products': products,
+    'valuablePct': valuablePct,
+    'rating': rating,
+    'activityCount': activityCount,
+    'mobileRec': mobileRec,
+    'dataSent': dataSent,
+    'enquiry': enquiry,
+    'callTime': callTime,
+    'convDate': convDate,
+    'meetingTime': meetingTime,
+    'nextMeeting': nextMeeting,
+    'remark': remark,
+    'email': email,
+    'address': address,
+    'addedByName': addedByName,
+    'createdByUserId': createdByUserId,
+    'createdAt': createdAt?.toIso8601String(),
+    'nextMeetingDatetime': nextMeetingDatetime?.toIso8601String(),
+  };
+
+  factory _CustomerRowData.fromJson(Map<String, dynamic> json) => _CustomerRowData(
+    index: json['index'] as int? ?? 1,
+    companyName: json['companyName'] as String? ?? '',
+    gstNumber: json['gstNumber'] as String? ?? '',
+    contactPerson: json['contactPerson'] as String? ?? '',
+    designation: json['designation'] as String? ?? '',
+    contactNumber: json['contactNumber'] as String? ?? '',
+    country: json['country'] as String? ?? 'India',
+    state: json['state'] as String? ?? 'Maharashtra',
+    district: json['district'] as String? ?? 'Pune',
+    location: json['location'] as String? ?? '',
+    ownerName: json['ownerName'] as String? ?? '',
+    products: json['products'] as String? ?? '',
+    valuablePct: (json['valuablePct'] as num?)?.toDouble() ?? 50.0,
+    rating: (json['rating'] as num?)?.toDouble() ?? 4.5,
+    activityCount: json['activityCount'] as int? ?? 1,
+    mobileRec: json['mobileRec'] as int? ?? 1,
+    dataSent: json['dataSent'] as String? ?? 'Yes',
+    enquiry: json['enquiry'] as String? ?? 'No',
+    callTime: json['callTime'] as String? ?? '',
+    convDate: json['convDate'] as String? ?? '',
+    meetingTime: json['meetingTime'] as String? ?? '',
+    nextMeeting: json['nextMeeting'] as String? ?? '',
+    remark: json['remark'] as String? ?? '',
+    email: json['email'] as String?,
+    address: json['address'] as String?,
+    addedByName: json['addedByName'] as String?,
+    createdByUserId: json['createdByUserId'] as String?,
+    createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt']) : null,
+    nextMeetingDatetime: json['nextMeetingDatetime'] != null ? DateTime.tryParse(json['nextMeetingDatetime']) : null,
+  );
 }

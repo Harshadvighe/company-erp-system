@@ -21,9 +21,12 @@ export class PermissionsGuard implements CanActivate {
       throw new ForbiddenException('User context missing or unauthenticated');
     }
 
-    // Super Admin bypass
+    // Super Admin & Admin bypass
     const userRoles: string[] = user.roles || [];
+    const username = (user.username || '').toLowerCase();
     if (
+      username === 'saarkadmin' ||
+      username === 'admin' ||
       userRoles.includes('ROLE_ADMIN') ||
       userRoles.includes('ADMIN') ||
       userRoles.includes('SUPER_ADMIN')
@@ -31,15 +34,51 @@ export class PermissionsGuard implements CanActivate {
       return true;
     }
 
+    // PBAC Check
     const userPermissions: string[] = user.permissions || [];
-    const hasPermission = requiredPermissions.some((perm) => userPermissions.includes(perm));
-
-    if (!hasPermission) {
-      throw new ForbiddenException(
-        `Access Denied: Missing required permission [${requiredPermissions.join(', ')}]`,
-      );
+    if (requiredPermissions.some((perm) => userPermissions.includes(perm))) {
+      return true;
     }
 
-    return true;
+    // Assigned Modules Check
+    const rawModules: any = user.assignedModules;
+    let assignedModules: string[] = [];
+    if (Array.isArray(rawModules)) {
+      assignedModules = rawModules;
+    } else if (typeof rawModules === 'string') {
+      try { assignedModules = JSON.parse(rawModules); } catch (_) { assignedModules = [rawModules]; }
+    }
+
+    const normalizedModules = assignedModules.map((m) =>
+      String(m).toUpperCase().replace(/\s+/g, '_').replace(/&/g, '')
+    );
+
+    const moduleMap: Record<string, string[]> = {
+      SALES_MARKETING: ['CUSTOMERS', 'CRM', 'SALES', 'QUOTATIONS', 'LEADS'],
+      SALES: ['CUSTOMERS', 'CRM', 'SALES', 'QUOTATIONS', 'LEADS'],
+      CRM: ['CUSTOMERS', 'CRM', 'SALES', 'QUOTATIONS', 'LEADS'],
+      PURCHASE: ['PURCHASE', 'VENDORS'],
+      PRODUCTION: ['PRODUCTION', 'INVENTORY', 'PROJECTS'],
+      INVENTORY: ['INVENTORY'],
+      HR: ['HR', 'STAFF', 'ATTENDANCE'],
+      ACCOUNTS: ['ACCOUNTS', 'PAYMENTS', 'INVOICES'],
+    };
+
+    const hasModuleAccess = requiredPermissions.some((perm) => {
+      const [mod] = perm.split(':');
+      for (const assigned of normalizedModules) {
+        const allowed = moduleMap[assigned] || [assigned];
+        if (allowed.includes(mod)) return true;
+      }
+      return false;
+    });
+
+    if (hasModuleAccess) {
+      return true;
+    }
+
+    throw new ForbiddenException(
+      `Access Denied: Missing required permission [${requiredPermissions.join(', ')}]`,
+    );
   }
 }
