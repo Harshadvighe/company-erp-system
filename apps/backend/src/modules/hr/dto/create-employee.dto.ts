@@ -35,6 +35,11 @@ export class CreateEmployeeDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  dateOfBirth?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   departmentId?: string;
 
   @ApiPropertyOptional({ example: 'FULL_TIME' })

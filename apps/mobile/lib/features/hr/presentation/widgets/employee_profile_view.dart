@@ -73,7 +73,7 @@ class EmployeeProfileRecord {
       lastName: emp.lastName,
       fullName: emp.fullName,
       workEmail: emp.email,
-      dateOfBirth: emp.joiningDate.toIso8601String().split('T').first,
+      dateOfBirth: emp.dateOfBirth != null ? emp.dateOfBirth!.toIso8601String().split('T').first : '',
       gender: '',
       maritalStatus: '',
       nationality: 'Indian',
@@ -322,7 +322,7 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
     );
   }
   final _workEmailController = TextEditingController();
-  final _dobController = TextEditingController(text: '2026-10-05');
+  final _dobController = TextEditingController();
   final _emergencyContactController = TextEditingController();
   final _personalEmailController = TextEditingController();
   final _phoneController = TextEditingController();
@@ -745,7 +745,7 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
       _lastNameController.clear();
       _fullNameController.clear();
       _workEmailController.clear();
-      _dobController.text = '2026-10-05';
+      _dobController.clear();
       _emergencyContactController.clear();
       _personalEmailController.clear();
       _phoneController.clear();
@@ -875,6 +875,7 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
         'email': workEmail,
         'phone': phone.isNotEmpty ? phone : '+91 98200 00000',
         'designation': designation.isNotEmpty ? designation : 'Staff Member',
+        'dateOfBirth': _dobController.text.trim().isNotEmpty ? _dobController.text.trim() : null,
         'departmentId': (_selectedDepartmentId != null && _selectedDepartmentId!.trim().isNotEmpty) ? _selectedDepartmentId!.trim() : null,
         'status': isNew ? 'PENDING_APPROVAL' : (existingStatus.isNotEmpty ? existingStatus : 'ACTIVE'),
         'bloodGroup': _selectedBloodGroup.isNotEmpty ? _selectedBloodGroup : null,
@@ -1148,11 +1149,18 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
   }
 
   Future<void> _pickDate() async {
+    DateTime initial = DateTime(1998, 5, 15);
+    if (_dobController.text.trim().isNotEmpty) {
+      final parsed = DateTime.tryParse(_dobController.text.trim());
+      if (parsed != null && parsed.isBefore(DateTime.now())) {
+        initial = parsed;
+      }
+    }
     final picked = await showDatePicker(
       context: context,
-      initialDate: DateTime(2026, 10, 5),
-      firstDate: DateTime(1950),
-      lastDate: DateTime(2035),
+      initialDate: initial,
+      firstDate: DateTime(1940),
+      lastDate: DateTime.now(),
       builder: (context, child) {
         return Theme(
           data: ThemeData.dark().copyWith(
@@ -2695,7 +2703,7 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
                             ),
                           ),
                         )),
-                        DataCell(Text(r.dateOfBirth, style: const TextStyle(color: Color(0xFFC0C0C0), fontSize: 12))),
+                        DataCell(Text(r.dateOfBirth.isNotEmpty ? r.dateOfBirth : '-', style: const TextStyle(color: Color(0xFFC0C0C0), fontSize: 12))),
                       ],
                     );
                   }).toList(),

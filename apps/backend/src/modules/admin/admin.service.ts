@@ -1102,6 +1102,7 @@ export class AdminService {
       username?: string;
       password?: string;
       roleId?: string;
+      dateOfBirth?: string;
       assignedModules?: string[] | string;
     },
     adminUser?: any,
@@ -1174,6 +1175,9 @@ export class AdminService {
       if (dto.departmentId !== undefined) updateEmployeeData.departmentId = dto.departmentId || null;
       if (dto.designation !== undefined) updateEmployeeData.designation = dto.designation.trim();
       if (dto.status) updateEmployeeData.status = dto.status;
+      if (dto.dateOfBirth !== undefined) {
+        updateEmployeeData.dateOfBirth = dto.dateOfBirth && !isNaN(new Date(dto.dateOfBirth).getTime()) ? new Date(dto.dateOfBirth) : null;
+      }
       if (modulesJson !== undefined) updateEmployeeData.assignedModules = modulesJson;
 
       employee = await this.prisma.employee.update({

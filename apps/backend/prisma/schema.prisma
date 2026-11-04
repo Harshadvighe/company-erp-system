@@ -1997,6 +1997,7 @@ model Employee {
   contractorAgency    String?  // e.g. "Apex Industrial Solutions" (for contract labor)
   ppeKitIssued        Boolean  @default(true)
   lastSafetyTraining  DateTime?
+  dateOfBirth         DateTime?
   joiningDate         DateTime @default(now())
   status              String   @default("ACTIVE") // ACTIVE, ON_LEAVE, PROBATION, RESIGNED
   salaryCtc           Float    @default(0)

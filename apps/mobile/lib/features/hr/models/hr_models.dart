@@ -34,6 +34,7 @@ class Employee {
   final bool hasBiometric;
   final String? username;
   final List<String> assignedModules;
+  final DateTime? dateOfBirth;
   final DateTime joiningDate;
 
   String get fullName => [firstName, if (middleName != null && middleName!.isNotEmpty) middleName, lastName].join(' ').trim();
@@ -71,6 +72,7 @@ class Employee {
     this.hasBiometric = false,
     this.username,
     this.assignedModules = const [],
+    this.dateOfBirth,
     required this.joiningDate,
   });
 
@@ -120,6 +122,7 @@ class Employee {
         }
         return <String>[];
       }(),
+      dateOfBirth: json['dateOfBirth'] != null ? DateTime.tryParse(json['dateOfBirth'].toString()) : null,
       joiningDate: json['joiningDate'] != null
           ? DateTime.tryParse(json['joiningDate']) ?? DateTime.now()
           : DateTime.now(),

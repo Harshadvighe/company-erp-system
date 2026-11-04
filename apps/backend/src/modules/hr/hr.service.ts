@@ -533,6 +533,10 @@ export class HrService {
       );
     }
 
+    const parsedDob = dto.dateOfBirth && !isNaN(new Date(dto.dateOfBirth).getTime())
+      ? new Date(dto.dateOfBirth)
+      : null;
+
     const serializedModules = dto.assignedModules
       ? (typeof dto.assignedModules === 'string' ? dto.assignedModules : JSON.stringify(dto.assignedModules))
       : null;
@@ -626,7 +630,7 @@ export class HrService {
           fullName: [dto.firstName.trim(), dto.middleName?.trim(), dto.lastName.trim()].filter(Boolean).join(' '),
           phone: dto.phone,
           designation: dto.designation,
-          departmentId: validDepartmentId,
+                departmentId: validDepartmentId,
           passwordHash,
           status: 'ACTIVE',
           faceVerificationEnabled: hasBiometric ? (dto.enableFaceAuth ?? true) : false,
@@ -670,6 +674,7 @@ export class HrService {
         email: normalizedEmail,
         phone: dto.phone,
         designation: dto.designation,
+        dateOfBirth: parsedDob,
         departmentId: validDepartmentId,
         status: dto.status || 'PENDING_APPROVAL',
         employmentType: dto.employmentType || 'FULL_TIME',
@@ -998,6 +1003,10 @@ export class HrService {
     }
 
     // ─── SYNC USER ACCOUNT CREDENTIALS (USERNAME / PASSWORD / ROLE) ─────────────
+    const parsedUpdateDob = dto.dateOfBirth !== undefined
+      ? (dto.dateOfBirth && !isNaN(new Date(dto.dateOfBirth).getTime()) ? new Date(dto.dateOfBirth) : null)
+      : undefined;
+
     let serializedModules = dto.assignedModules !== undefined
       ? (dto.assignedModules ? (typeof dto.assignedModules === 'string' ? dto.assignedModules : JSON.stringify(dto.assignedModules)) : null)
       : undefined;
@@ -1185,6 +1194,7 @@ export class HrService {
         ...(dto.bloodGroup !== undefined && { bloodGroup: dto.bloodGroup }),
         ...(dto.emergencyPhone !== undefined && { emergencyPhone: dto.emergencyPhone }),
         ...(dto.address !== undefined && { address: dto.address }),
+        ...(parsedUpdateDob !== undefined && { dateOfBirth: parsedUpdateDob }),
         ...(serializedModules !== undefined && { assignedModules: serializedModules }),
       },
       include: {
