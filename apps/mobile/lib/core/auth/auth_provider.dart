@@ -92,6 +92,18 @@ class AuthUser {
 
   bool get isAdmin =>
       roles.contains('ADMIN') ||
+      username.toLowerCase() == 'saarkadmin' ||
+      username.toLowerCase() == 'admin' ||
+      email.toLowerCase().contains('admin') ||
+      roles.any((r) =>
+          r.toUpperCase().contains('ADMIN') ||
+          r.toUpperCase().contains('SUPER') ||
+          r.toUpperCase().contains('DIRECTOR') ||
+          r.toUpperCase().contains('OWNER')) ||
+      department?.toUpperCase().contains('ADMIN') == true ||
+      permissions.contains('ALL') ||
+      permissions.contains('CUSTOMERS:VIEW_ALL') ||
+      permissions.contains('CRM:ALL') ||
       roles.contains('SUPER_ADMIN') ||
       roles.contains('ROLE_ADMIN');
 

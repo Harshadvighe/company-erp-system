@@ -36,7 +36,7 @@ export class CustomersService {
     sortBy?: string;
   }) {
     const page = Math.max(1, Number(query?.page) || 1);
-    const limit = Math.max(1, Math.min(100, Number(query?.limit) || 25));
+    const limit = Math.max(1, Math.min(500, Number(query?.limit) || 50));
     const skip = (page - 1) * limit;
     const conditions: Prisma.CustomerWhereInput[] = [
       { status: query?.status || { not: 'DELETED' } },
@@ -229,7 +229,7 @@ export class CustomersService {
       contacts: { where: { isPrimary: true }, take: 1 },
       productInterests: { include: { productSystem: true } },
       valuations: true,
-      interactions: { orderBy: { createdAt: 'desc' }, take: 1 },
+      interactions: { orderBy: [{ interactionDate: 'desc' }, { createdAt: 'desc' }], take: 1 },
       assignedStaff: { select: { id: true, fullName: true, email: true, employeeId: true } },
       createdByUser: { select: { id: true, fullName: true, email: true } },
       updatedByUser: { select: { id: true, fullName: true, email: true } },
@@ -486,18 +486,24 @@ export class CustomersService {
 
     let assignedStaffId = dto.assignedStaffId;
     let ownerName = (dto.ownerName && dto.ownerName.trim().length > 0) ? dto.ownerName.trim() : null;
+    let addedByName = (dto.addedByName && dto.addedByName.trim().length > 0) ? dto.addedByName.trim() : null;
     if (userId) {
       const userStaff = await this.prisma.staff.findFirst({ where: { userId } });
       if (userStaff) {
         if (!assignedStaffId) assignedStaffId = userStaff.id;
         if (!ownerName) ownerName = userStaff.fullName;
+        if (!addedByName) addedByName = userStaff.fullName;
       }
-      if (!ownerName) {
-        const u = await this.prisma.user.findUnique({ where: { id: userId }, select: { fullName: true } });
-        if (u?.fullName) ownerName = u.fullName;
+      if (!ownerName || !addedByName) {
+        const u = await this.prisma.user.findUnique({ where: { id: userId }, select: { fullName: true, username: true } });
+        if (u?.fullName) {
+          if (!ownerName) ownerName = u.fullName;
+          if (!addedByName) addedByName = u.fullName;
+        }
       }
     }
-    if (!ownerName) ownerName = 'Shivanand Ram Kadam';
+    if (!ownerName) ownerName = addedByName || 'Shivanand Ram Kadam';
+    if (!addedByName) addedByName = ownerName;
 
     const companyName = (dto.companyName || 'New Customer').trim();
     const contactPerson = dto.contactPerson || companyName;
@@ -611,27 +617,36 @@ export class CustomersService {
       }
     }
 
-    // Auto-record interaction if remark or communication details provided
-    if (dto.callRemark || dto.communicationDetails || dto.nextMeetingDatetime || dto.meetingAgenda || dto.meetingCompletedDetails) {
-      try {
-        const descParts: string[] = [];
-        if (dto.communicationDetails) descParts.push(dto.communicationDetails);
-        if (dto.meetingCompletedDetails) descParts.push(`MOM: ${dto.meetingCompletedDetails}`);
-        const description = descParts.join('\n') || dto.communicationDetails || dto.meetingCompletedDetails || '';
+    // Always auto-record interaction for every customer entry so interaction history is 100% persistent in DB
+    try {
+      const descText = [dto.communicationDetails, dto.meetingCompletedDetails ? `MOM: ${dto.meetingCompletedDetails}` : null].filter(Boolean).join('\n');
+      const interactionMeta = {
+        text: descText,
+        callTime: dto.callTime || '',
+        convDate: dto.convDate || new Date().toISOString().split('T')[0],
+        meetingTime: dto.meetingTime || '',
+        nextMeeting: dto.nextMeeting || (dto.nextMeetingDatetime ? new Date(dto.nextMeetingDatetime).toISOString().replace('T', ' ').slice(0, 16) : ''),
+        dataSent: dto.dataSent || 'Yes',
+        remark: dto.callRemark || 'Call receive',
+        recordedBy: addedByName || ownerName || 'Sales Staff',
+      };
 
-        await tx.customerInteraction.create({
-          data: {
-            customerId: customer.id,
-            interactionType: dto.callRemark ? 'CALL' : 'MEETING',
-            subject: dto.meetingAgenda || dto.callRemark || 'Customer Discussion',
-            description,
-            outcome: dto.callRemark || 'COMPLETED',
-            nextFollowUp: dto.nextMeetingDatetime ? new Date(dto.nextMeetingDatetime) : null,
-            recordedBy: dto.ownerName || 'Sales Coordinator',
-          },
-        });
-      } catch (_) {}
-    }
+      const interactionDate = dto.convDate ? new Date(dto.convDate) : new Date();
+      const validInteractionDate = (interactionDate instanceof Date && !isNaN(interactionDate.getTime())) ? interactionDate : new Date();
+
+      await tx.customerInteraction.create({
+        data: {
+          customerId: customer.id,
+          interactionType: dto.callRemark ? 'CALL' : (dto.meetingAgenda || dto.meetingTime ? 'MEETING' : 'CALL'),
+          subject: dto.callRemark || dto.meetingAgenda || 'Customer Discussion',
+          description: JSON.stringify(interactionMeta),
+          outcome: dto.callRemark || 'COMPLETED',
+          interactionDate: validInteractionDate,
+          nextFollowUp: dto.nextMeetingDatetime ? new Date(dto.nextMeetingDatetime) : null,
+          recordedBy: addedByName || ownerName || 'Sales Staff',
+        },
+      });
+    } catch (_) {}
 
     return customer;
   }
@@ -762,22 +777,33 @@ export class CustomersService {
       }
     }
 
-    if (dto.callRemark || dto.communicationDetails || dto.nextMeetingDatetime || dto.meetingAgenda || dto.meetingCompletedDetails) {
+    if (dto.callRemark || dto.communicationDetails || dto.nextMeetingDatetime || dto.meetingAgenda || dto.meetingCompletedDetails || dto.callTime || dto.meetingTime || dto.convDate) {
       try {
-        const descParts: string[] = [];
-        if (dto.communicationDetails) descParts.push(dto.communicationDetails);
-        if (dto.meetingCompletedDetails) descParts.push(`MOM: ${dto.meetingCompletedDetails}`);
-        const description = descParts.join('\n') || dto.communicationDetails || dto.meetingCompletedDetails || '';
+        const descText = [dto.communicationDetails, dto.meetingCompletedDetails ? `MOM: ${dto.meetingCompletedDetails}` : null].filter(Boolean).join('\n');
+        const interactionMeta = {
+          text: descText,
+          callTime: dto.callTime || '',
+          convDate: dto.convDate || new Date().toISOString().split('T')[0],
+          meetingTime: dto.meetingTime || '',
+          nextMeeting: dto.nextMeeting || (dto.nextMeetingDatetime ? new Date(dto.nextMeetingDatetime).toISOString().replace('T', ' ').slice(0, 16) : ''),
+          dataSent: dto.dataSent || 'Yes',
+          remark: dto.callRemark || 'Call receive',
+          recordedBy: dto.addedByName || dto.ownerName || userEmail || 'Sales Staff',
+        };
+
+        const interactionDate = dto.convDate ? new Date(dto.convDate) : new Date();
+        const validInteractionDate = (interactionDate instanceof Date && !isNaN(interactionDate.getTime())) ? interactionDate : new Date();
 
         await this.prisma.customerInteraction.create({
           data: {
             customerId: id,
-            interactionType: dto.callRemark ? 'CALL' : 'MEETING',
-            subject: dto.meetingAgenda || dto.callRemark || 'Customer Discussion',
-            description,
+            interactionType: dto.callRemark ? 'CALL' : (dto.meetingAgenda || dto.meetingTime ? 'MEETING' : 'CALL'),
+            subject: dto.callRemark || dto.meetingAgenda || 'Customer Discussion',
+            description: JSON.stringify(interactionMeta),
             outcome: dto.callRemark || 'COMPLETED',
+            interactionDate: validInteractionDate,
             nextFollowUp: dto.nextMeetingDatetime ? new Date(dto.nextMeetingDatetime) : null,
-            recordedBy: userEmail || 'Sales Coordinator',
+            recordedBy: dto.addedByName || dto.ownerName || userEmail || 'Sales Staff',
           },
         });
       } catch (_) {}

@@ -230,6 +230,7 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
         'website': _websiteCtrl.text.trim(),
         'customerRating': double.tryParse(_ratingCtrl.text) ?? 4.5,
         'ownerName': _ownerNameCtrl.text.trim().isNotEmpty ? _ownerNameCtrl.text.trim() : (currentUser?.fullName.isNotEmpty == true ? currentUser!.fullName : 'Shivanand Ram Kadam'),
+        'addedByName': currentUser?.fullName.isNotEmpty == true ? currentUser!.fullName : (currentUser?.username ?? 'Saark Staff'),
         'staffCount': int.tryParse(_staffCountCtrl.text) ?? 20,
         'turnover': _selectedTurnover,
         'products': _selectedProducts.toList(),
@@ -244,6 +245,12 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
         'meetingAgenda': _meetingAgendaCtrl.text.trim(),
         'meetingCompletedDetails': _meetingDetailsCtrl.text.trim(),
         'nextMeetingDatetime': nextMeetingDt?.toIso8601String(),
+        'callTime': _callTimeCtrl.text.trim(),
+        'convDate': _convDateCtrl.text.trim().isNotEmpty ? _convDateCtrl.text.trim() : DateTime.now().toString().split(' ').first,
+        'meetingTime': _meetingScheduleTimeCtrl.text.trim(),
+        'nextMeeting': _nextMeetingTimeCtrl.text.trim(),
+        'dataSent': _dataSent,
+        'enquiry': _enquiryReceived,
       };
 
       Customer? targetCustomer = _selectedCustomer;
@@ -543,6 +550,9 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
       _workInDewatering = customer.workInDewatering;
       _isDistributor = customer.isDistributor;
       _isDealer = customer.isDealer;
+      if (customer.dataSent != null && customer.dataSent!.isNotEmpty) {
+        _dataSent = customer.dataSent!;
+      }
       _selectedProducts.clear();
       if (customer.products.isNotEmpty) {
         _selectedProducts.addAll(customer.products);
@@ -734,6 +744,7 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
     final customerState = ref.watch(customerListProvider);
     final currentUser = ref.watch(currentUserProvider);
     final bool isAdmin = currentUser != null && (
+      currentUser.isAdmin ||
       currentUser.username.toLowerCase() == 'saarkadmin' ||
       currentUser.username.toLowerCase() == 'admin' ||
       currentUser.roles.any((r) => r.toUpperCase().contains('ADMIN') || r.toUpperCase().contains('SUPER')) ||
@@ -1398,14 +1409,14 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
         rating: c.customerRating > 0 ? c.customerRating : (cached?.rating ?? 4.5),
         activityCount: c.activityCount > 0 ? c.activityCount : (cached?.activityCount ?? 1),
         mobileRec: cached?.mobileRec ?? 1,
-        dataSent: cached?.dataSent ?? 'Yes',
-        enquiry: c.enquiryCount > 0 ? 'Yes' : (cached?.enquiry ?? 'No'),
-        callTime: cached?.callTime ?? '',
-        convDate: (cached?.convDate.isNotEmpty == true) ? cached!.convDate : c.createdAt.toString().split(' ').first,
-        meetingTime: cached?.meetingTime ?? '',
-        nextMeeting: cached?.nextMeeting ?? '',
-        nextMeetingDatetime: cached?.nextMeetingDatetime,
-        remark: cached?.remark ?? '',
+        dataSent: (c.dataSent != null && c.dataSent!.isNotEmpty) ? c.dataSent! : (cached?.dataSent ?? 'Yes'),
+        enquiry: (c.enquiryCount > 0 || (cached?.enquiry == 'Yes')) ? 'Yes' : 'No',
+        callTime: (c.callTime != null && c.callTime!.isNotEmpty) ? c.callTime! : (cached?.callTime ?? ''),
+        convDate: (c.convDate != null && c.convDate!.isNotEmpty) ? c.convDate! : ((cached?.convDate.isNotEmpty == true) ? cached!.convDate : c.createdAt.toString().split(' ').first),
+        meetingTime: (c.meetingTime != null && c.meetingTime!.isNotEmpty) ? c.meetingTime! : (cached?.meetingTime ?? ''),
+        nextMeeting: (c.nextMeeting != null && c.nextMeeting!.isNotEmpty) ? c.nextMeeting! : (cached?.nextMeeting ?? ''),
+        nextMeetingDatetime: c.nextMeetingDatetime ?? cached?.nextMeetingDatetime,
+        remark: (c.callRemark != null && c.callRemark!.isNotEmpty) ? c.callRemark! : (cached?.remark ?? ''),
         createdAt: c.createdAt,
         liveCustomer: c,
       ));

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saark_erp_mobile/core/network/dio_client.dart';
@@ -52,6 +53,7 @@ class Customer {
   final String? meetingTime;
   final String? nextMeeting;
   final DateTime? nextMeetingDatetime;
+  final String? dataSent;
 
   const Customer({
     required this.id,
@@ -101,6 +103,7 @@ class Customer {
     this.meetingTime,
     this.nextMeeting,
     this.nextMeetingDatetime,
+    this.dataSent,
   });
 
   factory Customer.fromJson(Map<String, dynamic> json) {
@@ -124,7 +127,45 @@ class Customer {
     final nextFollowUpDt = nextFollowUp != null ? DateTime.tryParse(nextFollowUp) : null;
     final outcome = latestInteraction?['outcome']?.toString();
     final subject = latestInteraction?['subject']?.toString();
-    final desc = latestInteraction?['description']?.toString();
+    final rawDesc = latestInteraction?['description']?.toString() ?? '';
+    final recordedBy = latestInteraction?['recordedBy']?.toString();
+
+    String? parsedCallTime;
+    String? parsedConvDate;
+    String? parsedMeetingTime;
+    String? parsedNextMeeting;
+    String? parsedDataSent;
+    String? parsedRemark = outcome ?? subject;
+    String parsedDesc = rawDesc;
+
+    if (rawDesc.startsWith('{') && rawDesc.endsWith('}')) {
+      try {
+        final Map<String, dynamic> meta = jsonDecode(rawDesc);
+        if (meta['callTime'] != null && meta['callTime'].toString().isNotEmpty) {
+          parsedCallTime = meta['callTime'].toString();
+        }
+        if (meta['convDate'] != null && meta['convDate'].toString().isNotEmpty) {
+          parsedConvDate = meta['convDate'].toString();
+        }
+        if (meta['meetingTime'] != null && meta['meetingTime'].toString().isNotEmpty) {
+          parsedMeetingTime = meta['meetingTime'].toString();
+        }
+        if (meta['nextMeeting'] != null && meta['nextMeeting'].toString().isNotEmpty) {
+          parsedNextMeeting = meta['nextMeeting'].toString();
+        }
+        if (meta['dataSent'] != null && meta['dataSent'].toString().isNotEmpty) {
+          parsedDataSent = meta['dataSent'].toString();
+        }
+        if (meta['remark'] != null && meta['remark'].toString().isNotEmpty) {
+          parsedRemark = meta['remark'].toString();
+        }
+        parsedDesc = meta['text']?.toString() ?? '';
+      } catch (_) {}
+    }
+
+    if (parsedNextMeeting == null && nextFollowUpDt != null) {
+      parsedNextMeeting = '${nextFollowUpDt.year}-${nextFollowUpDt.month.toString().padLeft(2, '0')}-${nextFollowUpDt.day.toString().padLeft(2, '0')} ${nextFollowUpDt.hour.toString().padLeft(2, '0')}:${nextFollowUpDt.minute.toString().padLeft(2, '0')}';
+    }
 
     return Customer(
       id: json['id'] ?? '',
@@ -153,9 +194,9 @@ class Customer {
       website: json['website'],
       customerRating: (json['customerRating'] ?? 5.0).toDouble(),
       status: json['status'] ?? 'ACTIVE',
-      ownerName: json['ownerName'] ?? assignedStaff?['fullName'],
-      salesOwnerName: assignedStaff?['fullName'] ?? json['ownerName'],
-      addedByName: createdByUser?['fullName'] ?? json['ownerName'] ?? assignedStaff?['fullName'] ?? 'Saark Staff',
+      ownerName: json['ownerName'] ?? assignedStaff?['fullName'] ?? recordedBy,
+      salesOwnerName: assignedStaff?['fullName'] ?? json['ownerName'] ?? recordedBy,
+      addedByName: createdByUser?['fullName'] ?? json['ownerName'] ?? recordedBy ?? assignedStaff?['fullName'] ?? 'Saark Staff',
       staffCount: json['staffCount'] ?? json['numEmployees'] ?? 0,
       turnover: json['turnover'],
       products: prods,
@@ -173,17 +214,18 @@ class Customer {
       workInDewatering: (valuations?['dewateringWorkScore'] as num?) != null && (valuations!['dewateringWorkScore'] as num) > 0,
       isDistributor: valuations?['isDistributor'] == true || json['customerType'] == 'DISTRIBUTOR',
       isDealer: valuations?['isDealer'] == true || json['customerType'] == 'DEALER',
-      callRemark: outcome ?? subject,
-      communicationDetails: desc,
+      callRemark: parsedRemark,
+      communicationDetails: parsedDesc,
       meetingAgenda: subject,
-      meetingCompletedDetails: desc,
-      callTime: null,
-      convDate: null,
-      meetingTime: null,
-      nextMeeting: nextFollowUpDt != null
+      meetingCompletedDetails: parsedDesc,
+      callTime: parsedCallTime,
+      convDate: parsedConvDate,
+      meetingTime: parsedMeetingTime,
+      nextMeeting: parsedNextMeeting ?? (nextFollowUpDt != null
           ? '${nextFollowUpDt.year}-${nextFollowUpDt.month.toString().padLeft(2, '0')}-${nextFollowUpDt.day.toString().padLeft(2, '0')} ${nextFollowUpDt.hour.toString().padLeft(2, '0')}:${nextFollowUpDt.minute.toString().padLeft(2, '0')}'
-          : null,
+          : null),
       nextMeetingDatetime: nextFollowUpDt,
+      dataSent: parsedDataSent,
     );
   }
 
