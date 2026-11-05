@@ -28,6 +28,24 @@ class _LoginPageState extends ConsumerState<LoginPage>
   bool _isLoading = false;
   bool _obscurePassword = true;
   String? _errorMessage;
+  bool _bypassCamera = false;
+
+  bool get _isRahulYeole {
+    final t = _emailController.text.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '');
+    return t == 'saarkexploration30' ||
+        t == 'saarkexploration30@gmail.com' ||
+        t == 'rahulyeole' ||
+        t.contains('rahul');
+  }
+
+  bool get _isSaarkAdmin {
+    final t = _emailController.text.trim().toLowerCase();
+    return t == 'saarkadmin';
+  }
+
+  bool get _shouldBypassCamera {
+    return _bypassCamera || _isRahulYeole || _isSaarkAdmin;
+  }
 
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
@@ -37,6 +55,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
   @override
   void initState() {
     super.initState();
+    _emailController.addListener(_onEmailChanged);
     _fadeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 700),
@@ -51,8 +70,13 @@ class _LoginPageState extends ConsumerState<LoginPage>
     );
   }
 
+  void _onEmailChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    _emailController.removeListener(_onEmailChanged);
     _emailController.dispose();
     _passwordController.dispose();
     _fadeController.dispose();
@@ -77,21 +101,26 @@ class _LoginPageState extends ConsumerState<LoginPage>
     try {
       final authService = ref.read(authServiceProvider);
 
-      // Emergency bypass — skip face capture for admin default credentials
-      final isEmergencyAdmin =
-          _emailController.text.trim().toLowerCase() == 'saarkadmin' &&
-          _passwordController.text == '12345678';
+      // Automatic camera bypass for Rahul Yeole, Saarkadmin, or user toggle (laptops with no camera)
+      final isBypass = _shouldBypassCamera;
 
-      // Capture live face frame only if not emergency bypass
-      final liveFaceData = isEmergencyAdmin
-          ? null
-          : await _cameraKey.currentState?.snapCurrentFrame();
+      // Capture live face frame only if not in bypass mode
+      String? liveFaceData;
+      if (!isBypass) {
+        try {
+          liveFaceData = await _cameraKey.currentState?.snapCurrentFrame();
+        } catch (_) {
+          liveFaceData = null;
+        }
+      }
 
-      if (!isEmergencyAdmin && (liveFaceData == null || liveFaceData.isEmpty)) {
+      // Hard-block only for non-bypass users when live face cannot be captured
+      if (!isBypass && (liveFaceData == null || liveFaceData.isEmpty)) {
         if (mounted) {
           setState(() {
             _isLoading = false;
-            _errorMessage = 'Camera access is required for 2FA biometric verification. Please click "Allow & Retry" or "Upload Photo" below.';
+            _errorMessage =
+                'Camera access is required for 2FA biometric verification. If your laptop has no camera, tap "Bypass Camera" below.';
           });
         }
         return;
@@ -103,12 +132,13 @@ class _LoginPageState extends ConsumerState<LoginPage>
         faceData: liveFaceData,
       );
 
-      final inputLower = _emailController.text.trim().toLowerCase();
-      final isBypassUser = inputLower == 'saarkadmin' ||
+      final inputLower = _emailController.text.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '');
+      final isBypassUser = isBypass ||
+          inputLower == 'saarkadmin' ||
           inputLower == 'saarkexploration30' ||
           inputLower == 'saarkexploration30@gmail.com' ||
-          inputLower == 'rahul yeole' ||
           inputLower == 'rahulyeole' ||
+          inputLower.contains('rahul') ||
           (loginResult.userMap?['username']?.toString().toLowerCase() == 'saarkexploration30') ||
           (loginResult.userMap?['fullName']?.toString().toLowerCase().contains('rahul') == true &&
               loginResult.userMap?['fullName']?.toString().toLowerCase().contains('yeole') == true);
@@ -590,21 +620,127 @@ class _LoginPageState extends ConsumerState<LoginPage>
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: LiveCameraStreamViewport(
-                            key: _cameraKey,
-                            height: 200,
-                          ),
+                          child: _shouldBypassCamera
+                              ? Container(
+                                  height: 200,
+                                  width: double.infinity,
+                                  color: const Color(0xFF131518),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: const Color(0xFF10B981).withValues(alpha: 0.4),
+                                          ),
+                                        ),
+                                        child: const Icon(
+                                          Icons.no_photography_rounded,
+                                          color: Color(0xFF10B981),
+                                          size: 34,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      Text(
+                                        _isRahulYeole
+                                            ? 'Rahul Yeole (Camera Bypassed)'
+                                            : 'Laptop Camera Bypassed',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      const Text(
+                                        'No camera required for this device.\nSign in directly with your password.',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: Colors.white54,
+                                          fontSize: 10.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : LiveCameraStreamViewport(
+                                  key: _cameraKey,
+                                  height: 200,
+                                ),
                         ),
                       ),
                     ),
                     AppSpacing.gapH6,
-                    const Center(
-                      child: Text(
-                        'Your face will be captured automatically when you sign in',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          color: AppTypography.darkTextMuted,
+                    if (_shouldBypassCamera)
+                      Container(
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.check_circle_outline_rounded, color: Color(0xFF10B981), size: 14),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                _isRahulYeole
+                                    ? 'Camera Bypass Active: Rahul Yeole'
+                                    : 'Camera Bypass Active: Ready to Sign In',
+                                style: const TextStyle(
+                                  color: Color(0xFF10B981),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      const Center(
+                        child: Text(
+                          'Your face will be captured automatically when you sign in',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            color: AppTypography.darkTextMuted,
+                          ),
+                        ),
+                      ),
+                    // Manual bypass toggle for any laptop with no camera or camera issue
+                    Center(
+                      child: TextButton.icon(
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _bypassCamera = !_bypassCamera;
+                            _errorMessage = null;
+                          });
+                        },
+                        icon: Icon(
+                          _bypassCamera ? Icons.camera_alt_rounded : Icons.no_photography_outlined,
+                          size: 13,
+                          color: const Color(0xFF38BDF8),
+                        ),
+                        label: Text(
+                          _bypassCamera
+                              ? 'Switch Back to Live Camera'
+                              : 'No camera on laptop? Click to Bypass Camera',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF38BDF8),
+                            decoration: TextDecoration.underline,
+                          ),
                         ),
                       ),
                     ),
