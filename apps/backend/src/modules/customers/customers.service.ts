@@ -229,6 +229,7 @@ export class CustomersService {
       contacts: { where: { isPrimary: true }, take: 1 },
       productInterests: { include: { productSystem: true } },
       valuations: true,
+      interactions: { orderBy: { createdAt: 'desc' }, take: 1 },
       assignedStaff: { select: { id: true, fullName: true, email: true, employeeId: true } },
       createdByUser: { select: { id: true, fullName: true, email: true } },
       updatedByUser: { select: { id: true, fullName: true, email: true } },
@@ -571,8 +572,10 @@ export class CustomersService {
     await tx.customerValuation.create({
       data: {
         customerId: customer.id,
-        isDealer: dto.customerType === 'DEALER',
-        isDistributor: dto.customerType === 'DISTRIBUTOR',
+        isDealer: dto.isDealer === true || dto.customerType === 'DEALER',
+        isDistributor: dto.isDistributor === true || dto.customerType === 'DISTRIBUTOR',
+        vfdWorkScore: dto.workInVfdPanel === true ? 1 : 0,
+        dewateringWorkScore: dto.workInDewatering === true ? 1 : 0,
         ratingScore,
         valuablePercentage: valuablePct,
         activityCount: 0,
@@ -609,14 +612,19 @@ export class CustomersService {
     }
 
     // Auto-record interaction if remark or communication details provided
-    if (dto.callRemark || dto.communicationDetails || dto.nextMeetingDatetime) {
+    if (dto.callRemark || dto.communicationDetails || dto.nextMeetingDatetime || dto.meetingAgenda || dto.meetingCompletedDetails) {
       try {
+        const descParts: string[] = [];
+        if (dto.communicationDetails) descParts.push(dto.communicationDetails);
+        if (dto.meetingCompletedDetails) descParts.push(`MOM: ${dto.meetingCompletedDetails}`);
+        const description = descParts.join('\n') || dto.communicationDetails || dto.meetingCompletedDetails || '';
+
         await tx.customerInteraction.create({
           data: {
             customerId: customer.id,
             interactionType: dto.callRemark ? 'CALL' : 'MEETING',
             subject: dto.meetingAgenda || dto.callRemark || 'Customer Discussion',
-            description: dto.communicationDetails || dto.meetingCompletedDetails || '',
+            description,
             outcome: dto.callRemark || 'COMPLETED',
             nextFollowUp: dto.nextMeetingDatetime ? new Date(dto.nextMeetingDatetime) : null,
             recordedBy: dto.ownerName || 'Sales Coordinator',
@@ -665,7 +673,15 @@ export class CustomersService {
       },
     });
 
-    if (dto.valuablePercentage !== undefined || dto.valuationPercentage !== undefined || dto.customerRating !== undefined) {
+    if (
+      dto.valuablePercentage !== undefined ||
+      dto.valuationPercentage !== undefined ||
+      dto.customerRating !== undefined ||
+      dto.isDealer !== undefined ||
+      dto.isDistributor !== undefined ||
+      dto.workInVfdPanel !== undefined ||
+      dto.workInDewatering !== undefined
+    ) {
       const valPct = Number(dto.valuablePercentage ?? dto.valuationPercentage ?? 50.0);
       const ratingScore = Number(dto.customerRating ?? 5.0);
       await this.prisma.customerValuation.upsert({
@@ -674,12 +690,39 @@ export class CustomersService {
           customerId: id,
           valuablePercentage: valPct,
           ratingScore,
+          isDealer: dto.isDealer === true || dto.customerType === 'DEALER',
+          isDistributor: dto.isDistributor === true || dto.customerType === 'DISTRIBUTOR',
+          vfdWorkScore: dto.workInVfdPanel === true ? 1 : 0,
+          dewateringWorkScore: dto.workInDewatering === true ? 1 : 0,
         },
         update: {
           valuablePercentage: valPct,
           ratingScore,
+          ...(dto.isDealer !== undefined ? { isDealer: dto.isDealer === true } : {}),
+          ...(dto.isDistributor !== undefined ? { isDistributor: dto.isDistributor === true } : {}),
+          ...(dto.workInVfdPanel !== undefined ? { vfdWorkScore: dto.workInVfdPanel === true ? 1 : 0 } : {}),
+          ...(dto.workInDewatering !== undefined ? { dewateringWorkScore: dto.workInDewatering === true ? 1 : 0 } : {}),
         },
       });
+    }
+
+    if (dto.contactPerson || dto.phone || dto.email || dto.designation) {
+      try {
+        const primaryContact = await this.prisma.customerContact.findFirst({
+          where: { customerId: id, isPrimary: true },
+        });
+        if (primaryContact) {
+          await this.prisma.customerContact.update({
+            where: { id: primaryContact.id },
+            data: {
+              ...(dto.contactPerson ? { name: dto.contactPerson } : {}),
+              ...(dto.designation !== undefined ? { designation: dto.designation } : {}),
+              ...(dto.phone ? { mobile: dto.phone } : {}),
+              ...(dto.email ? { email: dto.email } : {}),
+            },
+          });
+        }
+      } catch (_) {}
     }
 
     if (dto.productSystemIds && Array.isArray(dto.productSystemIds)) {
@@ -719,14 +762,19 @@ export class CustomersService {
       }
     }
 
-    if (dto.callRemark || dto.communicationDetails || dto.nextMeetingDatetime) {
+    if (dto.callRemark || dto.communicationDetails || dto.nextMeetingDatetime || dto.meetingAgenda || dto.meetingCompletedDetails) {
       try {
+        const descParts: string[] = [];
+        if (dto.communicationDetails) descParts.push(dto.communicationDetails);
+        if (dto.meetingCompletedDetails) descParts.push(`MOM: ${dto.meetingCompletedDetails}`);
+        const description = descParts.join('\n') || dto.communicationDetails || dto.meetingCompletedDetails || '';
+
         await this.prisma.customerInteraction.create({
           data: {
             customerId: id,
             interactionType: dto.callRemark ? 'CALL' : 'MEETING',
             subject: dto.meetingAgenda || dto.callRemark || 'Customer Discussion',
-            description: dto.communicationDetails || dto.meetingCompletedDetails || '',
+            description,
             outcome: dto.callRemark || 'COMPLETED',
             nextFollowUp: dto.nextMeetingDatetime ? new Date(dto.nextMeetingDatetime) : null,
             recordedBy: userEmail || 'Sales Coordinator',

@@ -39,6 +39,19 @@ class Customer {
   final int enquiryCount;
   final int opportunityCount;
   final DateTime createdAt;
+  final bool workInVfdPanel;
+  final bool workInDewatering;
+  final bool isDistributor;
+  final bool isDealer;
+  final String? callRemark;
+  final String? communicationDetails;
+  final String? meetingAgenda;
+  final String? meetingCompletedDetails;
+  final String? callTime;
+  final String? convDate;
+  final String? meetingTime;
+  final String? nextMeeting;
+  final DateTime? nextMeetingDatetime;
 
   const Customer({
     required this.id,
@@ -75,6 +88,19 @@ class Customer {
     this.enquiryCount = 0,
     this.opportunityCount = 0,
     required this.createdAt,
+    this.workInVfdPanel = false,
+    this.workInDewatering = false,
+    this.isDistributor = false,
+    this.isDealer = false,
+    this.callRemark,
+    this.communicationDetails,
+    this.meetingAgenda,
+    this.meetingCompletedDetails,
+    this.callTime,
+    this.convDate,
+    this.meetingTime,
+    this.nextMeeting,
+    this.nextMeetingDatetime,
   });
 
   factory Customer.fromJson(Map<String, dynamic> json) {
@@ -89,6 +115,16 @@ class Customer {
             : null)
         .whereType<String>()
         .toList();
+
+    final rawInteractions = json['interactions'] as List? ?? [];
+    final latestInteraction = rawInteractions.isNotEmpty && rawInteractions.first is Map
+        ? rawInteractions.first as Map<String, dynamic>
+        : null;
+    final nextFollowUp = latestInteraction?['nextFollowUp']?.toString();
+    final nextFollowUpDt = nextFollowUp != null ? DateTime.tryParse(nextFollowUp) : null;
+    final outcome = latestInteraction?['outcome']?.toString();
+    final subject = latestInteraction?['subject']?.toString();
+    final desc = latestInteraction?['description']?.toString();
 
     return Customer(
       id: json['id'] ?? '',
@@ -133,6 +169,21 @@ class Customer {
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'])
           : DateTime.now(),
+      workInVfdPanel: (valuations?['vfdWorkScore'] as num?) != null && (valuations!['vfdWorkScore'] as num) > 0,
+      workInDewatering: (valuations?['dewateringWorkScore'] as num?) != null && (valuations!['dewateringWorkScore'] as num) > 0,
+      isDistributor: valuations?['isDistributor'] == true || json['customerType'] == 'DISTRIBUTOR',
+      isDealer: valuations?['isDealer'] == true || json['customerType'] == 'DEALER',
+      callRemark: outcome ?? subject,
+      communicationDetails: desc,
+      meetingAgenda: subject,
+      meetingCompletedDetails: desc,
+      callTime: null,
+      convDate: null,
+      meetingTime: null,
+      nextMeeting: nextFollowUpDt != null
+          ? '${nextFollowUpDt.year}-${nextFollowUpDt.month.toString().padLeft(2, '0')}-${nextFollowUpDt.day.toString().padLeft(2, '0')} ${nextFollowUpDt.hour.toString().padLeft(2, '0')}:${nextFollowUpDt.minute.toString().padLeft(2, '0')}'
+          : null,
+      nextMeetingDatetime: nextFollowUpDt,
     );
   }
 

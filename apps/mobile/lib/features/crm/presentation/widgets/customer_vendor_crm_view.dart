@@ -234,6 +234,11 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
         'turnover': _selectedTurnover,
         'products': _selectedProducts.toList(),
         'valuablePercentage': double.tryParse(_valuablePercentCtrl.text) ?? 50.0,
+        'workInVfdPanel': _workInVfdPanel,
+        'workInDewatering': _workInDewatering,
+        'isDistributor': _isDistributor,
+        'isDealer': _isDealer,
+        'seriousBase': _seriousBase,
         'callRemark': _callRemark,
         'communicationDetails': _commDetailsCtrl.text.trim(),
         'meetingAgenda': _meetingAgendaCtrl.text.trim(),
@@ -241,11 +246,22 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
         'nextMeetingDatetime': nextMeetingDt?.toIso8601String(),
       };
 
-      final isUpdatingExisting = _selectedCustomer != null &&
-          _selectedCustomer!.companyName.trim().toLowerCase() == companyName.toLowerCase();
+      Customer? targetCustomer = _selectedCustomer;
+      if (targetCustomer == null && _selectedCustomerIndex != null && _selectedCustomerIndex! < _displayedCustomerRows.length) {
+        targetCustomer = _displayedCustomerRows[_selectedCustomerIndex!].liveCustomer;
+      }
+      if (targetCustomer == null) {
+        final liveState = ref.read(customerListProvider);
+        targetCustomer = liveState.customers.cast<Customer?>().firstWhere(
+          (c) => c != null && c.companyName.trim().toLowerCase() == companyName.toLowerCase(),
+          orElse: () => null,
+        );
+      }
+
+      final isUpdatingExisting = targetCustomer != null;
 
       if (isUpdatingExisting) {
-        await repo.updateCustomer(_selectedCustomer!.id, payload);
+        await repo.updateCustomer(targetCustomer.id, payload);
       } else {
         await repo.createCustomer(payload);
       }
@@ -515,17 +531,68 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
       _contactNumberCtrl.text = customer.phone;
       _addressCtrl.text = customer.address;
       _locationCtrl.text = customer.city;
-      _ownerNameCtrl.text = customer.ownerName ?? '';
+      _ownerNameCtrl.text = customer.ownerName ?? customer.addedByName ?? '';
       _staffCountCtrl.text = customer.staffCount.toString();
       _selectedCountry = customer.country.isNotEmpty ? customer.country : 'India';
       _selectedState = customer.state.isNotEmpty ? customer.state : 'Maharashtra';
       _selectedDistrict = customer.district.isNotEmpty ? customer.district : 'Pune';
+      _selectedTurnover = customer.turnover?.isNotEmpty == true ? customer.turnover! : '1-5 Cr';
       _valuablePercentCtrl.text = customer.valuationPercentage.toStringAsFixed(1);
       _ratingCtrl.text = customer.customerRating.toStringAsFixed(1);
+      _workInVfdPanel = customer.workInVfdPanel;
+      _workInDewatering = customer.workInDewatering;
+      _isDistributor = customer.isDistributor;
+      _isDealer = customer.isDealer;
+      _selectedProducts.clear();
       if (customer.products.isNotEmpty) {
-        _selectedProducts.clear();
         _selectedProducts.addAll(customer.products);
       }
+      if (customer.callRemark?.isNotEmpty == true) {
+        _callRemark = customer.callRemark!;
+      }
+      if (customer.communicationDetails?.isNotEmpty == true) {
+        _commDetailsCtrl.text = customer.communicationDetails!;
+      }
+      if (customer.meetingAgenda?.isNotEmpty == true) {
+        _meetingAgendaCtrl.text = customer.meetingAgenda!;
+      }
+      if (customer.meetingCompletedDetails?.isNotEmpty == true) {
+        _meetingDetailsCtrl.text = customer.meetingCompletedDetails!;
+      }
+      if (customer.callTime?.isNotEmpty == true) {
+        _callTimeCtrl.text = customer.callTime!;
+      }
+      if (customer.convDate?.isNotEmpty == true) {
+        _convDateCtrl.text = customer.convDate!;
+      } else {
+        _convDateCtrl.text = customer.createdAt.toString().split(' ').first;
+      }
+      if (customer.meetingTime?.isNotEmpty == true) {
+        _meetingScheduleTimeCtrl.text = customer.meetingTime!;
+      }
+      if (customer.nextMeeting?.isNotEmpty == true) {
+        _nextMeetingTimeCtrl.text = customer.nextMeeting!;
+      }
+
+      // Backfill missing fields from cached sample row if available
+      try {
+        final cached = _sampleRows.firstWhere(
+          (s) => s.companyName.toLowerCase() == customer.companyName.toLowerCase() ||
+                 (customer.gstin != null && customer.gstin!.isNotEmpty && s.gstNumber.toLowerCase() == customer.gstin!.toLowerCase()),
+        );
+        if (_commDetailsCtrl.text.isEmpty && cached.remark.isNotEmpty) {
+          _commDetailsCtrl.text = cached.remark;
+        }
+        if (_callTimeCtrl.text.isEmpty && cached.callTime.isNotEmpty) {
+          _callTimeCtrl.text = cached.callTime;
+        }
+        if (_meetingScheduleTimeCtrl.text.isEmpty && cached.meetingTime.isNotEmpty) {
+          _meetingScheduleTimeCtrl.text = cached.meetingTime;
+        }
+        if (_nextMeetingTimeCtrl.text.isEmpty && cached.nextMeeting.isNotEmpty) {
+          _nextMeetingTimeCtrl.text = cached.nextMeeting;
+        }
+      } catch (_) {}
     });
   }
 
@@ -1530,6 +1597,7 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
                       border: TableBorder.all(color: const Color(0xFF282B33), width: 0.8),
                       columns: [
                         const DataColumn(label: Text('#', style: _headerStyle)),
+                        const DataColumn(label: Text('Action', style: _headerStyle)),
                         const DataColumn(label: Text('Company Name', style: _headerStyle)),
                         const DataColumn(label: Text('GST Number', style: _headerStyle)),
                         const DataColumn(label: Text('Contact Person', style: _headerStyle)),
@@ -1563,16 +1631,65 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
                             if (isSelected) return const Color(0xFFF15A24).withOpacity(0.25);
                             return idx.isEven ? const Color(0xFF14161A) : const Color(0xFF181B20);
                           }),
-                          onSelectChanged: (_) {
-                            setState(() => _selectedCustomerIndex = idx);
-                            if (row.liveCustomer != null) {
-                              _populateFromLiveCustomer(row.liveCustomer!);
+                          onSelectChanged: (selected) {
+                            if (selected == false) {
+                              setState(() {
+                                _selectedCustomerIndex = null;
+                                _selectedCustomer = null;
+                              });
                             } else {
-                              _populateFromSampleRow(row);
+                              setState(() => _selectedCustomerIndex = idx);
+                              if (row.liveCustomer != null) {
+                                _populateFromLiveCustomer(row.liveCustomer!);
+                              } else {
+                                _populateFromSampleRow(row);
+                              }
                             }
                           },
                           cells: [
                             DataCell(Text('${row.index}', style: _cellStyleBold)),
+                            DataCell(
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  InkWell(
+                                    onTap: () {
+                                      setState(() => _selectedCustomerIndex = idx);
+                                      if (row.liveCustomer != null) {
+                                        _populateFromLiveCustomer(row.liveCustomer!);
+                                      } else {
+                                        _populateFromSampleRow(row);
+                                      }
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Loaded "${row.companyName}" into form.'),
+                                          backgroundColor: const Color(0xFFF15A24),
+                                          duration: const Duration(seconds: 2),
+                                        ),
+                                      );
+                                    },
+                                    child: const Tooltip(
+                                      message: 'Load / Edit Details',
+                                      child: Padding(
+                                        padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                        child: Icon(Icons.edit_note, color: Color(0xFF38BDF8), size: 19),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  InkWell(
+                                    onTap: () => _deleteCustomerRecord(row),
+                                    child: const Tooltip(
+                                      message: 'Delete Customer Record',
+                                      child: Padding(
+                                        padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                        child: Icon(Icons.delete_outline, color: Colors.redAccent, size: 18),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                             DataCell(Text(row.companyName, style: _cellStyleBold)),
                             DataCell(Text(row.gstNumber, style: _cellStyle)),
                             DataCell(Text(row.contactPerson, style: _cellStyle)),
@@ -1609,6 +1726,138 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
     );
   }
 
+  Future<void> _deleteCustomerRecord(_CustomerRowData? targetRow) async {
+    Customer? targetCustomer = targetRow?.liveCustomer;
+    String? companyName = targetRow?.companyName;
+
+    if (targetCustomer == null && targetRow == null) {
+      if (_selectedCustomer != null) {
+        targetCustomer = _selectedCustomer;
+        companyName = _selectedCustomer!.companyName;
+      } else if (_selectedCustomerIndex != null && _selectedCustomerIndex! < _displayedCustomerRows.length) {
+        final row = _displayedCustomerRows[_selectedCustomerIndex!];
+        targetCustomer = row.liveCustomer;
+        companyName = row.companyName;
+      }
+    }
+
+    if (companyName == null || companyName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a customer record from the table first to delete.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    final String validName = companyName;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E2127),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 24),
+            SizedBox(width: 10),
+            Text('Confirm Deletion', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to delete customer "$validName"?\n\nThis will remove the record completely from Customer Interaction History and database.',
+          style: const TextStyle(color: Color(0xFFD1D5DB), fontSize: 13, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete Record', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final repo = ref.read(customersRepositoryProvider);
+      String? customerId = targetCustomer?.id;
+
+      if (customerId == null || customerId.isEmpty) {
+        final liveState = ref.read(customerListProvider);
+        final liveMatch = liveState.customers.firstWhere(
+          (c) => c.companyName.trim().toLowerCase() == validName.trim().toLowerCase(),
+          orElse: () => Customer(
+            id: '',
+            customerCode: '',
+            companyName: '',
+            customerType: '',
+            contactPerson: '',
+            email: '',
+            phone: '',
+            address: '',
+            city: '',
+            state: '',
+            district: '',
+            pincode: '',
+            country: '',
+            customerRating: 0,
+            status: '',
+            staffCount: 0,
+            createdAt: DateTime.now(),
+          ),
+        );
+        if (liveMatch.id.isNotEmpty) {
+          customerId = liveMatch.id;
+        }
+      }
+
+      if (customerId != null && customerId.isNotEmpty) {
+        await repo.deleteCustomer(customerId);
+      }
+
+      setState(() {
+        _sampleRows.removeWhere(
+          (s) => s.companyName.trim().toLowerCase() == validName.trim().toLowerCase() ||
+                 (customerId != null && customerId.isNotEmpty && s.liveCustomer?.id == customerId),
+        );
+        _selectedCustomer = null;
+        _selectedCustomerIndex = null;
+      });
+
+      await _savePersistedCustomRows();
+      _clearForm();
+
+      await ref.read(customerListProvider.notifier).loadCustomers(limit: 100, silent: false);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Customer "' + validName + '" deleted successfully.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting customer "' + validName + '": $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+
   // ─── Table Control Action Buttons (with Excel Import & Export) ──────────────
   Widget _buildTableControlButtons(bool isAdmin) {
     return Wrap(
@@ -1638,6 +1887,13 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
                   backgroundColor: const Color(0xFFF15A24),
                 ),
               );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Please select a customer row from the table first.'),
+                  backgroundColor: Colors.orange,
+                ),
+              );
             }
           },
         ),
@@ -1650,43 +1906,7 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
           ),
           icon: const Icon(Icons.delete_outline, size: 15),
           label: const Text('Delete Selected Record', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-          onPressed: () async {
-            if (_selectedCustomer != null) {
-              final name = _selectedCustomer!.companyName;
-              try {
-                await ref.read(customersRepositoryProvider).deleteCustomer(_selectedCustomer!.id);
-                await ref.read(customerListProvider.notifier).loadCustomers();
-              } catch (_) {}
-              setState(() {
-                _selectedCustomer = null;
-                _selectedCustomerIndex = null;
-              });
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Customer "$name" deleted successfully.'), backgroundColor: Colors.redAccent),
-                );
-              }
-            } else if (_selectedCustomerIndex != null && _selectedCustomerIndex! < _displayedCustomerRows.length) {
-              final row = _displayedCustomerRows[_selectedCustomerIndex!];
-              final name = row.companyName;
-              if (row.liveCustomer != null) {
-                try {
-                  await ref.read(customersRepositoryProvider).deleteCustomer(row.liveCustomer!.id);
-                  await ref.read(customerListProvider.notifier).loadCustomers();
-                } catch (_) {}
-              } else {
-                setState(() {
-                  _sampleRows.removeWhere((s) => s.companyName == name);
-                });
-              }
-              _clearForm();
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Customer "$name" deleted.'), backgroundColor: Colors.redAccent),
-                );
-              }
-            }
-          },
+          onPressed: () => _deleteCustomerRecord(null),
         ),
         // Export to Excel Button
         ElevatedButton.icon(
