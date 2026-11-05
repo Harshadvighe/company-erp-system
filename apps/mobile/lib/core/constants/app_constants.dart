@@ -38,8 +38,8 @@ class AppConstants {
   static const int defaultPageSize = 25;
 
   // Timeouts
-  static const int connectionTimeout = 30000;
-  static const int receiveTimeout = 30000;
+  static const int connectionTimeout = 60000;
+  static const int receiveTimeout = 60000;
 
   // Customer Types
   static const List<String> customerTypes = [

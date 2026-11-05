@@ -172,9 +172,10 @@ class _LoginPageState extends ConsumerState<LoginPage>
           'Authentication failed. Please check your credentials.';
       if (e is DioException) {
         if (e.type == DioExceptionType.connectionError ||
-            e.type == DioExceptionType.connectionTimeout) {
+            e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout) {
           message =
-              'Unable to connect to server. Please ensure the server is running.';
+              'Server is waking up or connecting. Please wait 10-15 seconds and tap Sign In again.';
         } else if (e.response?.data is Map &&
             (e.response!.data as Map).containsKey('message')) {
           message = (e.response!.data as Map)['message'].toString();
