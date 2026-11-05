@@ -10,6 +10,7 @@ import 'package:saark_erp_mobile/features/customers/data/customers_repository.da
 import 'package:saark_erp_mobile/features/crm/data/crm_repository.dart';
 import 'company_sorting_workspace_view.dart';
 import 'company_graph_workspace_view.dart';
+import 'package:saark_erp_mobile/core/constants/india_states_and_districts.dart';
 
 /// Complete Customer & Vendor CRM Management UI
 /// Faithfully reproduces the Saark Company Management Software architecture
@@ -67,6 +68,22 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
   String _selectedState = 'Maharashtra';
   String _selectedDistrict = 'Pune';
   String _selectedTurnover = '1-5 Cr';
+
+  List<String> get _currentDistrictList {
+    return IndiaStatesAndDistricts.getDistrictsForState(
+      _selectedState,
+      customDistrict: _selectedDistrict,
+    );
+  }
+
+  void _onStateChanged(String? newState) {
+    if (newState == null || newState == _selectedState) return;
+    setState(() {
+      _selectedState = newState;
+      final dists = IndiaStatesAndDistricts.getDistrictsForState(newState);
+      _selectedDistrict = dists.isNotEmpty ? dists.first : 'Pune';
+    });
+  }
 
   // ─── Right Column Form Controllers ─────────────────────────────────────────
   // Valuation
@@ -704,6 +721,9 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
       _meetingAgendaCtrl.clear();
       _meetingDetailsCtrl.clear();
       _selectedProducts.clear();
+      _selectedCountry = 'India';
+      _selectedState = 'Maharashtra';
+      _selectedDistrict = 'Pune';
     });
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -742,7 +762,12 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
             _companyNameCtrl.text = tradeName.toString();
           }
           if (state != null && state.toString().isNotEmpty) {
-            _selectedState = state.toString();
+            final normState = IndiaStatesAndDistricts.normalizeState(state.toString());
+            _selectedState = normState;
+            final dists = IndiaStatesAndDistricts.getDistrictsForState(normState);
+            if (!dists.contains(_selectedDistrict)) {
+              _selectedDistrict = dists.isNotEmpty ? dists.first : 'Pune';
+            }
           }
           if (address != null && address.toString().isNotEmpty) {
             _addressCtrl.text = address.toString();
@@ -2370,15 +2395,15 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
           _buildDropdownRow(
             'State:',
             _selectedState,
-            ['Maharashtra', 'Gujarat', 'Karnataka', 'Telangana', 'Tamil Nadu', 'Delhi', 'Haryana'],
-            (v) => setState(() => _selectedState = v!),
+            IndiaStatesAndDistricts.allStates,
+            (v) => _onStateChanged(v),
           ),
 
           // District
           _buildDropdownRow(
             'District:',
             _selectedDistrict,
-            ['Pune', 'Mumbai', 'Thane', 'Nagpur', 'Hyderabad', 'Bangalore', 'Ahmedabad'],
+            _currentDistrictList,
             (v) => setState(() => _selectedDistrict = v!),
           ),
 
@@ -3120,6 +3145,13 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
   }
 
   Widget _buildDropdownRow(String label, String value, List<String> options, ValueChanged<String?> onChanged) {
+    final effectiveOptions = options.contains(value)
+        ? options
+        : (value.isNotEmpty ? [value, ...options] : (options.isNotEmpty ? options : ['']));
+    final selectedVal = effectiveOptions.contains(value)
+        ? value
+        : (effectiveOptions.isNotEmpty ? effectiveOptions.first : null);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -3140,13 +3172,14 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
-                  value: options.contains(value) ? value : options.first,
+                  value: selectedVal,
                   isDense: true,
                   isExpanded: true,
                   dropdownColor: const Color(0xFF22262E),
+                  menuMaxHeight: 350,
                   style: const TextStyle(color: Colors.white, fontSize: 11.5),
                   icon: const Icon(Icons.arrow_drop_down, color: Colors.white54, size: 16),
-                  items: options.map((opt) {
+                  items: effectiveOptions.map((opt) {
                     return DropdownMenuItem(value: opt, child: Text(opt));
                   }).toList(),
                   onChanged: onChanged,
