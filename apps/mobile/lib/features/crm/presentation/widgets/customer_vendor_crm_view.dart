@@ -123,9 +123,10 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
     _initEnquiryList();
     _sampleRows = [];
     _loadPersistedCustomRows();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       _fetchEnquiries();
-      ref.read(customerListProvider.notifier).loadCustomers();
+      await ref.read(customerListProvider.notifier).loadCustomers(limit: 500);
+      _syncLocalRowsToBackendDatabase();
     });
     _startMeetingAlertTimer();
     _startLiveSyncTimer();
@@ -155,13 +156,54 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
     } catch (_) {}
   }
 
+  Future<void> _syncLocalRowsToBackendDatabase() async {
+    if (_sampleRows.isEmpty) return;
+    try {
+      final repo = ref.read(customersRepositoryProvider);
+      final liveState = ref.read(customerListProvider);
+      final existingNames = liveState.customers.map((c) => c.companyName.trim().toLowerCase()).toSet();
+
+      for (final row in _sampleRows) {
+        if (!existingNames.contains(row.companyName.trim().toLowerCase())) {
+          try {
+            await repo.createCustomer({
+              'companyName': row.companyName,
+              'gstin': row.gstNumber != 'UNREGISTERED' ? row.gstNumber : null,
+              'contactPerson': row.contactPerson,
+              'designation': row.designation,
+              'phone': row.contactNumber,
+              'city': row.location.isNotEmpty ? row.location : row.district,
+              'state': row.state,
+              'district': row.district,
+              'country': row.country,
+              'address': (row.address != null && row.address!.isNotEmpty) ? row.address! : '${row.location} Industrial Area',
+              'customerRating': row.rating,
+              'valuablePercentage': row.valuablePct,
+              'ownerName': row.ownerName,
+              'addedByName': row.addedByName ?? row.ownerName,
+              'dataSent': row.dataSent,
+              'callRemark': row.remark,
+              'callTime': row.callTime,
+              'convDate': row.convDate,
+              'meetingTime': row.meetingTime,
+              'nextMeeting': row.nextMeeting,
+              'products': row.products.split(',').map((p) => p.trim()).where((p) => p.isNotEmpty).toList(),
+            });
+            existingNames.add(row.companyName.trim().toLowerCase());
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
+  }
+
   bool get _isCurrentUserAdmin {
     final u = ref.read(currentUserProvider);
     if (u == null) return false;
     return u.isAdmin ||
         u.username.toLowerCase() == 'saarkadmin' ||
         u.username.toLowerCase() == 'admin' ||
-        u.roles.any((r) => r.toUpperCase().contains('ADMIN') || r.toUpperCase().contains('SUPER')) ||
+        u.username.toLowerCase() == 'salessaark9' ||
+        u.roles.any((r) => r.toUpperCase().contains('ADMIN') || r.toUpperCase().contains('SUPER') || r.toUpperCase().contains('SALES_MGR')) ||
         u.permissions.contains('ALL') ||
         u.permissions.contains('CUSTOMERS:VIEW_ALL');
   }
@@ -769,7 +811,8 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
       currentUser.isAdmin ||
       currentUser.username.toLowerCase() == 'saarkadmin' ||
       currentUser.username.toLowerCase() == 'admin' ||
-      currentUser.roles.any((r) => r.toUpperCase().contains('ADMIN') || r.toUpperCase().contains('SUPER')) ||
+      currentUser.username.toLowerCase() == 'salessaark9' ||
+      currentUser.roles.any((r) => r.toUpperCase().contains('ADMIN') || r.toUpperCase().contains('SUPER') || r.toUpperCase().contains('SALES_MGR')) ||
       currentUser.permissions.contains('ALL') ||
       currentUser.permissions.contains('CUSTOMERS:VIEW_ALL')
     );

@@ -94,12 +94,15 @@ class AuthUser {
       roles.contains('ADMIN') ||
       username.toLowerCase() == 'saarkadmin' ||
       username.toLowerCase() == 'admin' ||
+      username.toLowerCase() == 'salessaark9' ||
+      email.toLowerCase().contains('salessaark9') ||
       email.toLowerCase().contains('admin') ||
       roles.any((r) =>
           r.toUpperCase().contains('ADMIN') ||
           r.toUpperCase().contains('SUPER') ||
           r.toUpperCase().contains('DIRECTOR') ||
-          r.toUpperCase().contains('OWNER')) ||
+          r.toUpperCase().contains('OWNER') ||
+          r.toUpperCase().contains('SALES_MGR')) ||
       department?.toUpperCase().contains('ADMIN') == true ||
       permissions.contains('ALL') ||
       permissions.contains('CUSTOMERS:VIEW_ALL') ||

@@ -22,12 +22,15 @@ export class CrmService {
       user.isAdmin === true ||
       user.username?.toLowerCase() === 'saarkadmin' ||
       user.username?.toLowerCase() === 'admin' ||
+      user.username?.toLowerCase() === 'salessaark9' ||
       user.email?.toLowerCase().includes('admin') ||
+      user.email?.toLowerCase().includes('salessaark9') ||
       roles.some((r) =>
         r.toUpperCase().includes('ADMIN') ||
         r.toUpperCase().includes('SUPER') ||
         r.toUpperCase().includes('DIRECTOR') ||
-        r.toUpperCase().includes('OWNER'),
+        r.toUpperCase().includes('OWNER') ||
+        r.toUpperCase().includes('SALES_MGR'),
       );
 
     if (isUserAdmin || roles.includes('ROLE_ADMIN') || roles.includes('ADMIN')) {
