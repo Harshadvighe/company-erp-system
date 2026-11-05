@@ -28,7 +28,6 @@ class _LoginPageState extends ConsumerState<LoginPage>
   bool _isLoading = false;
   bool _obscurePassword = true;
   String? _errorMessage;
-  bool _bypassCamera = false;
 
   bool get _isRahulYeole {
     final t = _emailController.text.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '');
@@ -44,7 +43,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
   }
 
   bool get _shouldBypassCamera {
-    return _bypassCamera || _isRahulYeole || _isSaarkAdmin;
+    return _isRahulYeole || _isSaarkAdmin;
   }
 
   late AnimationController _fadeController;
@@ -120,7 +119,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
           setState(() {
             _isLoading = false;
             _errorMessage =
-                'Camera access is required for 2FA biometric verification. If your laptop has no camera, tap "Bypass Camera" below.';
+                'Camera access is required for 2FA biometric verification. Please ensure webcam permissions are enabled.';
           });
         }
         return;
@@ -714,36 +713,6 @@ class _LoginPageState extends ConsumerState<LoginPage>
                           ),
                         ),
                       ),
-                    // Manual bypass toggle for any laptop with no camera or camera issue
-                    Center(
-                      child: TextButton.icon(
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _bypassCamera = !_bypassCamera;
-                            _errorMessage = null;
-                          });
-                        },
-                        icon: Icon(
-                          _bypassCamera ? Icons.camera_alt_rounded : Icons.no_photography_outlined,
-                          size: 13,
-                          color: const Color(0xFF38BDF8),
-                        ),
-                        label: Text(
-                          _bypassCamera
-                              ? 'Switch Back to Live Camera'
-                              : 'No camera on laptop? Click to Bypass Camera',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF38BDF8),
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
-                      ),
-                    ),
                   ],
                 ),
                 AppSpacing.gapH20,
