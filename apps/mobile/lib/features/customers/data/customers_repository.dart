@@ -259,6 +259,7 @@ class CustomersRepository {
     String? search,
     String? type,
     String? status,
+    String? member,
     int page = 1,
     int limit = 25,
     String? sortBy,
@@ -268,6 +269,7 @@ class CustomersRepository {
       if (search != null && search.isNotEmpty) 'search': search,
       if (type != null) 'type': type,
       if (status != null) 'status': status,
+      if (member != null && member.isNotEmpty && member != 'ALL') 'member': member,
       if (sortBy != null) 'sortBy': sortBy,
       ...filters,
       'page': page,
@@ -504,6 +506,7 @@ class CustomerListNotifier extends StateNotifier<CustomerListState> {
   Future<void> loadCustomers({
     String? search,
     String? type,
+    String? member,
     int page = 1,
     int limit = 100,
     String? sortBy,
@@ -517,6 +520,7 @@ class CustomerListNotifier extends StateNotifier<CustomerListState> {
       final result = await _repo.getCustomers(
         search: search,
         type: type,
+        member: member,
         page: page,
         limit: limit,
         sortBy: sortBy,

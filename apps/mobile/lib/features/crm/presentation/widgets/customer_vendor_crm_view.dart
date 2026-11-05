@@ -155,6 +155,28 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
     } catch (_) {}
   }
 
+  bool get _isCurrentUserAdmin {
+    final u = ref.read(currentUserProvider);
+    if (u == null) return false;
+    return u.isAdmin ||
+        u.username.toLowerCase() == 'saarkadmin' ||
+        u.username.toLowerCase() == 'admin' ||
+        u.roles.any((r) => r.toUpperCase().contains('ADMIN') || r.toUpperCase().contains('SUPER')) ||
+        u.permissions.contains('ALL') ||
+        u.permissions.contains('CUSTOMERS:VIEW_ALL');
+  }
+
+  Future<void> _fetchCustomersFromDatabase({String? overrideQuery, String? overrideMember}) async {
+    final query = (overrideQuery ?? _searchCtrl.text).trim();
+    final member = overrideMember ?? _selectedMemberFilter;
+    final effectiveMember = (_isCurrentUserAdmin && member != 'ALL') ? member : null;
+    await ref.read(customerListProvider.notifier).loadCustomers(
+      search: query.isNotEmpty ? query : null,
+      member: effectiveMember,
+      limit: 500,
+    );
+  }
+
   Future<void> _saveCustomer() async {
     final companyName = _companyNameCtrl.text.trim();
     if (companyName.isEmpty) {
@@ -895,21 +917,29 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
 
   // ─── SECTION 1: Search & Filter Bar ────────────────────────────────────────
   Widget _buildSearchAndFilterSection(List<Customer> liveCustomers, bool isAdmin, AuthUser? user) {
-    // Collect unique team members for filtering
-    final Set<String> members = {'ALL'};
+    // Collect unique team members for admin filtering
+    final List<Map<String, String>> memberOptions = [
+      {'val': 'ALL', 'label': '👤 All Members'},
+      {'val': 'salessaark9', 'label': '👤 Shivanand Kadam (salessaark9)'},
+      {'val': 'pooja.saark', 'label': '👤 Pooja Sonawane (pooja.saark)'},
+      {'val': 'nikhilsaark', 'label': '👤 Nikhil Yadav (nikhilsaark)'},
+      {'val': 'athrav.saark', 'label': '👤 Atharav Darwatakar (athrav.saark)'},
+      {'val': 'saarkexploration30', 'label': '👤 Rahul Yeole (saarkexploration30)'},
+      {'val': 'Saarkadmin', 'label': '👤 Saark Admin (saarkadmin)'},
+    ];
     for (final c in liveCustomers) {
-      if (c.addedByName != null && c.addedByName!.trim().isNotEmpty) {
-        members.add(c.addedByName!.trim());
-      }
-      if (c.ownerName != null && c.ownerName!.trim().isNotEmpty) {
-        members.add(c.ownerName!.trim());
-      }
-      if (c.salesOwnerName != null && c.salesOwnerName!.trim().isNotEmpty) {
-        members.add(c.salesOwnerName!.trim());
+      for (final name in [c.addedByName, c.ownerName, c.salesOwnerName]) {
+        if (name != null && name.trim().isNotEmpty) {
+          final trimmed = name.trim();
+          final exists = memberOptions.any((m) =>
+            m['val']!.toLowerCase() == trimmed.toLowerCase() ||
+            m['label']!.toLowerCase().contains(trimmed.toLowerCase()));
+          if (!exists) {
+            memberOptions.add({'val': trimmed, 'label': '👤 $trimmed'});
+          }
+        }
       }
     }
-    // Standard system usernames
-    members.addAll(['Saarkadmin', 'pooja.saark', 'nikhilsaark', 'athrav.saark', 'salessaark9']);
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -1007,7 +1037,7 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
                           // Member filter dropdown for admin only
                           Container(
                             height: 32,
-                            width: 170,
+                            width: 220,
                             padding: const EdgeInsets.symmetric(horizontal: 8),
                             decoration: BoxDecoration(
                               color: const Color(0xFF131518),
@@ -1016,19 +1046,22 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
                             ),
                             child: DropdownButtonHideUnderline(
                               child: DropdownButton<String>(
-                                value: members.contains(_selectedMemberFilter) ? _selectedMemberFilter : 'ALL',
+                                value: memberOptions.any((m) => m['val'] == _selectedMemberFilter) ? _selectedMemberFilter : 'ALL',
                                 dropdownColor: const Color(0xFF1E2127),
                                 isExpanded: true,
                                 icon: const Icon(Icons.person_search_rounded, color: Color(0xFFF15A24), size: 16),
                                 style: const TextStyle(color: Colors.white, fontSize: 11.5),
-                                items: members.map((m) {
+                                items: memberOptions.map((m) {
                                   return DropdownMenuItem<String>(
-                                    value: m,
-                                    child: Text(m == 'ALL' ? '👤 All Members' : '👤 $m', overflow: TextOverflow.ellipsis),
+                                    value: m['val'],
+                                    child: Text(m['label']!, overflow: TextOverflow.ellipsis),
                                   );
                                 }).toList(),
                                 onChanged: (val) {
-                                  if (val != null) setState(() => _selectedMemberFilter = val);
+                                  if (val != null) {
+                                    setState(() => _selectedMemberFilter = val);
+                                    _fetchCustomersFromDatabase(overrideMember: val);
+                                  }
                                 },
                               ),
                             ),
@@ -1066,19 +1099,22 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
                               ),
                               child: DropdownButtonHideUnderline(
                                 child: DropdownButton<String>(
-                                  value: members.contains(_selectedMemberFilter) ? _selectedMemberFilter : 'ALL',
+                                  value: memberOptions.any((m) => m['val'] == _selectedMemberFilter) ? _selectedMemberFilter : 'ALL',
                                   dropdownColor: const Color(0xFF1E2127),
                                   isExpanded: true,
                                   icon: const Icon(Icons.person_search_rounded, color: Color(0xFFF15A24), size: 16),
                                   style: const TextStyle(color: Colors.white, fontSize: 11.5),
-                                  items: members.map((m) {
+                                  items: memberOptions.map((m) {
                                     return DropdownMenuItem<String>(
-                                      value: m,
-                                      child: Text(m == 'ALL' ? '👤 All Members' : '👤 $m', overflow: TextOverflow.ellipsis),
+                                      value: m['val'],
+                                      child: Text(m['label']!, overflow: TextOverflow.ellipsis),
                                     );
                                   }).toList(),
                                   onChanged: (val) {
-                                    if (val != null) setState(() => _selectedMemberFilter = val);
+                                    if (val != null) {
+                                      setState(() => _selectedMemberFilter = val);
+                                      _fetchCustomersFromDatabase(overrideMember: val);
+                                    }
                                   },
                                 ),
                               ),
@@ -1227,6 +1263,7 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
                   onPressed: () {
                     _searchCtrl.clear();
                     setState(() => _activeSearchQuery = '');
+                    _fetchCustomersFromDatabase(overrideQuery: '');
                   },
                 )
               : null,
@@ -1240,7 +1277,11 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
           ),
         ),
         onChanged: (val) => setState(() => _activeSearchQuery = val.trim()),
-        onSubmitted: (val) => setState(() => _activeSearchQuery = val.trim()),
+        onSubmitted: (val) {
+          final q = val.trim();
+          setState(() => _activeSearchQuery = q);
+          _fetchCustomersFromDatabase(overrideQuery: q);
+        },
       ),
     );
   }
@@ -1259,7 +1300,11 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
           ),
           icon: const Icon(Icons.search, size: 14),
           label: const Text('Search', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-          onPressed: () => setState(() => _activeSearchQuery = _searchCtrl.text.trim()),
+          onPressed: () {
+            final q = _searchCtrl.text.trim();
+            setState(() => _activeSearchQuery = q);
+            _fetchCustomersFromDatabase(overrideQuery: q);
+          },
         ),
         const SizedBox(width: 6),
         ElevatedButton.icon(
@@ -1278,7 +1323,7 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
               _activeSearchQuery = '';
               _selectedMemberFilter = 'ALL';
             });
-            ref.read(customerListProvider.notifier).loadCustomers();
+            _fetchCustomersFromDatabase(overrideQuery: '', overrideMember: 'ALL');
           },
         ),
       ],
@@ -1421,9 +1466,12 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
         liveCustomer: c,
       ));
     }
+    final bool isMemberFiltering = isAdmin && _selectedMemberFilter != 'ALL';
     for (final s in _sampleRows) {
       if (!combinedRows.any((r) => r.companyName.toLowerCase() == s.companyName.toLowerCase())) {
-        combinedRows.add(s);
+        if (!isMemberFiltering) {
+          combinedRows.add(s);
+        }
       }
     }
 
@@ -1457,15 +1505,23 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
         final owner = r.ownerName.toLowerCase();
         bool matches = addedBy.contains(m) || owner.contains(m);
         if (!matches) {
-          if (m == 'salessaark9' && (addedBy.contains('shivanand') || owner.contains('shivanand') || owner.contains('kadam'))) {
+          if ((m.contains('sales') || m.contains('shivanand') || m.contains('kadam')) &&
+              (addedBy.contains('shivanand') || owner.contains('shivanand') || owner.contains('kadam') || addedBy.contains('sales') || owner.contains('sales'))) {
             matches = true;
-          } else if (m == 'pooja.saark' && (addedBy.contains('pooja') || owner.contains('pooja') || owner.contains('sonawane'))) {
+          } else if ((m.contains('pooja') || m.contains('sonawane')) &&
+              (addedBy.contains('pooja') || owner.contains('pooja') || owner.contains('sonawane') || addedBy.contains('sonawane'))) {
             matches = true;
-          } else if (m == 'nikhilsaark' && (addedBy.contains('nikhil') || owner.contains('nikhil') || owner.contains('yadav'))) {
+          } else if ((m.contains('nikhil') || m.contains('yadav')) &&
+              (addedBy.contains('nikhil') || owner.contains('nikhil') || owner.contains('yadav') || addedBy.contains('yadav'))) {
             matches = true;
-          } else if (m == 'athrav.saark' && (addedBy.contains('atharav') || owner.contains('atharav') || owner.contains('darwatakar'))) {
+          } else if ((m.contains('athrav') || m.contains('atharav') || m.contains('darwatakar')) &&
+              (addedBy.contains('atharav') || owner.contains('atharav') || addedBy.contains('athrav') || owner.contains('athrav') || owner.contains('darwatakar'))) {
             matches = true;
-          } else if (m == 'saarkexploration30' && (addedBy.contains('rahul') || owner.contains('rahul') || owner.contains('yeole'))) {
+          } else if ((m.contains('saarkexploration') || m.contains('rahul') || m.contains('yeole')) &&
+              (addedBy.contains('rahul') || owner.contains('rahul') || owner.contains('yeole') || addedBy.contains('yeole') || owner.contains('exploration'))) {
+            matches = true;
+          } else if ((m.contains('saarkadmin') || m.contains('admin') || m.contains('vikram')) &&
+              (addedBy.contains('admin') || owner.contains('admin') || addedBy.contains('vikram') || owner.contains('vikram') || owner.contains('saarkadmin'))) {
             matches = true;
           }
         }
@@ -1478,16 +1534,36 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
       final qDigits = q.replaceAll(RegExp(r'\D'), '');
       final phoneDigits = r.contactNumber.replaceAll(RegExp(r'\D'), '');
 
-      return r.companyName.toLowerCase().contains(q) ||
+      bool isMatch = r.companyName.toLowerCase().contains(q) ||
           r.gstNumber.toLowerCase().contains(q) ||
           r.contactPerson.toLowerCase().contains(q) ||
           (qDigits.isNotEmpty && phoneDigits.contains(qDigits)) ||
           r.contactNumber.toLowerCase().contains(q) ||
-          (isAdmin && r.ownerName.toLowerCase().contains(q)) ||
-          (isAdmin && (r.addedByName ?? '').toLowerCase().contains(q)) ||
           r.location.toLowerCase().contains(q) ||
           r.district.toLowerCase().contains(q) ||
           r.state.toLowerCase().contains(q);
+
+      if (!isMatch && isAdmin) {
+        final addedBy = (r.addedByName ?? '').toLowerCase();
+        final owner = r.ownerName.toLowerCase();
+        if (owner.contains(q) || addedBy.contains(q)) {
+          isMatch = true;
+        } else if ((q.contains('atharav') || q.contains('athrav')) && (addedBy.contains('athrav') || addedBy.contains('atharav') || owner.contains('athrav') || owner.contains('atharav') || owner.contains('darwatakar'))) {
+          isMatch = true;
+        } else if ((q.contains('shivanand') || q.contains('kadam') || q.contains('sales')) && (addedBy.contains('shivanand') || owner.contains('shivanand') || owner.contains('kadam') || addedBy.contains('sales') || owner.contains('sales'))) {
+          isMatch = true;
+        } else if ((q.contains('pooja') || q.contains('sonawane')) && (addedBy.contains('pooja') || owner.contains('pooja') || owner.contains('sonawane') || addedBy.contains('sonawane'))) {
+          isMatch = true;
+        } else if ((q.contains('nikhil') || q.contains('yadav')) && (addedBy.contains('nikhil') || owner.contains('nikhil') || owner.contains('yadav') || addedBy.contains('yadav'))) {
+          isMatch = true;
+        } else if ((q.contains('rahul') || q.contains('yeole') || q.contains('exploration')) && (addedBy.contains('rahul') || owner.contains('rahul') || owner.contains('yeole') || addedBy.contains('yeole'))) {
+          isMatch = true;
+        } else if ((q.contains('admin') || q.contains('vikram')) && (addedBy.contains('admin') || owner.contains('admin') || addedBy.contains('vikram') || owner.contains('vikram'))) {
+          isMatch = true;
+        }
+      }
+
+      return isMatch;
     }).toList();
 
     _displayedCustomerRows = filteredSampleRows;

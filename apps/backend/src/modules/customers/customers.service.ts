@@ -34,6 +34,7 @@ export class CustomersService {
     distributor?: string;
     dealer?: string;
     sortBy?: string;
+    member?: string;
   }) {
     const page = Math.max(1, Number(query?.page) || 1);
     const limit = Math.max(1, Math.min(500, Number(query?.limit) || 50));
@@ -48,16 +49,62 @@ export class CustomersService {
       const search = query.search.trim();
       conditions.push({
         OR: [
-          { companyName: { contains: search } },
-          { customerCode: { contains: search } },
-          { gstin: { contains: search } },
-          { contactPerson: { contains: search } },
-          { email: { contains: search } },
+          { companyName: { contains: search, mode: 'insensitive' } },
+          { customerCode: { contains: search, mode: 'insensitive' } },
+          { gstin: { contains: search, mode: 'insensitive' } },
+          { contactPerson: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } },
           { phone: { contains: search } },
-          { city: { contains: search } },
-          { state: { contains: search } },
+          { city: { contains: search, mode: 'insensitive' } },
+          { state: { contains: search, mode: 'insensitive' } },
+          { ownerName: { contains: search, mode: 'insensitive' } },
+          { assignedStaff: { is: { fullName: { contains: search, mode: 'insensitive' } } } },
+          { assignedStaff: { is: { email: { contains: search, mode: 'insensitive' } } } },
+          { createdByUser: { is: { fullName: { contains: search, mode: 'insensitive' } } } },
+          { createdByUser: { is: { username: { contains: search, mode: 'insensitive' } } } },
+          { createdByUser: { is: { email: { contains: search, mode: 'insensitive' } } } },
+          { interactions: { some: { recordedBy: { contains: search, mode: 'insensitive' } } } },
+          { interactions: { some: { description: { contains: search, mode: 'insensitive' } } } },
         ],
       });
+    }
+
+    if (query?.member && query.member !== 'ALL' && query.member.trim() !== '') {
+      const rawMember = query.member.trim();
+      const tokens: string[] = [rawMember];
+      const lower = rawMember.toLowerCase();
+
+      if (lower.includes('pooja') || lower.includes('sonawane')) {
+        tokens.push('pooja.saark', 'pooja', 'sonawane');
+      } else if (lower.includes('nikhil') || lower.includes('yadav')) {
+        tokens.push('nikhilsaark', 'nikhil', 'yadav');
+      } else if (lower.includes('athrav') || lower.includes('atharav') || lower.includes('darwatakar')) {
+        tokens.push('athrav.saark', 'atharav', 'athrav', 'darwatakar');
+      } else if (lower.includes('salessaark') || lower.includes('shivanand') || lower.includes('kadam')) {
+        tokens.push('salessaark9', 'shivanand', 'kadam');
+      } else if (lower.includes('exploration') || lower.includes('rahul') || lower.includes('yeole')) {
+        tokens.push('saarkexploration30', 'rahul', 'yeole');
+      } else if (lower.includes('saarkadmin') || lower.includes('admin') || lower.includes('vikram')) {
+        tokens.push('saarkadmin', 'vikram', 'sharma', 'admin');
+      }
+
+      const uniqueTokens = Array.from(new Set(tokens.filter(Boolean)));
+      const memberOrConditions: Prisma.CustomerWhereInput[] = [];
+
+      for (const token of uniqueTokens) {
+        memberOrConditions.push(
+          { ownerName: { contains: token, mode: 'insensitive' } },
+          { assignedStaff: { is: { fullName: { contains: token, mode: 'insensitive' } } } },
+          { assignedStaff: { is: { email: { contains: token, mode: 'insensitive' } } } },
+          { createdByUser: { is: { fullName: { contains: token, mode: 'insensitive' } } } },
+          { createdByUser: { is: { username: { contains: token, mode: 'insensitive' } } } },
+          { createdByUser: { is: { email: { contains: token, mode: 'insensitive' } } } },
+          { interactions: { some: { recordedBy: { contains: token, mode: 'insensitive' } } } },
+          { interactions: { some: { description: { contains: token, mode: 'insensitive' } } } },
+        );
+      }
+
+      conditions.push({ OR: memberOrConditions });
     }
 
     const productSystemIds = query?.productSystemIds
@@ -231,7 +278,7 @@ export class CustomersService {
       valuations: true,
       interactions: { orderBy: [{ interactionDate: 'desc' }, { createdAt: 'desc' }], take: 1 },
       assignedStaff: { select: { id: true, fullName: true, email: true, employeeId: true } },
-      createdByUser: { select: { id: true, fullName: true, email: true } },
+      createdByUser: { select: { id: true, fullName: true, username: true, email: true } },
       updatedByUser: { select: { id: true, fullName: true, email: true } },
       _count: { select: { interactions: true, activities: true, enquiries: true, leads: true, panelSpecs: true, followUps: true } },
     };
@@ -412,7 +459,7 @@ export class CustomersService {
         interactions: { orderBy: { interactionDate: 'desc' }, take: 50 },
         valuations: true,
         assignedStaff: { select: { id: true, fullName: true, email: true, employeeId: true, mobile: true } },
-        createdByUser: { select: { id: true, fullName: true, email: true } },
+        createdByUser: { select: { id: true, fullName: true, username: true, email: true } },
         updatedByUser: { select: { id: true, fullName: true, email: true } },
         productInterests: { include: { productSystem: true } },
         leads: { orderBy: { createdAt: 'desc' } },
@@ -683,7 +730,7 @@ export class CustomersService {
       data: updatable,
       include: {
         assignedStaff: { select: { id: true, fullName: true, email: true } },
-        createdByUser: { select: { id: true, fullName: true, email: true } },
+        createdByUser: { select: { id: true, fullName: true, username: true, email: true } },
         updatedByUser: { select: { id: true, fullName: true, email: true } },
       },
     });
