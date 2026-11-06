@@ -7660,8 +7660,8 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
       body: SafeArea(
         child: Column(
           children: [
-            // Top Bar: [← Back to Dashboard]  [? Help]   Production Module
-            // Top Bar: Feather icon + Company Management Software — Logged in: a (Admin)  [← Back to Dashboard]  [? Help]   Production Module   [Close]
+            // Top Bar: [← Back to Option]  [? Help]   Production Module
+            // Top Bar: Feather icon + Company Management Software — Logged in: a (Admin)  [← Back to Option]  [? Help]   Production Module   [Close]
             Container(
               height: 48,
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -7682,8 +7682,18 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                   ],
                   _buildHeaderButton(
                     icon: Icons.arrow_back,
-                    label: isMobile ? 'Dashboard' : 'Back to Dashboard',
-                    onPressed: () => context.go('/dashboard'),
+                    label: 'Back to Option',
+                    onPressed: () {
+                      setState(() {
+                        _inNewProductionStartView = false;
+                        _inProductTestingView = false;
+                        _inProductionDetailsView = false;
+                        _inExistingDirectoryView = false;
+                        _inTestOkProductListView = false;
+                        _inDispatchLogView = false;
+                        _selectedDirectoryBatchId = null;
+                      });
+                    },
                   ),
                   const SizedBox(width: 8),
                   _buildHeaderButton(

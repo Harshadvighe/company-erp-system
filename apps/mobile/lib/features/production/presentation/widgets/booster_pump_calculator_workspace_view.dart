@@ -513,7 +513,7 @@ class _BoosterPumpCalculatorWorkspaceViewState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ─── 1. Sub-Header: Back to Dashboard Bar ──────────────────
+          // ─── 1. Sub-Header: Back to Option Bar ──────────────────
           _buildBackToDashboardBar(),
 
           // ─── 2. Tab Strip: "Material & Labor Calculator" ───────────
@@ -560,7 +560,7 @@ class _BoosterPumpCalculatorWorkspaceViewState
     );
   }
 
-  // ─── 1. Sub-Header Bar (← Back to Dashboard) ──────────────────────────────
+  // ─── 1. Sub-Header Bar (← Back to Option) ──────────────────────────────
   Widget _buildBackToDashboardBar() {
     return Container(
       height: 38,
@@ -584,7 +584,7 @@ class _BoosterPumpCalculatorWorkspaceViewState
                   Icon(Icons.arrow_back, color: Colors.white, size: 14),
                   SizedBox(width: 6),
                   Text(
-                    'Back to Dashboard',
+                    'Back to Option',
                     style: TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.bold),
                   ),
                 ],
