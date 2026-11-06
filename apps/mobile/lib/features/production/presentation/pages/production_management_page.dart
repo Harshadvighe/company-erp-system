@@ -1,3 +1,5 @@
+import 'package:saark_erp_mobile/core/auth/auth_provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -578,12 +580,12 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
             color: const Color(0xFF1A1D23),
             child: Row(
               children: const [
-                Expanded(flex: 2, child: Text('Category', style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold))),
-                Expanded(flex: 3, child: Text('Part Name', style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold))),
-                Expanded(flex: 2, child: Text('Package', style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold))),
-                Expanded(flex: 1, child: Text('Qty', textAlign: TextAlign.center, style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold))),
-                Expanded(flex: 2, child: Text('Rate', textAlign: TextAlign.right, style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold))),
-                Expanded(flex: 2, child: Text('Make', textAlign: TextAlign.right, style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold))),
+                Expanded(flex: 2, child: Text('Category', style: TextStyle(color: Colors.white54, fontSize: 13.0, fontWeight: FontWeight.bold))),
+                Expanded(flex: 3, child: Text('Part Name', style: TextStyle(color: Colors.white54, fontSize: 13.0, fontWeight: FontWeight.bold))),
+                Expanded(flex: 2, child: Text('Package', style: TextStyle(color: Colors.white54, fontSize: 13.0, fontWeight: FontWeight.bold))),
+                Expanded(flex: 1, child: Text('Qty', textAlign: TextAlign.center, style: TextStyle(color: Colors.white54, fontSize: 13.0, fontWeight: FontWeight.bold))),
+                Expanded(flex: 2, child: Text('Rate', textAlign: TextAlign.right, style: TextStyle(color: Colors.white54, fontSize: 13.0, fontWeight: FontWeight.bold))),
+                Expanded(flex: 2, child: Text('Make', textAlign: TextAlign.right, style: TextStyle(color: Colors.white54, fontSize: 13.0, fontWeight: FontWeight.bold))),
               ],
             ),
           ),
@@ -595,12 +597,12 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
               ),
               child: Row(
                 children: [
-                  Expanded(flex: 2, child: Text(item['cat']!, style: const TextStyle(color: Colors.white70, fontSize: 11))),
-                  Expanded(flex: 3, child: Text(item['part']!, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600))),
-                  Expanded(flex: 2, child: Text(item['pkg']!, style: const TextStyle(color: Colors.white54, fontSize: 11))),
-                  Expanded(flex: 1, child: Text(item['qty']!, textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFFF97316), fontSize: 11, fontWeight: FontWeight.bold))),
-                  Expanded(flex: 2, child: Text(item['rate']!, textAlign: TextAlign.right, style: const TextStyle(color: Colors.white70, fontSize: 11))),
-                  Expanded(flex: 2, child: Text(item['make']!, textAlign: TextAlign.right, style: const TextStyle(color: Color(0xFF10B981), fontSize: 11))),
+                  Expanded(flex: 2, child: Text(item['cat']!, style: const TextStyle(color: Colors.white70, fontSize: 13.0))),
+                  Expanded(flex: 3, child: Text(item['part']!, style: const TextStyle(color: Colors.white, fontSize: 13.0, fontWeight: FontWeight.w600))),
+                  Expanded(flex: 2, child: Text(item['pkg']!, style: const TextStyle(color: Colors.white54, fontSize: 13.0))),
+                  Expanded(flex: 1, child: Text(item['qty']!, textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFFF97316), fontSize: 13.0, fontWeight: FontWeight.bold))),
+                  Expanded(flex: 2, child: Text(item['rate']!, textAlign: TextAlign.right, style: const TextStyle(color: Colors.white70, fontSize: 13.0))),
+                  Expanded(flex: 2, child: Text(item['make']!, textAlign: TextAlign.right, style: const TextStyle(color: Color(0xFF10B981), fontSize: 13.0))),
                 ],
               ),
             );
@@ -637,7 +639,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                   icon: const Icon(Icons.arrow_back, size: 14),
                   label: const Text(
                     'Back to Option',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
                   ),
                   onPressed: () {
                     setState(() {
@@ -666,7 +668,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                 ),
                 child: const Text(
                   'BATCH INITIALIZATION & BOM SETUP',
-                  style: TextStyle(color: Color(0xFF10B981), fontSize: 10, fontWeight: FontWeight.bold),
+                  style: TextStyle(color: Color(0xFF10B981), fontSize: 12.0, fontWeight: FontWeight.bold),
                 ),
               ),
               const Spacer(),
@@ -676,7 +678,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 ),
                 icon: const Icon(Icons.folder_open, size: 14, color: Color(0xFFF97316)),
-                label: const Text('Existing Directory', style: TextStyle(fontSize: 12)),
+                label: const Text('Existing Directory', style: TextStyle(fontSize: 13.5)),
                 onPressed: () {
                   setState(() {
                     _inNewProductionStartView = false;
@@ -720,7 +722,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                               Expanded(
                                 child: Text(
                                   _newBatchFormValidationError!,
-                                  style: const TextStyle(color: Color(0xFFFCA5A5), fontSize: 12, fontWeight: FontWeight.w600),
+                                  style: const TextStyle(color: Color(0xFFFCA5A5), fontSize: 13.5, fontWeight: FontWeight.w600),
                                 ),
                               ),
                               IconButton(
@@ -750,14 +752,14 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                     children: [
                                       Row(
                                         children: [
-                                          const Text('Batch Number (MES Identifier) *', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
+                                          const Text('Batch Number (MES Identifier) *', style: TextStyle(color: Colors.white70, fontSize: 13.5, fontWeight: FontWeight.w600)),
                                           const Spacer(),
                                           InkWell(
                                             onTap: () {
                                               _initNewProductionStartForm(forceReset: true);
                                               setState(() {});
                                             },
-                                            child: const Text('↻ Regenerate', style: TextStyle(color: Color(0xFFF97316), fontSize: 11, fontWeight: FontWeight.bold)),
+                                            child: const Text('↻ Regenerate', style: TextStyle(color: Color(0xFFF97316), fontSize: 13.0, fontWeight: FontWeight.bold)),
                                           ),
                                         ],
                                       ),
@@ -805,7 +807,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      const Text('Target Batch Quantity *', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
+                                      const Text('Target Batch Quantity *', style: TextStyle(color: Colors.white70, fontSize: 13.5, fontWeight: FontWeight.w600)),
                                       const SizedBox(height: 6),
                                       Container(
                                         height: 40,
@@ -837,7 +839,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                                 decoration: const InputDecoration(border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.zero),
                                               ),
                                             ),
-                                            const Text('Units', style: TextStyle(color: Colors.white38, fontSize: 11)),
+                                            const Text('Units', style: TextStyle(color: Colors.white38, fontSize: 13.0)),
                                             IconButton(
                                               icon: const Icon(Icons.add, size: 14, color: Colors.white70),
                                               onPressed: () {
@@ -907,7 +909,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                 minimumSize: Size.zero,
                               ),
                               icon: const Icon(Icons.search, size: 13),
-                              label: const Text('Search Catalog', style: TextStyle(fontSize: 11)),
+                              label: const Text('Search Catalog', style: TextStyle(fontSize: 13.0)),
                               onPressed: () {
                                 _showProductPickerDialog(context, _newProductCatalog, (sel) {
                                   setState(() {
@@ -927,7 +929,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                 minimumSize: Size.zero,
                               ),
                               icon: const Icon(Icons.add, size: 13),
-                              label: const Text('+ Add Custom Product', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                              label: const Text('+ Add Custom Product', style: TextStyle(fontSize: 13.0, fontWeight: FontWeight.bold)),
                               onPressed: () {
                                 _showAddNewProductDialog(context, (newProd) {
                                   setState(() {
@@ -945,7 +947,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Select Pre-configured Product from Catalog', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
+                            const Text('Select Pre-configured Product from Catalog', style: TextStyle(color: Colors.white70, fontSize: 13.5, fontWeight: FontWeight.w600)),
                             const SizedBox(height: 6),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
@@ -984,7 +986,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                               ),
                                               child: Text(
                                                 p['category'] ?? '',
-                                                style: const TextStyle(color: Colors.white60, fontSize: 10),
+                                                style: const TextStyle(color: Colors.white60, fontSize: 12.0),
                                               ),
                                             ),
                                         ],
@@ -1064,7 +1066,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                   Expanded(
                                     child: Text(
                                       'Standard Quality SOP Attached: SOP-FAT-Panel-Testing-Rev3.pdf (Copied into batch folder)',
-                                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                                      style: TextStyle(color: Colors.white70, fontSize: 13.5),
                                     ),
                                   ),
                                   Icon(Icons.check_circle, color: Color(0xFF10B981), size: 15),
@@ -1096,7 +1098,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
                             ),
                             icon: const Icon(Icons.refresh, size: 15),
-                            label: const Text('Reset Form', style: TextStyle(fontSize: 12)),
+                            label: const Text('Reset Form', style: TextStyle(fontSize: 13.5)),
                             onPressed: () {
                               _initNewProductionStartForm(forceReset: true);
                               setState(() {});
@@ -1242,7 +1244,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                             SizedBox(height: 2),
                             Text(
                               'Configure manufacturing batch parameters and initialize BOM',
-                              style: TextStyle(color: Colors.white54, fontSize: 12),
+                              style: TextStyle(color: Colors.white54, fontSize: 13.5),
                             ),
                           ],
                         ),
@@ -1268,7 +1270,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      const Text('Batch Number (Auto-generated)', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
+                                      const Text('Batch Number (Auto-generated)', style: TextStyle(color: Colors.white70, fontSize: 13.5, fontWeight: FontWeight.w600)),
                                       const SizedBox(height: 6),
                                       Container(
                                         height: 42,
@@ -1312,7 +1314,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      const Text('Target Batch Qty', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
+                                      const Text('Target Batch Qty', style: TextStyle(color: Colors.white70, fontSize: 13.5, fontWeight: FontWeight.w600)),
                                       const SizedBox(height: 6),
                                       Container(
                                         height: 42,
@@ -1348,7 +1350,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                                 ),
                                               ),
                                             ),
-                                            const Text('Units', style: TextStyle(color: Colors.white38, fontSize: 11)),
+                                            const Text('Units', style: TextStyle(color: Colors.white38, fontSize: 13.0)),
                                             IconButton(
                                               icon: const Icon(Icons.add, size: 14, color: Colors.white70),
                                               onPressed: () {
@@ -1372,7 +1374,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('Select Product from Catalog', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
+                                const Text('Select Product from Catalog', style: TextStyle(color: Colors.white70, fontSize: 13.5, fontWeight: FontWeight.w600)),
                                 Row(
                                   children: [
                                     TextButton.icon(
@@ -1382,7 +1384,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                         minimumSize: Size.zero,
                                       ),
                                       icon: const Icon(Icons.search, size: 14),
-                                      label: const Text('Search Catalog', style: TextStyle(fontSize: 12)),
+                                      label: const Text('Search Catalog', style: TextStyle(fontSize: 13.5)),
                                       onPressed: () {
                                         _showProductPickerDialog(context, productCatalog, (sel) {
                                           setModalState(() {
@@ -1402,7 +1404,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                         minimumSize: Size.zero,
                                       ),
                                       icon: const Icon(Icons.add, size: 14),
-                                      label: const Text('+ Add Custom Product', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                      label: const Text('+ Add Custom Product', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold)),
                                       onPressed: () {
                                         _showAddNewProductDialog(context, (newProd) {
                                           setModalState(() {
@@ -1457,7 +1459,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                               ),
                                               child: Text(
                                                 p['category'] ?? '',
-                                                style: const TextStyle(color: Colors.white60, fontSize: 10),
+                                                style: const TextStyle(color: Colors.white60, fontSize: 12.0),
                                               ),
                                             ),
                                         ],
@@ -1567,7 +1569,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                   Expanded(
                                     child: Text(
                                       'Standard SOP Attached: SOP-FAT-Panel-Testing-Rev3.pdf (Copied into batch folder)',
-                                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                                      style: TextStyle(color: Colors.white70, fontSize: 13.5),
                                     ),
                                   ),
                                   Icon(Icons.check_circle, color: Color(0xFF10B981), size: 15),
@@ -1821,7 +1823,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(color: const Color(0xFF38BDF8).withOpacity(0.2), borderRadius: BorderRadius.circular(4)),
-                                  child: Text(p['sku'] ?? '', style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 11)),
+                                  child: Text(p['sku'] ?? '', style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 13.0)),
                                 ),
                               ],
                             ),
@@ -1831,7 +1833,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                 'Features: ${p['features'] ?? 'Standard'}',
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(color: Colors.white60, fontSize: 11),
+                                style: const TextStyle(color: Colors.white60, fontSize: 13.0),
                               ),
                             ),
                             trailing: ElevatedButton(
@@ -1840,7 +1842,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                 Navigator.of(ctx).pop();
                                 onSelected(p);
                               },
-                              child: const Text('Select', style: TextStyle(fontSize: 12)),
+                              child: const Text('Select', style: TextStyle(fontSize: 13.5)),
                             ),
                           );
                         },
@@ -1912,7 +1914,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                   icon: const Icon(Icons.arrow_back, size: 14),
                   label: const Text(
                     'Back to Option',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
                   ),
                   onPressed: () {
                     setState(() {
@@ -1941,7 +1943,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                 ),
                 child: Text(
                   currentBatch['batchNumber'] ?? 'BATCH-20260917_193942',
-                  style: const TextStyle(color: Color(0xFFF97316), fontSize: 11, fontWeight: FontWeight.bold),
+                  style: const TextStyle(color: Color(0xFFF97316), fontSize: 13.0, fontWeight: FontWeight.bold),
                 ),
               ),
               const Spacer(),
@@ -1961,7 +1963,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                 ),
                 label: Text(
                   _showDirectorySideDossier ? 'Hide Dossier' : 'Show Dossier',
-                  style: const TextStyle(fontSize: 11.5),
+                  style: const TextStyle(fontSize: 13.5),
                 ),
                 onPressed: () => setState(() => _showDirectorySideDossier = !_showDirectorySideDossier),
               ),
@@ -1978,7 +1980,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                   elevation: 0,
                 ),
                 icon: const Icon(Icons.biotech_outlined, size: 15),
-                label: const Text('Open Testing Window', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
+                label: const Text('Open Testing Window', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
                 onPressed: () {
                   _openProductTestingWindowDialog(() {
                     _loadAllData();
@@ -2071,7 +2073,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                           dropdownColor: const Color(0xFF181B21),
                           isExpanded: true,
                           icon: const Icon(Icons.arrow_drop_down, color: Color(0xFFF97316)),
-                          style: const TextStyle(color: Colors.white, fontSize: 12.5),
+                          style: const TextStyle(color: Colors.white, fontSize: 14.0),
                           items: _batches.map((b) {
                             return DropdownMenuItem<String>(
                               value: b['id']?.toString(),
@@ -2098,7 +2100,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
               // Subtitle metadata line matching screenshot
               Text(
                 'Start Date: ${currentBatch['startDate'] ?? '2026-09-17 19:39:42'}  |  Expected Completion: ${currentBatch['expectedCompletionDate'] ?? '2026-09-24'}  |  Personnel: ${currentBatch['assignedPersonnel'] ?? 'sunny s. hapse - 9423813061;a'}',
-                style: const TextStyle(color: Colors.white70, fontSize: 11.5),
+                style: const TextStyle(color: Colors.white70, fontSize: 13.5),
               ),
             ],
           ),
@@ -2136,8 +2138,8 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                       dataRowMinHeight: 32,
                       dataRowMaxHeight: 38,
                       headingRowColor: WidgetStateProperty.all(const Color(0xFF1A1C22)),
-                      headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.5),
-                      dataTextStyle: const TextStyle(color: Colors.white70, fontSize: 11.5),
+                      headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5),
+                      dataTextStyle: const TextStyle(color: Colors.white70, fontSize: 13.5),
                       columnSpacing: 16,
                       horizontalMargin: 12,
                       columns: const [
@@ -2316,7 +2318,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                   ),
                   child: const Text(
                     'Dispatch Status: Bare PCB Lot & Reel Kit Ready for SMT Dispatch  |  Target SMT Line: SMT Line #1 (Alpha Circuits Pvt Ltd)  |  Challan Ref: DC-20260918-001',
-                    style: TextStyle(color: Colors.white70, fontSize: 11),
+                    style: TextStyle(color: Colors.white70, fontSize: 13.0),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -2334,8 +2336,8 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                       dataRowMinHeight: 32,
                       dataRowMaxHeight: 38,
                       headingRowColor: WidgetStateProperty.all(const Color(0xFF1A1C22)),
-                      headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.5),
-                      dataTextStyle: const TextStyle(color: Colors.white70, fontSize: 11.5),
+                      headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5),
+                      dataTextStyle: const TextStyle(color: Colors.white70, fontSize: 13.5),
                       columnSpacing: 16,
                       horizontalMargin: 12,
                       columns: const [
@@ -2456,7 +2458,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                   ),
                   child: const Text(
                     'Inward Status: 10 Units Assembled (SMD QC & Solder Verified)  |  Inward Lot ID: PCB-REC-20260922-01  |  SMD AOI Status: Cleared - 0 Defects',
-                    style: TextStyle(color: Colors.white70, fontSize: 11),
+                    style: TextStyle(color: Colors.white70, fontSize: 13.0),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -2474,8 +2476,8 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                       dataRowMinHeight: 32,
                       dataRowMaxHeight: 38,
                       headingRowColor: WidgetStateProperty.all(const Color(0xFF1A1C22)),
-                      headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.5),
-                      dataTextStyle: const TextStyle(color: Colors.white70, fontSize: 11.5),
+                      headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5),
+                      dataTextStyle: const TextStyle(color: Colors.white70, fontSize: 13.5),
                       columnSpacing: 16,
                       horizontalMargin: 12,
                       columns: const [
@@ -2650,7 +2652,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                     ),
                     Text(
                       'Live Manufacturing & MES Summary',
-                      style: TextStyle(color: Colors.white54, fontSize: 10.5),
+                      style: TextStyle(color: Colors.white54, fontSize: 12.5),
                     ),
                   ],
                 ),
@@ -2664,7 +2666,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                   ),
                   child: Text(
                     currentBatch['status']?.toString() ?? 'IN_PROGRESS',
-                    style: const TextStyle(color: Color(0xFFF97316), fontSize: 11, fontWeight: FontWeight.bold),
+                    style: const TextStyle(color: Color(0xFFF97316), fontSize: 13.0, fontWeight: FontWeight.bold),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -2720,7 +2722,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                 const Spacer(),
                                 Text(
                                   currentBatch['productName'] ?? 'N/A',
-                                  style: const TextStyle(color: Color(0xFF38BDF8), fontWeight: FontWeight.w600, fontSize: 12),
+                                  style: const TextStyle(color: Color(0xFF38BDF8), fontWeight: FontWeight.w600, fontSize: 13.5),
                                 ),
                               ],
                             ),
@@ -2739,11 +2741,11 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('Personnel: ', style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold)),
+                                  const Text('Personnel: ', style: TextStyle(color: Colors.white38, fontSize: 13.0, fontWeight: FontWeight.bold)),
                                   Expanded(
                                     child: Text(
                                       currentBatch['assignedPersonnel'].toString(),
-                                      style: const TextStyle(color: Colors.white70, fontSize: 11),
+                                      style: const TextStyle(color: Colors.white70, fontSize: 13.0),
                                     ),
                                   ),
                                 ],
@@ -2768,7 +2770,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('TOTAL BOM COST', style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold)),
+                                const Text('TOTAL BOM COST', style: TextStyle(color: Colors.white38, fontSize: 12.0, fontWeight: FontWeight.bold)),
                                 const SizedBox(height: 2),
                                 Text(
                                   '₹${totalBomCost.toStringAsFixed(2)}',
@@ -2779,11 +2781,11 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                const Text('PO ALLOCATION', style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold)),
+                                const Text('PO ALLOCATION', style: TextStyle(color: Colors.white38, fontSize: 12.0, fontWeight: FontWeight.bold)),
                                 const SizedBox(height: 2),
                                 Text(
                                   '$poCount / ${materials.length} Items Selected',
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12),
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13.5),
                                 ),
                               ],
                             ),
@@ -2795,7 +2797,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                       // 3. Manufacturing Milestones Pipeline
                       const Text(
                         'MANUFACTURING PIPELINE',
-                        style: TextStyle(color: Colors.white38, fontSize: 10.5, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                        style: TextStyle(color: Colors.white38, fontSize: 12.5, fontWeight: FontWeight.bold, letterSpacing: 0.5),
                       ),
                       const SizedBox(height: 6),
                       _buildPipelineStep(
@@ -2831,11 +2833,11 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                         children: [
                           const Text(
                             'BOM ITEM BREAKDOWN',
-                            style: TextStyle(color: Colors.white38, fontSize: 10.5, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                            style: TextStyle(color: Colors.white38, fontSize: 12.5, fontWeight: FontWeight.bold, letterSpacing: 0.5),
                           ),
                           Text(
                             '${materials.length} Components',
-                            style: const TextStyle(color: Colors.white54, fontSize: 11),
+                            style: const TextStyle(color: Colors.white54, fontSize: 13.0),
                           ),
                         ],
                       ),
@@ -2857,22 +2859,22 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                               child: Row(
                                 children: [
-                                  Text('${m['srNo']}.', style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                                  Text('${m['srNo']}.', style: const TextStyle(color: Colors.white38, fontSize: 13.0)),
                                   const SizedBox(width: 6),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(m['partName']?.toString() ?? '', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
-                                        Text('${m['category'] ?? '-'} • ${m['value'] ?? '-'} • Make: ${m['make'] ?? 'Std'}', style: const TextStyle(color: Colors.white38, fontSize: 10.5)),
+                                        Text(m['partName']?.toString() ?? '', style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w500)),
+                                        Text('${m['category'] ?? '-'} • ${m['value'] ?? '-'} • Make: ${m['make'] ?? 'Std'}', style: const TextStyle(color: Colors.white38, fontSize: 12.5)),
                                       ],
                                     ),
                                   ),
                                   Column(
                                     crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [
-                                      Text('Qty: ${m['quantity'] ?? m['qty']}', style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold)),
-                                      Text('₹${m['totalPrice'] ?? 0}', style: const TextStyle(color: Color(0xFF10B981), fontSize: 11)),
+                                      Text('Qty: ${m['quantity'] ?? m['qty']}', style: const TextStyle(color: Colors.white70, fontSize: 13.0, fontWeight: FontWeight.bold)),
+                                      Text('₹${m['totalPrice'] ?? 0}', style: const TextStyle(color: Color(0xFF10B981), fontSize: 13.0)),
                                     ],
                                   ),
                                 ],
@@ -2917,7 +2919,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                       style: const TextStyle(
                         color: Color(0xFFE2E8F0),
                         fontFamily: 'monospace',
-                        fontSize: 11.5,
+                        fontSize: 13.5,
                         height: 1.45,
                       ),
                     ),
@@ -2971,7 +2973,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(color: const Color(0xFFF97316).withOpacity(0.4)),
                     ),
-                    child: Text(trailingBadge, style: const TextStyle(color: Color(0xFFF97316), fontSize: 10.5, fontWeight: FontWeight.bold)),
+                    child: Text(trailingBadge, style: const TextStyle(color: Color(0xFFF97316), fontSize: 12.5, fontWeight: FontWeight.bold)),
                   ),
                 if (headerTrailing != null) headerTrailing,
               ],
@@ -3018,9 +3020,9 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(label, style: const TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.w500)),
+                Text(label, style: const TextStyle(color: Colors.white38, fontSize: 12.0, fontWeight: FontWeight.w500)),
                 const SizedBox(height: 2),
-                Text(value, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+                Text(value, style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
@@ -3033,9 +3035,9 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: Colors.white38, fontSize: 9.5, fontWeight: FontWeight.bold)),
+        Text(label, style: const TextStyle(color: Colors.white38, fontSize: 12.0, fontWeight: FontWeight.bold)),
         const SizedBox(height: 2),
-        Text(value, style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600)),
+        Text(value, style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w600)),
       ],
     );
   }
@@ -3062,7 +3064,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
               child: Center(
                 child: isDone
                     ? const Icon(Icons.check, size: 12, color: Colors.white)
-                    : Text(step, style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold)),
+                    : Text(step, style: const TextStyle(color: Colors.white70, fontSize: 12.0, fontWeight: FontWeight.bold)),
               ),
             ),
             if (!isLast)
@@ -3078,8 +3080,8 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-              Text(status, style: TextStyle(color: isDone ? const Color(0xFF10B981) : Colors.white38, fontSize: 11)),
+              Text(title, style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w600)),
+              Text(status, style: TextStyle(color: isDone ? const Color(0xFF10B981) : Colors.white38, fontSize: 13.0)),
               const SizedBox(height: 6),
             ],
           ),
@@ -3105,7 +3107,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
         elevation: 0,
       ),
       icon: Icon(icon, size: 14),
-      label: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+      label: Text(label, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
       onPressed: onPressed,
     );
   }
@@ -3128,7 +3130,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
         elevation: 0,
       ),
       icon: Icon(icon, size: 14, color: Colors.white70),
-      label: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+      label: Text(label, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500)),
       onPressed: onPressed,
     );
   }
@@ -3150,7 +3152,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
         elevation: 0,
       ),
       icon: Icon(icon, size: 14),
-      label: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+      label: Text(label, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
       onPressed: onPressed,
     );
   }
@@ -3176,7 +3178,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
           const SizedBox(width: 4),
           Text(
             isExpanded ? 'Fold Section' : 'Expand Section',
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFF97316)),
+            style: const TextStyle(fontSize: 13.0, fontWeight: FontWeight.bold, color: Color(0xFFF97316)),
           ),
         ],
       ),
@@ -3229,7 +3231,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
       onPressed: onPressed,
       child: Text(
         isExpanded ? '▲ Fold Section' : '▼ Expand Section',
-        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Colors.white),
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Colors.white),
       ),
     );
   }
@@ -3252,7 +3254,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
       icon: Icon(icon, size: 14, color: Colors.white),
       label: Text(
         label,
-        style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white),
+        style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Colors.white),
       ),
       onPressed: onPressed,
     );
@@ -3645,7 +3647,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                   icon: const Icon(Icons.arrow_back, size: 14),
                   label: const Text(
                     'Back to Option',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
                   ),
                   onPressed: () {
                     setState(() {
@@ -3656,8 +3658,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                 ),
               ),
               const SizedBox(width: 14),
-              const Text(
-                'production Details',
+              const Text('Production Details',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 15,
@@ -3815,7 +3816,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                             color: isSelected ? const Color(0xFFF97316) : Colors.white54,
                             size: 18,
                           ),
-                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                          style: const TextStyle(color: Colors.white, fontSize: 13.5),
                           items: _batches.map((b) {
                             return DropdownMenuItem<String>(
                               value: b['id']?.toString(),
@@ -3841,14 +3842,14 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
               if (isSelected)
                 Text(
                   'Start Date: ${currentBatch['startDate'] ?? '2026-09-17 19:39:42'} | Expected Completion: ${currentBatch['expectedCompletionDate'] ?? '2026-09-24'} | Personnel: ${currentBatch['assignedPersonnel'] ?? 'sunny s. hapse - 9423813061;a'}',
-                  style: const TextStyle(color: Colors.white70, fontSize: 11.5),
+                  style: const TextStyle(color: Colors.white70, fontSize: 13.5),
                 )
               else
                 const Text(
                   'Select a batch from the dropdown above to view details.',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: Colors.white70, fontSize: 11.5, fontStyle: FontStyle.italic),
+                  style: TextStyle(color: Colors.white70, fontSize: 13.5, fontStyle: FontStyle.italic),
                 ),
             ],
           ),
@@ -3950,7 +3951,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                       icon: const Icon(Icons.file_download_outlined, size: 14),
                       label: const Text(
                         'Download Excel Report',
-                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                        style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
                       ),
                       onPressed: () => _downloadTestingReportExcel(currentBatch, batchRecords),
                     ),
@@ -3976,11 +3977,11 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                         headingTextStyle: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
-                          fontSize: 11.5,
+                          fontSize: 13.5,
                         ),
                         dataTextStyle: const TextStyle(
                           color: Colors.white,
-                          fontSize: 11.5,
+                          fontSize: 13.5,
                         ),
                         columns: const [
                           DataColumn(label: Text('Product ID')),
@@ -4029,7 +4030,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
-              fontSize: 12.5,
+              fontSize: 14.0,
             ),
           ),
         ),
@@ -4038,7 +4039,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
             value,
             style: const TextStyle(
               color: Colors.white70,
-              fontSize: 12.5,
+              fontSize: 14.0,
               fontWeight: FontWeight.normal,
             ),
           ),
@@ -4156,7 +4157,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                     ),
                     Text(
                       'Comprehensive 38-Field Industrial Engineering Suite (7 Structured Sections)',
-                      style: TextStyle(color: Colors.white54, fontSize: 10.5),
+                      style: TextStyle(color: Colors.white54, fontSize: 12.5),
                     ),
                   ],
                 ),
@@ -4171,7 +4172,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                     elevation: 0,
                   ),
                   icon: const Icon(Icons.edit, size: 14),
-                  label: const Text('Edit Specs', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  label: const Text('Edit Specs', style: TextStyle(fontSize: 13.0, fontWeight: FontWeight.bold)),
                   onPressed: () => _openEditProductSpecsDialog(batchKey, productSpecs),
                 ),
               ],
@@ -4211,7 +4212,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                             ),
                             child: Text(
                               productSpecs['productType'] ?? 'FINISHED_PRODUCT',
-                              style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 9.5, fontWeight: FontWeight.bold),
+                              style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 12.0, fontWeight: FontWeight.bold),
                             ),
                           ),
                         ],
@@ -4221,7 +4222,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                         productSpecs['name'] ?? productSpecs['productName'] ?? 'Dual Pump Automatic Booster Control Panel',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: Colors.white70, fontSize: 11.5),
+                        style: const TextStyle(color: Colors.white70, fontSize: 13.5),
                       ),
                     ],
                   ),
@@ -4230,24 +4231,24 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('MRP / SALE', style: TextStyle(color: Colors.white38, fontSize: 9.5, fontWeight: FontWeight.bold)),
-                    Text('₹${(productSpecs['sellingPrice'] ?? 54000.00)}', style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 12)),
+                    const Text('MRP / SALE', style: TextStyle(color: Colors.white38, fontSize: 12.0, fontWeight: FontWeight.bold)),
+                    Text('₹${(productSpecs['sellingPrice'] ?? 54000.00)}', style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 13.5)),
                   ],
                 ),
                 const SizedBox(width: 14),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('IN STOCK', style: TextStyle(color: Colors.white38, fontSize: 9.5, fontWeight: FontWeight.bold)),
-                    Text('${productSpecs['currentStock'] ?? 12} ${productSpecs['unit'] ?? 'SET'}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                    const Text('IN STOCK', style: TextStyle(color: Colors.white38, fontSize: 12.0, fontWeight: FontWeight.bold)),
+                    Text('${productSpecs['currentStock'] ?? 12} ${productSpecs['unit'] ?? 'SET'}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5)),
                   ],
                 ),
                 const SizedBox(width: 14),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('HSN / SAC', style: TextStyle(color: Colors.white38, fontSize: 9.5, fontWeight: FontWeight.bold)),
-                    Text('${productSpecs['hsnSac'] ?? '85371000'}', style: const TextStyle(color: Color(0xFF38BDF8), fontWeight: FontWeight.bold, fontSize: 12)),
+                    const Text('HSN / SAC', style: TextStyle(color: Colors.white38, fontSize: 12.0, fontWeight: FontWeight.bold)),
+                    Text('${productSpecs['hsnSac'] ?? '85371000'}', style: const TextStyle(color: Color(0xFF38BDF8), fontWeight: FontWeight.bold, fontSize: 13.5)),
                   ],
                 ),
               ],
@@ -4287,7 +4288,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                               tabTitles[idx],
                               style: TextStyle(
                                 color: isSel ? Colors.white : Colors.white70,
-                                fontSize: 11.5,
+                                fontSize: 13.5,
                                 fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
                               ),
                             ),
@@ -4472,9 +4473,9 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: const TextStyle(color: Colors.white38, fontSize: 10.5, fontWeight: FontWeight.bold)),
+                Text(label, style: const TextStyle(color: Colors.white38, fontSize: 12.5, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 3),
-                Text(value, style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w500)),
+                Text(value, style: const TextStyle(color: Colors.white, fontSize: 14.0, fontWeight: FontWeight.w500)),
               ],
             ),
           ),
@@ -4513,9 +4514,9 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
             children: [
               Icon(icon, size: 16, color: chipColor),
               const SizedBox(width: 8),
-              Text(label, style: const TextStyle(color: Colors.white38, fontSize: 10.5, fontWeight: FontWeight.bold)),
+              Text(label, style: const TextStyle(color: Colors.white38, fontSize: 12.5, fontWeight: FontWeight.bold)),
               const Spacer(),
-              Text('${items.length} Options', style: const TextStyle(color: Colors.white38, fontSize: 10)),
+              Text('${items.length} Options', style: const TextStyle(color: Colors.white38, fontSize: 12.0)),
             ],
           ),
           const SizedBox(height: 8),
@@ -4535,7 +4536,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                   children: [
                     Icon(Icons.check, size: 12, color: chipColor),
                     const SizedBox(width: 4),
-                    Text(item, style: TextStyle(color: chipColor, fontSize: 11.5, fontWeight: FontWeight.w600)),
+                    Text(item, style: TextStyle(color: chipColor, fontSize: 13.5, fontWeight: FontWeight.w600)),
                   ],
                 ),
               );
@@ -4560,7 +4561,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
         children: [
           Icon(icon, size: 12, color: color),
           const SizedBox(width: 4),
-          Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
+          Text(label, style: TextStyle(color: color, fontSize: 13.0, fontWeight: FontWeight.w600)),
         ],
       ),
     );
@@ -4611,7 +4612,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('COMMERCIAL & INVENTORY MASTERS', style: TextStyle(color: Color(0xFFF97316), fontSize: 11, fontWeight: FontWeight.bold)),
+                        const Text('COMMERCIAL & INVENTORY MASTERS', style: TextStyle(color: Color(0xFFF97316), fontSize: 13.0, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 8),
                         Row(
                           children: [
@@ -4637,7 +4638,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                           ],
                         ),
                         const Divider(color: Colors.white24, height: 24),
-                        const Text('TECHNICAL SPECIFICATIONS (38 FIELDS SUITE)', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 11, fontWeight: FontWeight.bold)),
+                        const Text('TECHNICAL SPECIFICATIONS (38 FIELDS SUITE)', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 13.0, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 8),
                         Row(
                           children: [
@@ -4704,11 +4705,11 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600)),
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 13.0, fontWeight: FontWeight.w600)),
         const SizedBox(height: 4),
         TextField(
           controller: ctrl,
-          style: const TextStyle(color: Colors.white, fontSize: 12),
+          style: const TextStyle(color: Colors.white, fontSize: 13.5),
           decoration: InputDecoration(
             isDense: true,
             contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -4767,7 +4768,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                     children: [
                       const Text(
                         'Enforced MES Lifecycle Gateways',
-                        style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold),
+                        style: TextStyle(color: Colors.white70, fontSize: 13.5, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 12),
                       Row(
@@ -4838,7 +4839,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                   ),
                                   child: Text(
                                     b['status'] ?? 'IN_PROGRESS',
-                                    style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold),
+                                    style: const TextStyle(color: Color(0xFF10B981), fontSize: 13.0, fontWeight: FontWeight.bold),
                                   ),
                                 ),
                                 const Spacer(),
@@ -4851,9 +4852,9 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                             const SizedBox(height: 8),
                             Text('Product: ${b['productName']} (${b['productModel'] ?? 'N/A'})', style: const TextStyle(color: Colors.white, fontSize: 13)),
                             const SizedBox(height: 4),
-                            Text('Assigned Personnel: ${b['assignedPersonnel']}', style: const TextStyle(color: Colors.white60, fontSize: 12)),
+                            Text('Assigned Personnel: ${b['assignedPersonnel']}', style: const TextStyle(color: Colors.white60, fontSize: 13.5)),
                             const SizedBox(height: 4),
-                            Text('Dates: Start ${b['startDate']}  |  Target ${b['expectedCompletionDate']}', style: const TextStyle(color: Colors.white38, fontSize: 12)),
+                            Text('Dates: Start ${b['startDate']}  |  Target ${b['expectedCompletionDate']}', style: const TextStyle(color: Colors.white38, fontSize: 13.5)),
                             const SizedBox(height: 8),
                             Row(
                               children: [
@@ -4868,7 +4869,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                     Navigator.of(ctx).pop();
                                     _loadAllData();
                                   },
-                                  child: const Text('Mark Completed', style: TextStyle(fontSize: 12)),
+                                  child: const Text('Mark Completed', style: TextStyle(fontSize: 13.5)),
                                 ),
                                 const SizedBox(width: 8),
                                 OutlinedButton(
@@ -4882,7 +4883,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                     Navigator.of(ctx).pop();
                                     _loadAllData();
                                   },
-                                  child: const Text('QA Hold', style: TextStyle(fontSize: 12)),
+                                  child: const Text('QA Hold', style: TextStyle(fontSize: 13.5)),
                                 ),
                               ],
                             ),
@@ -4923,7 +4924,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
         title,
         style: TextStyle(
           color: active ? Colors.white : Colors.white60,
-          fontSize: 11,
+          fontSize: 13.0,
           fontWeight: active ? FontWeight.bold : FontWeight.normal,
         ),
       ),
@@ -5080,7 +5081,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                   icon: const Icon(Icons.arrow_back, size: 14),
                   label: const Text(
                     'Back to Option',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
                   ),
                   onPressed: () {
                     setState(() {
@@ -5164,7 +5165,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                   'Refresh (Ctrl + R)',
                                   style: TextStyle(
                                     color: Colors.black87,
-                                    fontSize: 11,
+                                    fontSize: 13.0,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -5186,7 +5187,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                             onPressed: _downloadTestedOkExcel,
                             child: const Text(
                               'Download Excel',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
                             ),
                           ),
                         ),
@@ -5224,7 +5225,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                   headingTextStyle: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 11.5,
+                                    fontSize: 13.5,
                                   ),
                                   dataRowColor: WidgetStateProperty.resolveWith<Color>((states) {
                                     return const Color(0xFFFFF3CD);
@@ -5232,7 +5233,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                   dataTextStyle: const TextStyle(
                                     color: Color(0xFF1E2024),
                                     fontWeight: FontWeight.w600,
-                                    fontSize: 11.5,
+                                    fontSize: 13.5,
                                   ),
                                   columns: const [
                                     DataColumn(label: SizedBox(width: 80, child: Text('Product ID'))),
@@ -5314,7 +5315,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                   icon: const Icon(Icons.arrow_back, size: 14),
                   label: const Text(
                     'Back to Option',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
                   ),
                   onPressed: () {
                     setState(() {
@@ -5400,13 +5401,13 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                   alignment: Alignment.centerLeft,
                   child: TextField(
                     controller: _testingPrdIdCtrl,
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                    style: const TextStyle(color: Colors.white, fontSize: 13.5),
                     decoration: const InputDecoration(
                       isDense: true,
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.zero,
                       hintText: 'e.g. PRD-2026-001',
-                      hintStyle: TextStyle(color: Colors.white38, fontSize: 12),
+                      hintStyle: TextStyle(color: Colors.white38, fontSize: 13.5),
                     ),
                     onSubmitted: (_) => _searchAndLoadProductRecord(_testingPrdIdCtrl.text),
                   ),
@@ -5424,7 +5425,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                   elevation: 0,
                 ),
                 icon: const Icon(Icons.search, size: 14),
-                label: const Text('Search / Edit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                label: const Text('Search / Edit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
                 onPressed: () => _searchAndLoadProductRecord(_testingPrdIdCtrl.text),
               ),
             ],
@@ -5661,7 +5662,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                 (v) => setState(() => _testingControllerProg = v ?? false),
               ),
               const SizedBox(height: 4),
-              const Text('Fault Note (Controller):', style: TextStyle(color: Colors.white70, fontSize: 11)),
+              const Text('Fault Note (Controller):', style: TextStyle(color: Colors.white70, fontSize: 13.0)),
               const SizedBox(height: 3),
               _buildDesktopDarkTextInput(_testingControllerFaultCtrl),
               const SizedBox(height: 8),
@@ -5672,7 +5673,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                 (v) => setState(() => _testingWifiProg = v ?? false),
               ),
               const SizedBox(height: 4),
-              const Text('Fault Note (Wifi):', style: TextStyle(color: Colors.white70, fontSize: 11)),
+              const Text('Fault Note (Wifi):', style: TextStyle(color: Colors.white70, fontSize: 13.0)),
               const SizedBox(height: 3),
               _buildDesktopDarkTextInput(_testingWifiFaultCtrl),
               const SizedBox(height: 8),
@@ -5683,7 +5684,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                 (v) => setState(() => _testingTestedOk = v ?? false),
               ),
               const SizedBox(height: 4),
-              const Text('Fault Note (Testing):', style: TextStyle(color: Colors.white70, fontSize: 11)),
+              const Text('Fault Note (Testing):', style: TextStyle(color: Colors.white70, fontSize: 13.0)),
               const SizedBox(height: 3),
               _buildDesktopDarkTextInput(_testingFaultNoteCtrl),
             ],
@@ -5764,12 +5765,12 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                             SnackBar(content: Text('Front photo updated: front_$pid.jpg')),
                           );
                         },
-                        child: const Text('Update Front Photo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                        child: const Text('Update Front Photo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         _testingFrontPhoto ?? 'No front photo selected',
-                        style: const TextStyle(color: Colors.white54, fontStyle: FontStyle.italic, fontSize: 11),
+                        style: const TextStyle(color: Colors.white54, fontStyle: FontStyle.italic, fontSize: 13.0),
                       ),
                     ],
                   ),
@@ -5793,7 +5794,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                         const SnackBar(content: Text('Front photo captured via camera.')),
                       );
                     },
-                    child: const Text('Camera Front', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    child: const Text('Camera Front', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
                   ),
                 ],
               ),
@@ -5823,12 +5824,12 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                             SnackBar(content: Text('Back photo updated: back_$pid.jpg')),
                           );
                         },
-                        child: const Text('Update Back Photo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                        child: const Text('Update Back Photo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         _testingBackPhoto ?? 'No back photo selected',
-                        style: const TextStyle(color: Colors.white54, fontStyle: FontStyle.italic, fontSize: 11),
+                        style: const TextStyle(color: Colors.white54, fontStyle: FontStyle.italic, fontSize: 13.0),
                       ),
                     ],
                   ),
@@ -5852,7 +5853,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                         const SnackBar(content: Text('Back photo captured via camera.')),
                       );
                     },
-                    child: const Text('Camera Back', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    child: const Text('Camera Back', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
                   ),
                 ],
               ),
@@ -5887,7 +5888,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                 label,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 12,
+                  fontSize: 13.5,
                   fontWeight: FontWeight.w400,
                 ),
               ),
@@ -5910,13 +5911,13 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
       alignment: Alignment.centerLeft,
       child: TextField(
         controller: controller,
-        style: const TextStyle(color: Colors.white, fontSize: 12),
+        style: const TextStyle(color: Colors.white, fontSize: 13.5),
         decoration: InputDecoration(
           isDense: true,
           border: InputBorder.none,
           contentPadding: EdgeInsets.zero,
           hintText: hint,
-          hintStyle: const TextStyle(color: Colors.white30, fontSize: 11),
+          hintStyle: const TextStyle(color: Colors.white30, fontSize: 13.0),
         ),
       ),
     );
@@ -6144,7 +6145,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                       Expanded(
                         child: Text(
                           label,
-                          style: const TextStyle(color: Colors.white, fontSize: 12.5),
+                          style: const TextStyle(color: Colors.white, fontSize: 14.0),
                         ),
                       ),
                     ],
@@ -6165,7 +6166,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                 alignment: Alignment.centerLeft,
                 child: TextField(
                   controller: controller,
-                  style: const TextStyle(color: Colors.white, fontSize: 12.5),
+                  style: const TextStyle(color: Colors.white, fontSize: 14.0),
                   decoration: const InputDecoration(
                     isDense: true,
                     border: InputBorder.none,
@@ -6245,21 +6246,21 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                     children: [
                       buildCheckRow('Controller Programming Complete', controllerProg, (v) => setModalState(() => controllerProg = v ?? false)),
                       const SizedBox(height: 4),
-                      const Text('Fault Note (Controller):', style: TextStyle(color: Colors.white70, fontSize: 11.5, fontWeight: FontWeight.w500)),
+                      const Text('Fault Note (Controller):', style: TextStyle(color: Colors.white70, fontSize: 13.5, fontWeight: FontWeight.w500)),
                       const SizedBox(height: 3),
                       buildDarkTextInput(controllerFaultCtrl),
                       const SizedBox(height: 8),
 
                       buildCheckRow('Wifi Programming Complete', wifiProg, (v) => setModalState(() => wifiProg = v ?? false)),
                       const SizedBox(height: 4),
-                      const Text('Fault Note (Wifi):', style: TextStyle(color: Colors.white70, fontSize: 11.5, fontWeight: FontWeight.w500)),
+                      const Text('Fault Note (Wifi):', style: TextStyle(color: Colors.white70, fontSize: 13.5, fontWeight: FontWeight.w500)),
                       const SizedBox(height: 3),
                       buildDarkTextInput(wifiFaultCtrl),
                       const SizedBox(height: 8),
 
                       buildCheckRow('Tested OK', testedOk, (v) => setModalState(() => testedOk = v ?? false)),
                       const SizedBox(height: 4),
-                      const Text('Fault Note (Testing):', style: TextStyle(color: Colors.white70, fontSize: 11.5, fontWeight: FontWeight.w500)),
+                      const Text('Fault Note (Testing):', style: TextStyle(color: Colors.white70, fontSize: 13.5, fontWeight: FontWeight.w500)),
                       const SizedBox(height: 3),
                       buildDarkTextInput(testingFaultCtrl),
                     ],
@@ -6326,12 +6327,12 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                     SnackBar(content: Text('Front photo updated: front_$pid.jpg')),
                                   );
                                 },
-                                child: const Text('Update Front Photo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                child: const Text('Update Front Photo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 frontPhoto ?? 'No front photo selected',
-                                style: const TextStyle(color: Colors.white54, fontStyle: FontStyle.italic, fontSize: 11.5),
+                                style: const TextStyle(color: Colors.white54, fontStyle: FontStyle.italic, fontSize: 13.5),
                               ),
                             ],
                           ),
@@ -6355,7 +6356,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                 const SnackBar(content: Text('Front photo captured via camera.')),
                               );
                             },
-                            child: const Text('Camera Front', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            child: const Text('Camera Front', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
                           ),
                         ],
                       ),
@@ -6385,12 +6386,12 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                     SnackBar(content: Text('Back photo updated: back_$pid.jpg')),
                                   );
                                 },
-                                child: const Text('Update Back Photo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                child: const Text('Update Back Photo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 backPhoto ?? 'No back photo selected',
-                                style: const TextStyle(color: Colors.white54, fontStyle: FontStyle.italic, fontSize: 11.5),
+                                style: const TextStyle(color: Colors.white54, fontStyle: FontStyle.italic, fontSize: 13.5),
                               ),
                             ],
                           ),
@@ -6414,7 +6415,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                 const SnackBar(content: Text('Back photo captured via camera.')),
                               );
                             },
-                            child: const Text('Camera Back', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            child: const Text('Camera Back', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
                           ),
                         ],
                       ),
@@ -6439,13 +6440,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                     // Desktop Title Bar matching screenshot
                     Row(
                       children: [
-                        const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CustomPaint(
-                            painter: _TkinterFeatherPainter(),
-                          ),
-                        ),
+                        const Icon(Icons.biotech_rounded, color: Color(0xFFF15A24), size: 18),
                         const SizedBox(width: 8),
                         const Text(
                           'Product Testing & Visual Inspection',
@@ -6463,7 +6458,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(1)),
                           ),
                           onPressed: () => Navigator.of(ctx).pop(),
-                          child: const Text('Close', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFFE5C07B))),
+                          child: const Text('Close', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFFE5C07B))),
                         ),
                       ],
                     ),
@@ -6528,7 +6523,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                       elevation: 0,
                                     ),
                                     icon: const Icon(Icons.search, size: 14),
-                                    label: const Text('Search / Edit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                                    label: const Text('Search / Edit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.0)),
                                     onPressed: () {
                                       final id = prdIdCtrl.text.trim();
                                       if (id.isEmpty) {
@@ -6733,7 +6728,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                     const Divider(color: Colors.white24, height: 20),
                     Text('Product ID: ${item['productId']}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 12),
-                    const Text('Destination Department', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                    const Text('Destination Department', style: TextStyle(color: Colors.white70, fontSize: 13.5)),
                     const SizedBox(height: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -6938,7 +6933,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                   icon: const Icon(Icons.arrow_back, size: 14),
                   label: const Text(
                     'Back to Option',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
                   ),
                   onPressed: () {
                     setState(() {
@@ -7023,7 +7018,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                               value: deptOptions.contains(_dispatchFilterDept) ? _dispatchFilterDept : 'All',
                               dropdownColor: const Color(0xFF1E2229),
                               icon: const Icon(Icons.arrow_drop_down, color: Colors.white70, size: 18),
-                              style: const TextStyle(color: Colors.white, fontSize: 12),
+                              style: const TextStyle(color: Colors.white, fontSize: 13.5),
                               isDense: true,
                               items: deptOptions.map((dept) {
                                 return DropdownMenuItem<String>(
@@ -7072,7 +7067,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                               value: deptOptions.contains(_dispatchExportDept) ? _dispatchExportDept : 'All',
                               dropdownColor: const Color(0xFF1E2229),
                               icon: const Icon(Icons.arrow_drop_down, color: Colors.white70, size: 18),
-                              style: const TextStyle(color: Colors.white, fontSize: 12),
+                              style: const TextStyle(color: Colors.white, fontSize: 13.5),
                               isDense: true,
                               items: deptOptions.map((dept) {
                                 return DropdownMenuItem<String>(
@@ -7106,7 +7101,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                             onPressed: () => _downloadDispatchLogExcel(_dispatchExportDept),
                             child: const Text(
                               'Download Excel',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
                             ),
                           ),
                         ),
@@ -7142,7 +7137,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                         style: TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold,
-                                          fontSize: 12.5,
+                                          fontSize: 14.0,
                                         ),
                                       ),
                                     ),
@@ -7156,7 +7151,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                         style: TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold,
-                                          fontSize: 12.5,
+                                          fontSize: 14.0,
                                         ),
                                       ),
                                     ),
@@ -7170,7 +7165,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                         style: TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold,
-                                          fontSize: 12.5,
+                                          fontSize: 14.0,
                                         ),
                                       ),
                                     ),
@@ -7183,7 +7178,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                         style: TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold,
-                                          fontSize: 12.5,
+                                          fontSize: 14.0,
                                         ),
                                       ),
                                     ),
@@ -7249,7 +7244,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                                     style: TextStyle(
                                                       color: rowTextColor,
                                                       fontWeight: FontWeight.bold,
-                                                      fontSize: 12,
+                                                      fontSize: 13.5,
                                                     ),
                                                     overflow: TextOverflow.ellipsis,
                                                   ),
@@ -7264,7 +7259,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                                     style: TextStyle(
                                                       color: rowTextColor,
                                                       fontWeight: FontWeight.w600,
-                                                      fontSize: 12,
+                                                      fontSize: 13.5,
                                                     ),
                                                     overflow: TextOverflow.ellipsis,
                                                   ),
@@ -7278,7 +7273,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                                     item['dispatchTime']?.toString() ?? '',
                                                     style: TextStyle(
                                                       color: rowTextColor,
-                                                      fontSize: 12,
+                                                      fontSize: 13.5,
                                                     ),
                                                     overflow: TextOverflow.ellipsis,
                                                   ),
@@ -7293,7 +7288,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                                                       item['description']?.toString() ?? '',
                                                       style: TextStyle(
                                                         color: rowTextColor,
-                                                        fontSize: 12,
+                                                        fontSize: 13.5,
                                                       ),
                                                       maxLines: 1,
                                                       overflow: TextOverflow.ellipsis,
@@ -7375,7 +7370,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                         children: [
                           CheckboxListTile(
                             title: const Text('Insulation Resistance Test Passed (> 50 MΩ @ 500V DC)', style: TextStyle(color: Colors.white, fontSize: 13)),
-                            subtitle: const Text('Verified phase-to-phase and phase-to-earth dielectric isolation.', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                            subtitle: const Text('Verified phase-to-phase and phase-to-earth dielectric isolation.', style: TextStyle(color: Colors.white54, fontSize: 13.0)),
                             value: insulationPass,
                             activeColor: const Color(0xFFF26522),
                             onChanged: (v) => setQcState(() => insulationPass = v ?? false),
@@ -7383,7 +7378,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                           const Divider(color: Colors.white10),
                           CheckboxListTile(
                             title: const Text('Wiring Continuity & Terminal Torque Verified', style: TextStyle(color: Colors.white, fontSize: 13)),
-                            subtitle: const Text('All busbars and terminations torqued per IS/IEC standards.', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                            subtitle: const Text('All busbars and terminations torqued per IS/IEC standards.', style: TextStyle(color: Colors.white54, fontSize: 13.0)),
                             value: continuityPass,
                             activeColor: const Color(0xFFF26522),
                             onChanged: (v) => setQcState(() => continuityPass = v ?? false),
@@ -7470,7 +7465,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 13.5, fontWeight: FontWeight.w600)),
         const SizedBox(height: 6),
         TextField(
           controller: ctrl,
@@ -7502,7 +7497,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 13.5, fontWeight: FontWeight.w600)),
         const SizedBox(height: 6),
         InkWell(
           onTap: () async {
@@ -7636,7 +7631,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
       padding: const EdgeInsets.only(bottom: 8),
       child: RichText(
         text: TextSpan(
-          style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+          style: const TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.4),
           children: [
             TextSpan(text: '$title: ', style: const TextStyle(color: Color(0xFFF15A24), fontWeight: FontWeight.bold)),
             TextSpan(text: desc),
@@ -7649,11 +7644,19 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
   // ─── MAIN BUILD ───────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    final authUser = ref.watch(currentUserProvider);
+    final userDisplay = (authUser?.fullName != null && authUser!.fullName!.trim().isNotEmpty)
+        ? authUser.fullName!
+        : (authUser?.username ?? 'Admin');
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 600;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF16181B), // Dark background #16181B per screenshot
+    return Theme(
+      data: Theme.of(context).copyWith(
+        textTheme: GoogleFonts.interTextTheme(Theme.of(context).textTheme),
+      ),
+      child: Scaffold(
+        backgroundColor: const Color(0xFF16181B), // Dark background #16181B per screenshot
       body: SafeArea(
         child: Column(
           children: [
@@ -7668,16 +7671,12 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
               ),
               child: Row(
                 children: [
-                  const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CustomPaint(painter: _TkinterFeatherPainter()),
-                  ),
+                  const Icon(Icons.precision_manufacturing_rounded, color: Color(0xFFF15A24), size: 18),
                   const SizedBox(width: 8),
                   if (!isMobile) ...[
-                    const Text(
-                      'Company Management Software — Logged in: a (Admin)',
-                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    Text(
+                      'Company Management Software — Logged in: $userDisplay',
+                      style: TextStyle(color: Colors.white70, fontSize: 13.5),
                     ),
                     const SizedBox(width: 14),
                   ],
@@ -7735,7 +7734,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                         context.go('/dashboard');
                       }
                     },
-                    child: const Text('Close', style: TextStyle(fontSize: 11, color: Colors.white70)),
+                    child: const Text('Close', style: TextStyle(fontSize: 13.0, color: Colors.white70)),
                   ),
                 ],
               ),
@@ -7808,7 +7807,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
 
                           // Button 3: production Details (exact lowercase 'p')
                           _buildSignatureOrangeButton(
-                            label: 'production Details',
+                            label: 'Production Details',
                             onPressed: () {
                               setState(() {
                                 _inProductionDetailsView = true;
@@ -7826,7 +7825,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                           // Button 4: ☑ Test OK Product ID List
                           _buildSignatureOrangeButton(
                             icon: Icons.check_box_outlined,
-                            label: 'Test OK Product ID List',
+                            label: 'Tested OK Products List',
                             onPressed: _openTestOkProductListDialog,
                           ),
                           const SizedBox(height: 14),
@@ -7862,6 +7861,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
               ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -7904,7 +7904,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
               label,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 12,
+                fontSize: 13.5,
                 fontWeight: FontWeight.w600,
               ),
             ),

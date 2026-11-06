@@ -250,7 +250,7 @@ class PanelSpecDetailPage extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.darkTextSecondary)),
+                Text(label, style: const TextStyle(fontSize: 13.0, color: AppTheme.darkTextSecondary)),
                 const SizedBox(height: 2),
                 Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.darkText)),
               ],
@@ -288,7 +288,7 @@ class PanelSpecDetailPage extends ConsumerWidget {
                         color: AppTheme.primary.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Text('${items.length} Components', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primary)),
+                      child: Text('${items.length} Components', style: const TextStyle(fontSize: 13.0, fontWeight: FontWeight.bold, color: AppTheme.primary)),
                     ),
                   ],
                 ),
@@ -387,8 +387,8 @@ class PanelSpecDetailPage extends ConsumerWidget {
                 const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('ESTIMATED SELLING PRICE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.success)),
-                    Text('Inclusive of Overheads & Margin', style: TextStyle(fontSize: 10, color: AppTheme.darkTextSecondary)),
+                    Text('ESTIMATED SELLING PRICE', style: TextStyle(fontSize: 13.0, fontWeight: FontWeight.bold, color: AppTheme.success)),
+                    Text('Inclusive of Overheads & Margin', style: TextStyle(fontSize: 12.0, color: AppTheme.darkTextSecondary)),
                   ],
                 ),
                 Text(currency.format(finalPrice),
@@ -474,7 +474,7 @@ class PanelSpecDetailPage extends ConsumerWidget {
       ),
       child: Text(
         status.replaceAll('_', ' '),
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color),
+        style: TextStyle(fontSize: 13.0, fontWeight: FontWeight.bold, color: color),
       ),
     );
   }

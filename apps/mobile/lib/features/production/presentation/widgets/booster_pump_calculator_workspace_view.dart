@@ -1,3 +1,4 @@
+import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -281,7 +282,7 @@ class _BoosterPumpCalculatorWorkspaceViewState
         children: [
           Text(title, style: const TextStyle(color: Color(0xFFF15A24), fontSize: 12, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
-          ...lines.map((l) => Text('• $l', style: const TextStyle(color: Colors.white70, fontSize: 11.5))),
+          ...lines.map((l) => Text('• $l', style: const TextStyle(color: Colors.white70, fontSize: 13.5))),
         ],
       ),
     );
@@ -584,7 +585,7 @@ class _BoosterPumpCalculatorWorkspaceViewState
                   SizedBox(width: 6),
                   Text(
                     'Back to Dashboard',
-                    style: TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold),
+                    style: TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -592,7 +593,7 @@ class _BoosterPumpCalculatorWorkspaceViewState
           ),
           const Text(
             'F.Y. 2026-2027',
-            style: TextStyle(color: Color(0xFF8E9297), fontSize: 11.5, fontWeight: FontWeight.w500),
+            style: TextStyle(color: Color(0xFF8E9297), fontSize: 13.5, fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -615,7 +616,7 @@ class _BoosterPumpCalculatorWorkspaceViewState
         ),
         child: const Text(
           'Material & Labor Calculator',
-          style: TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold),
+          style: TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.bold),
         ),
       ),
     );
@@ -659,8 +660,8 @@ class _BoosterPumpCalculatorWorkspaceViewState
                 isDense: true,
                 dropdownColor: const Color(0xFF222428),
                 icon: const Icon(Icons.arrow_drop_down, color: Colors.white70, size: 16),
-                style: const TextStyle(color: Colors.white, fontSize: 11.5),
-                hint: const Text('Standard Customer', style: TextStyle(color: Colors.white, fontSize: 11.5)),
+                style: const TextStyle(color: Colors.white, fontSize: 13.5),
+                hint: const Text('Standard Customer', style: TextStyle(color: Colors.white, fontSize: 13.5)),
                 items: [
                   const DropdownMenuItem<String>(
                     value: null,
@@ -705,12 +706,12 @@ class _BoosterPumpCalculatorWorkspaceViewState
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Margin %: ', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                const Text('Margin %: ', style: TextStyle(color: Colors.white70, fontSize: 13.0)),
                 SizedBox(
                   width: 42,
                   child: TextField(
                     controller: _customerMarginCtrl,
-                    style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold),
+                    style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.bold),
                     decoration: const InputDecoration(
                       isDense: true,
                       contentPadding: EdgeInsets.symmetric(vertical: 6),
@@ -731,7 +732,7 @@ class _BoosterPumpCalculatorWorkspaceViewState
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
             ),
             onPressed: _showAddCustomerDialog,
-            child: const Text('+ Add Customer', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+            child: const Text('+ Add Customer', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(width: 8),
           ElevatedButton(
@@ -742,7 +743,7 @@ class _BoosterPumpCalculatorWorkspaceViewState
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
             ),
             onPressed: _showCosterDataSheetModal,
-            child: const Text('Open Price List', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+            child: const Text('Open Price List', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -1043,7 +1044,7 @@ class _BoosterPumpCalculatorWorkspaceViewState
                     ),
                     Text(
                       'Booster Pump Control Panel Specification & Sizing Sheet',
-                      style: TextStyle(color: Colors.black87, fontSize: 11, fontWeight: FontWeight.w600),
+                      style: TextStyle(color: Colors.black87, fontSize: 13.0, fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
@@ -1069,7 +1070,7 @@ class _BoosterPumpCalculatorWorkspaceViewState
           // Sizing Derivations Box
           const Text(
             'WORKBOOK-DERIVED CALCULATIONS:',
-            style: TextStyle(color: Colors.black, fontSize: 11, fontWeight: FontWeight.bold),
+            style: TextStyle(color: Colors.black, fontSize: 13.0, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 4),
           _buildSheetRow(
@@ -1095,7 +1096,7 @@ class _BoosterPumpCalculatorWorkspaceViewState
           // Breaker Logic
           const Text(
             'AUTO BREAKER SELECTION LOGIC:',
-            style: TextStyle(color: Colors.black, fontSize: 11, fontWeight: FontWeight.bold),
+            style: TextStyle(color: Colors.black, fontSize: 13.0, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 4),
           Container(
@@ -1111,7 +1112,7 @@ class _BoosterPumpCalculatorWorkspaceViewState
                   .map(
                     (s) => Text(
                       s,
-                      style: const TextStyle(color: Colors.black87, fontSize: 10, fontFamily: 'monospace'),
+                      style: GoogleFonts.jetBrainsMono(color: Colors.black87, fontSize: 12.0),
                     ),
                   )
                   .toList(),
@@ -1202,17 +1203,17 @@ class _BoosterPumpCalculatorWorkspaceViewState
                 const SizedBox(width: 10),
                 Text(
                   '(${rawBom.length} items)',
-                  style: const TextStyle(color: Colors.white54, fontSize: 11),
+                  style: const TextStyle(color: Colors.white54, fontSize: 13.0),
                 ),
                 const Spacer(),
                 SizedBox(
                   width: 240,
                   height: 28,
                   child: TextField(
-                    style: const TextStyle(color: Colors.white, fontSize: 11),
+                    style: const TextStyle(color: Colors.white, fontSize: 13.0),
                     decoration: InputDecoration(
                       hintText: 'Filter SKU, component...',
-                      hintStyle: const TextStyle(color: Color(0xFF72767D), fontSize: 10.5),
+                      hintStyle: const TextStyle(color: Color(0xFF72767D), fontSize: 12.5),
                       prefixIcon: const Icon(Icons.search, color: Color(0xFF72767D), size: 14),
                       contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 8),
                       filled: true,
@@ -1239,10 +1240,10 @@ class _BoosterPumpCalculatorWorkspaceViewState
               headingRowColor: WidgetStateProperty.all(const Color(0xFF141518)),
               headingTextStyle: const TextStyle(
                 color: Color(0xFFB0B3B8),
-                fontSize: 11,
+                fontSize: 13.0,
                 fontWeight: FontWeight.bold,
               ),
-              dataTextStyle: const TextStyle(color: Colors.white, fontSize: 11),
+              dataTextStyle: const TextStyle(color: Colors.white, fontSize: 13.0),
               horizontalMargin: 12,
               columnSpacing: 14,
               columns: const [
@@ -1273,7 +1274,7 @@ class _BoosterPumpCalculatorWorkspaceViewState
                     )),
                     DataCell(Text(
                       '${item['category'] ?? ''}',
-                      style: const TextStyle(color: Color(0xFF00B4D8), fontSize: 10.5),
+                      style: const TextStyle(color: Color(0xFF00B4D8), fontSize: 12.5),
                     )),
                     DataCell(Text('${item['specification'] ?? ''}')),
                     DataCell(Text('${item['make'] ?? ''}')),
@@ -1344,7 +1345,7 @@ class _BoosterPumpCalculatorWorkspaceViewState
                   flex: 5,
                   child: Text(
                     leftLabel,
-                    style: const TextStyle(color: Color(0xFFB0B3B8), fontSize: 11),
+                    style: const TextStyle(color: Color(0xFFB0B3B8), fontSize: 13.0),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -1363,7 +1364,7 @@ class _BoosterPumpCalculatorWorkspaceViewState
                   flex: 5,
                   child: Text(
                     rightLabel,
-                    style: const TextStyle(color: Color(0xFFB0B3B8), fontSize: 11),
+                    style: const TextStyle(color: Color(0xFFB0B3B8), fontSize: 13.0),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -1397,7 +1398,7 @@ class _BoosterPumpCalculatorWorkspaceViewState
           isExpanded: true,
           dropdownColor: const Color(0xFF222428),
           icon: const Icon(Icons.arrow_drop_down, color: Colors.white70, size: 16),
-          style: const TextStyle(color: Colors.white, fontSize: 11),
+          style: const TextStyle(color: Colors.white, fontSize: 13.0),
           items: items.map((i) => DropdownMenuItem(value: i, child: Text(i, overflow: TextOverflow.ellipsis))).toList(),
           onChanged: (val) {
             onChanged(val);
@@ -1413,7 +1414,7 @@ class _BoosterPumpCalculatorWorkspaceViewState
       height: 28,
       child: TextField(
         controller: ctrl,
-        style: const TextStyle(color: Colors.white, fontSize: 11),
+        style: const TextStyle(color: Colors.white, fontSize: 13.0),
         decoration: InputDecoration(
           contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 8),
           filled: true,
@@ -1444,7 +1445,7 @@ class _BoosterPumpCalculatorWorkspaceViewState
       ),
       child: Text(
         val,
-        style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+        style: const TextStyle(color: Colors.white70, fontSize: 13.0, fontWeight: FontWeight.bold),
       ),
     );
   }
@@ -1471,7 +1472,7 @@ class _BoosterPumpCalculatorWorkspaceViewState
             )
           : Text(
               label,
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 13.0, fontWeight: FontWeight.bold),
             ),
     );
   }
@@ -1483,11 +1484,11 @@ class _BoosterPumpCalculatorWorkspaceViewState
         children: [
           Expanded(
             flex: 4,
-            child: Text(label, style: const TextStyle(color: Colors.black54, fontSize: 10.5)),
+            child: Text(label, style: const TextStyle(color: Colors.black54, fontSize: 12.5)),
           ),
           Expanded(
             flex: 6,
-            child: Text(value, style: const TextStyle(color: Colors.black, fontSize: 10.5, fontWeight: FontWeight.w600)),
+            child: Text(value, style: const TextStyle(color: Colors.black, fontSize: 12.5, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -1500,8 +1501,8 @@ class _BoosterPumpCalculatorWorkspaceViewState
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: Colors.black87, fontSize: 10.5)),
-          Text(value, style: const TextStyle(color: Colors.black, fontSize: 10.5, fontWeight: FontWeight.bold)),
+          Text(label, style: const TextStyle(color: Colors.black87, fontSize: 12.5)),
+          Text(value, style: const TextStyle(color: Colors.black, fontSize: 12.5, fontWeight: FontWeight.bold)),
         ],
       ),
     );

@@ -183,7 +183,7 @@ class _PanelSpecsListPageState extends ConsumerState<PanelSpecsListPage>
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: const TextStyle(fontSize: 10, color: AppTheme.darkTextSecondary)),
+              Text(title, style: const TextStyle(fontSize: 12.0, color: AppTheme.darkTextSecondary)),
               Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color)),
             ],
           ),
@@ -343,7 +343,7 @@ class _PanelSpecsListPageState extends ConsumerState<PanelSpecsListPage>
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Estimated Price', style: TextStyle(fontSize: 11, color: AppTheme.darkTextSecondary)),
+                          const Text('Estimated Price', style: TextStyle(fontSize: 13.0, color: AppTheme.darkTextSecondary)),
                           Text(currency.format(finalPrice),
                               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.success)),
                         ],
@@ -384,7 +384,7 @@ class _PanelSpecsListPageState extends ConsumerState<PanelSpecsListPage>
       ),
       child: Text(
         type.replaceAll('_', ' '),
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color),
+        style: TextStyle(fontSize: 13.0, fontWeight: FontWeight.w600, color: color),
       ),
     );
   }
@@ -402,7 +402,7 @@ class _PanelSpecsListPageState extends ConsumerState<PanelSpecsListPage>
       ),
       child: Text(
         status.replaceAll('_', ' '),
-        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
+        style: TextStyle(fontSize: 12.0, fontWeight: FontWeight.bold, color: color),
       ),
     );
   }
