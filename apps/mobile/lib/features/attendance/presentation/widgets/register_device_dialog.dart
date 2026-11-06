@@ -44,9 +44,9 @@ class _RegisterDeviceDialogState extends ConsumerState<RegisterDeviceDialog> {
     _nameController = TextEditingController(text: d?.deviceName ?? '');
     _manufacturerController = TextEditingController(text: d?.manufacturer ?? 'TeamOffice');
     _modelController = TextEditingController(text: d?.model ?? 'TM-700 Facial + Fingerprint');
-    _ipController = TextEditingController(text: d?.ipAddress ?? '192.168.1.105');
-    _portController = TextEditingController(text: '${d?.port ?? 4370}');
-    _locationController = TextEditingController(text: d?.location ?? 'MIDC Plant Security Gate');
+    _ipController = TextEditingController(text: d?.ipAddress ?? '192.168.1.114');
+    _portController = TextEditingController(text: '${d?.port ?? 5005}');
+    _locationController = TextEditingController(text: d?.location ?? 'Saark Office / Plant');
     _notesController = TextEditingController(text: d?.notes ?? '');
 
     if (d != null) {

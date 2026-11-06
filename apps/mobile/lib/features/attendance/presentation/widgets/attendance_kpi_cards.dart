@@ -310,3 +310,4 @@ class AttendanceKpiCards extends StatelessWidget {
     );
   }
 }
+

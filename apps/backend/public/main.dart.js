@@ -133562,13 +133562,13 @@ q=r?n:s.f
 if(q==null)q="TM-700 Facial + Fingerprint"
 o.Q=new A.O(new A.aI(q,B.T,B.O),p)
 q=r?n:s.w
-if(q==null)q="192.168.1.105"
+if(q==null)q="192.168.1.114"
 o.as=new A.O(new A.aI(q,B.T,B.O),p)
 q=r?n:s.x
-if(q==null)q=4370
+if(q==null)q=5005
 o.at=new A.O(new A.aI(""+q,B.T,B.O),p)
 q=r?n:s.cy
-if(q==null)q="MIDC Plant Security Gate"
+if(q==null)q="Saark Office / Plant"
 o.ax=new A.O(new A.aI(q,B.T,B.O),p)
 q=r?n:s.db
 if(q==null)q=""
@@ -168231,7 +168231,7 @@ B.YX=new A.ug("flutter/system",B.jw,t.Al)
 B.dM=new A.aJD()
 B.kV=new A.ug("flutter/accessibility",B.dM,t.Al)
 B.YY=new A.hf("dev-003","SP-2026-0003","Admin & Engineering Office","FINGERPRINT","Suprema","BioStation 3","SP554433221","192.168.1.120",4370,"TCP_IP",null,null,!0,"SUCCESS",16,30,!0,"Executive Office & Design Center","RFID and fingerprint combo scanner for office & engineering teams")
-B.YZ=new A.hf("dev-001","TM-2026-0001","Main Gate Turnstile Biometric","FINGERPRINT_FACE","TeamOffice","TM-700 Facial + Optical","TO2026098231","192.168.1.105",4370,"TCP_IP",null,null,!0,"SUCCESS",38,10,!0,"MIDC Plant Security Gate A","Primary worker entry turnstile with automated face capture")
+B.YZ=new A.hf("dev-001","TM-WIFI-114","Saark TeamOffice Biometric (Wi-Fi)","FINGERPRINT_FACE","TeamOffice","Wi-Fi Attendance Terminal","TO-WIFI-114","192.168.1.114",5005,"TCP_IP",null,null,!0,"SUCCESS",38,10,!0,"Saark Exploration Office / Plant","Live TeamOffice Terminal connected to SAARK Wi-Fi on 192.168.1.114:5005")
 B.Z_=new A.hf("dev-002","ZK-2026-0002","Assembly Shopfloor Terminal","FACE","ZKTeco","uFace 800 Plus","ZK987123984","192.168.1.112",4370,"TCP_IP",null,null,!0,"SUCCESS",24,15,!0,"Panel Fabrication Bay 2","Shopfloor worker terminal with PPE helmet compliance verification")
 B.BX=new A.qy(0,0)
 B.BY=new A.qy(1,1)
