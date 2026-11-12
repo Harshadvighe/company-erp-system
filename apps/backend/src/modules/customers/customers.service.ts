@@ -476,29 +476,95 @@ export class CustomersService {
   }
 
   async create(dto: any, userId?: string, userEmail?: string) {
-    // Smart Upsert: If customer with this GSTIN or Company Name already exists (including soft-deleted), reactivate and update
-    if (dto.gstin && dto.gstin.trim() !== '') {
-      const exists = await this.prisma.customer.findFirst({
-        where: { gstin: dto.gstin.trim() },
+    // ─── STRICT DUPLICATE PREVENTION FOR SALES & MARKETING ───────────────────
+    // 1. Check real GSTIN (ignore UNREGISTERED, NA, NONE)
+    const rawGst = dto.gstin ? dto.gstin.trim().toUpperCase() : '';
+    const isRealGst = rawGst && !['UNREGISTERED', 'NA', 'NONE', 'APPLIED'].includes(rawGst) && rawGst.length >= 10;
+    if (isRealGst) {
+      const existsGst = await this.prisma.customer.findFirst({
+        where: { gstin: { equals: rawGst, mode: 'insensitive' } },
       });
-      if (exists) {
+      if (existsGst) {
         dto.status = 'ACTIVE';
-        return this.update(exists.id, dto, userId, userEmail);
-      }
-    } else if (dto.companyName && dto.companyName.trim() !== '') {
-      const existsName = await this.prisma.customer.findFirst({
-        where: {
-          companyName: { equals: dto.companyName.trim(), mode: 'insensitive' },
-        },
-      });
-      if (existsName) {
-        dto.status = 'ACTIVE';
-        return this.update(existsName.id, dto, userId, userEmail);
+        return this.update(existsGst.id, dto, userId, userEmail);
       }
     }
 
-    const customer = await this.prisma.$transaction((tx) =>
-      this.createInTransaction(tx, dto, userId),
+    // 2. Check Contact Phone (last 10 digits match)
+    const cleanPhone = dto.phone ? dto.phone.replace(/[^0-9]/g, '').slice(-10) : '';
+    if (cleanPhone.length >= 8) {
+      const existsPhone = await this.prisma.customer.findFirst({
+        where: {
+          OR: [
+            { phone: { contains: cleanPhone } },
+            { contacts: { some: { phone: { contains: cleanPhone } } } },
+          ],
+        },
+      });
+      if (existsPhone) {
+        dto.status = 'ACTIVE';
+        return this.update(existsPhone.id, dto, userId, userEmail);
+      }
+    }
+
+    // 3. Check Contact Email (excluding placeholder & internal auto-gen emails)
+    const rawEmail = dto.email ? dto.email.trim().toLowerCase() : '';
+    if (rawEmail && !rawEmail.includes('@placeholder') && !rawEmail.includes('@saark.in') && rawEmail.includes('@')) {
+      const existsEmail = await this.prisma.customer.findFirst({
+        where: {
+          OR: [
+            { email: { equals: rawEmail, mode: 'insensitive' } },
+            { contacts: { some: { email: { equals: rawEmail, mode: 'insensitive' } } } },
+          ],
+        },
+      });
+      if (existsEmail) {
+        dto.status = 'ACTIVE';
+        return this.update(existsEmail.id, dto, userId, userEmail);
+      }
+    }
+
+    // 4. Check Normalized Company Name (handling case, spacing, and legal suffixes)
+    const rawName = dto.companyName ? dto.companyName.trim() : '';
+    if (rawName && rawName.length >= 2) {
+      const existsExactName = await this.prisma.customer.findFirst({
+        where: {
+          companyName: { equals: rawName, mode: 'insensitive' },
+        },
+      });
+      if (existsExactName) {
+        dto.status = 'ACTIVE';
+        return this.update(existsExactName.id, dto, userId, userEmail);
+      }
+
+      // Fuzzy normalized company match: remove "pvt ltd", "ltd", "private limited", etc.
+      const normInput = rawName
+        .toLowerCase()
+        .replace(/\b(private|pvt|limited|ltd|enterprises|enterprise|industries|industry|company|co|llp|corp)\b/g, '')
+        .replace(/[^a-z0-9]/g, '');
+
+      if (normInput.length >= 3) {
+        const candidates = await this.prisma.customer.findMany({
+          select: { id: true, companyName: true },
+          take: 1000,
+        });
+        const matchedCandidate = candidates.find((c) => {
+          const normC = c.companyName
+            .toLowerCase()
+            .replace(/\b(private|pvt|limited|ltd|enterprises|enterprise|industries|industry|company|co|llp|corp)\b/g, '')
+            .replace(/[^a-z0-9]/g, '');
+          return normC === normInput || (normInput.length >= 5 && (normC.includes(normInput) || normInput.includes(normC)));
+        });
+        if (matchedCandidate) {
+          dto.status = 'ACTIVE';
+          return this.update(matchedCandidate.id, dto, userId, userEmail);
+        }
+      }
+    }
+
+    const customer = await this.prisma.$transaction(
+      (tx) => this.createInTransaction(tx, dto, userId),
+      { maxWait: 20000, timeout: 30000 },
     );
 
     if (dto.productSystemIds && Array.isArray(dto.productSystemIds)) {

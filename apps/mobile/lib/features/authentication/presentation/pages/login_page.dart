@@ -30,11 +30,13 @@ class _LoginPageState extends ConsumerState<LoginPage>
   String? _errorMessage;
 
   bool get _isRahulYeole {
-    final t = _emailController.text.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '');
+    final t = _emailController.text.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
     return t == 'saarkexploration30' ||
-        t == 'saarkexploration30@gmail.com' ||
-        t == 'rahulyeole' ||
-        t.contains('rahul');
+        t == 'saarkexploration30gmailcom' ||
+        t.contains('rahul') ||
+        t.contains('yeole') ||
+        t.contains('saarkexploration') ||
+        t.contains('emp2026005');
   }
 
   bool get _isSaarkAdmin {
@@ -54,6 +56,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
   @override
   void initState() {
     super.initState();
+    _loadSavedUsername();
     _emailController.addListener(_onEmailChanged);
     _fadeController = AnimationController(
       vsync: this,
@@ -80,6 +83,17 @@ class _LoginPageState extends ConsumerState<LoginPage>
     _passwordController.dispose();
     _fadeController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadSavedUsername() async {
+    try {
+      final saved = await AppStorage.read('last_login_username');
+      if (saved != null && saved.isNotEmpty && mounted && _emailController.text.isEmpty) {
+        setState(() {
+          _emailController.text = saved;
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _clearServerUrl() async {
@@ -187,6 +201,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
         }
         return;
       }
+
+      await AppStorage.write('last_login_username', _emailController.text.trim());
 
       if (mounted &&
           GoRouterState.of(context).matchedLocation == '/login') {
@@ -645,7 +661,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                       const SizedBox(height: 10),
                                       Text(
                                         _isRahulYeole
-                                            ? 'Rahul Yeole (Camera Bypassed)'
+                                            ? 'Rahul Yeole (Direct Password Login)'
                                             : 'Laptop Camera Bypassed',
                                         style: const TextStyle(
                                           color: Colors.white,
@@ -654,10 +670,12 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                         ),
                                       ),
                                       const SizedBox(height: 4),
-                                      const Text(
-                                        'No camera required for this device.\nSign in directly with your password.',
+                                      Text(
+                                        _isRahulYeole
+                                            ? 'No camera or face scan required.\nDirect access with username & password.'
+                                            : 'No camera required for this device.\nSign in directly with your password.',
                                         textAlign: TextAlign.center,
-                                        style: TextStyle(
+                                        style: const TextStyle(
                                           color: Colors.white54,
                                           fontSize: 10.5,
                                         ),

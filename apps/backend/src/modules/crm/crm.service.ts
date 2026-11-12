@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../core/database/prisma.service';
 import { SequenceService } from '../../core/database/sequence.service';
@@ -7,6 +7,8 @@ import { GstVerificationService } from './gst-verification.service';
 
 @Injectable()
 export class CrmService {
+  private readonly logger = new Logger(CrmService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
@@ -426,6 +428,56 @@ export class CrmService {
   }
 
   async createLead(dto: any, user?: any) {
+    // ─── DUPLICATE DETECTION FOR LEADS (SALES & MARKETING) ────────────────────
+    const cleanPhone = dto.phone ? dto.phone.replace(/[^0-9]/g, '').slice(-10) : '';
+    const cleanEmail = (dto.email && !dto.email.includes('@placeholder') && dto.email.includes('@'))
+      ? dto.email.trim().toLowerCase()
+      : null;
+    const cleanCompanyName = dto.companyName ? dto.companyName.trim() : '';
+
+    const existingLead = await this.prisma.lead.findFirst({
+      where: {
+        OR: [
+          ...(cleanPhone.length >= 8 ? [{ phone: { contains: cleanPhone } }] : []),
+          ...(cleanEmail ? [{ email: { equals: cleanEmail, mode: 'insensitive' as const } }] : []),
+          ...(cleanCompanyName.length >= 3
+            ? [{ companyName: { equals: cleanCompanyName, mode: 'insensitive' as const } }]
+            : []),
+        ],
+      },
+    });
+
+    if (existingLead) {
+      this.logger.log(`Prevented duplicate lead for "${cleanCompanyName || cleanPhone}". Updating existing Lead #${existingLead.leadNumber}`);
+      return this.updateLead(
+        existingLead.id,
+        {
+          ...dto,
+          remarks: dto.remarks
+            ? `${existingLead.remarks || ''}\n[Update]: ${dto.remarks}`.trim()
+            : existingLead.remarks,
+          requirement: dto.requirement || existingLead.requirement,
+          productInterest: dto.productInterest || existingLead.productInterest,
+        },
+        user,
+      );
+    }
+
+    // Auto-link existing Customer if available
+    let customerId = dto.customerId;
+    if (!customerId && (cleanCompanyName || cleanPhone)) {
+      const existingCustomer = await this.prisma.customer.findFirst({
+        where: {
+          OR: [
+            ...(cleanCompanyName ? [{ companyName: { equals: cleanCompanyName, mode: 'insensitive' as const } }] : []),
+            ...(cleanPhone.length >= 8 ? [{ phone: { contains: cleanPhone } }] : []),
+          ],
+        },
+        select: { id: true },
+      });
+      if (existingCustomer) customerId = existingCustomer.id;
+    }
+
     const leadNumber = await this.sequenceService.nextLeadNumber();
 
     const lead = await this.prisma.lead.create({
@@ -444,7 +496,7 @@ export class CrmService {
         salesManagerStaffId: dto.salesManagerStaffId,
         priority: dto.priority || 'MEDIUM',
         status: 'NEW',
-        customerId: dto.customerId,
+        customerId: customerId || dto.customerId,
         nextFollowUp: dto.nextFollowUp ? new Date(dto.nextFollowUp) : null,
         expectedClosureDate: dto.expectedClosureDate ? new Date(dto.expectedClosureDate) : null,
         remarks: dto.remarks,
@@ -540,6 +592,21 @@ export class CrmService {
       let customer: any = null;
 
       if (!customerId) {
+        // Prevent duplicate customer creation if customer with this company/phone already exists
+        const cleanLeadPhone = lead.phone ? lead.phone.replace(/[^0-9]/g, '').slice(-10) : '';
+        const existingCustomer = await tx.customer.findFirst({
+          where: {
+            OR: [
+              { companyName: { equals: lead.companyName.trim(), mode: 'insensitive' } },
+              ...(cleanLeadPhone.length >= 8 ? [{ phone: { contains: cleanLeadPhone } }] : []),
+            ],
+          },
+        });
+
+        if (existingCustomer) {
+          customerId = existingCustomer.id;
+          customer = existingCustomer;
+        } else {
         const customerCode = await this.sequenceService.nextCustomerCode();
 
         customer = await tx.customer.create({
@@ -583,6 +650,7 @@ export class CrmService {
             activityCount: 1,
           },
         });
+        }
       }
 
       // Create Opportunity if requested

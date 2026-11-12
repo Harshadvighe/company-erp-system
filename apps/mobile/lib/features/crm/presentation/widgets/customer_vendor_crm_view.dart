@@ -236,6 +236,65 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
     );
   }
 
+  int _findDuplicateRowIndex({
+    required String companyName,
+    String? gstNumber,
+    String? contactNumber,
+  }) {
+    final cleanGst = gstNumber?.trim().toUpperCase();
+    final isRealGst = cleanGst != null &&
+        cleanGst.isNotEmpty &&
+        cleanGst != 'UNREGISTERED' &&
+        cleanGst != 'NA' &&
+        cleanGst != 'NONE' &&
+        cleanGst != 'APPLIED';
+
+    final cleanPhone = (contactNumber ?? '').replaceAll(RegExp(r'[^0-9]'), '');
+    final last10 = cleanPhone.length >= 10
+        ? cleanPhone.substring(cleanPhone.length - 10)
+        : (cleanPhone.length >= 8 ? cleanPhone : null);
+
+    final normName = companyName
+        .toLowerCase()
+        .replaceAll(RegExp(r'\b(private|pvt|limited|ltd|enterprises|enterprise|industries|industry|company|co|llp|corp)\b'), '')
+        .replaceAll(RegExp(r'[^a-z0-9]'), '');
+
+    for (int i = 0; i < _sampleRows.length; i++) {
+      final r = _sampleRows[i];
+
+      // 1. GST Match
+      if (isRealGst && r.gstNumber.trim().toUpperCase() == cleanGst) {
+        return i;
+      }
+
+      // 2. Phone Match (last 10 digits)
+      if (last10 != null) {
+        final rPhone = r.contactNumber.replaceAll(RegExp(r'[^0-9]'), '');
+        if (rPhone.isNotEmpty && (rPhone.contains(last10) || (rPhone.length >= 10 && last10.contains(rPhone.substring(rPhone.length - 10))))) {
+          return i;
+        }
+      }
+
+      // 3. Exact Company Name Match
+      if (r.companyName.trim().toLowerCase() == companyName.trim().toLowerCase()) {
+        return i;
+      }
+
+      // 4. Normalized Company Name Match
+      if (normName.length >= 3) {
+        final rNorm = r.companyName
+            .toLowerCase()
+            .replaceAll(RegExp(r'\b(private|pvt|limited|ltd|enterprises|enterprise|industries|industry|company|co|llp|corp)\b'), '')
+            .replaceAll(RegExp(r'[^a-z0-9]'), '');
+        if (rNorm.isNotEmpty && (rNorm == normName || (normName.length >= 5 && (rNorm.contains(normName) || normName.contains(rNorm))))) {
+          return i;
+        }
+      }
+    }
+
+    return -1;
+  }
+
   Future<void> _saveCustomer() async {
     final companyName = _companyNameCtrl.text.trim();
     if (companyName.isEmpty) {
@@ -286,9 +345,19 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
     );
 
     // Save to persistent local storage immediately so data is NEVER lost on reload
+    final duplicateIdx = _findDuplicateRowIndex(
+      companyName: companyName,
+      gstNumber: _gstNumberCtrl.text,
+      contactNumber: _contactNumberCtrl.text,
+    );
+    final isDuplicate = duplicateIdx != -1;
+
     setState(() {
-      _sampleRows.removeWhere((r) => r.companyName.toLowerCase() == companyName.toLowerCase());
-      _sampleRows.insert(0, localRow);
+      if (isDuplicate) {
+        _sampleRows[duplicateIdx] = localRow;
+      } else {
+        _sampleRows.insert(0, localRow);
+      }
     });
     await _savePersistedCustomRows();
 
@@ -340,15 +409,29 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
       }
       if (targetCustomer == null) {
         final liveState = ref.read(customerListProvider);
+        final cleanPhone = _contactNumberCtrl.text.replaceAll(RegExp(r'[^0-9]'), '');
+        final last10 = cleanPhone.length >= 10 ? cleanPhone.substring(cleanPhone.length - 10) : (cleanPhone.length >= 8 ? cleanPhone : null);
+        final rawGst = _gstNumberCtrl.text.trim().toUpperCase();
+        final isRealGst = rawGst.isNotEmpty && !['UNREGISTERED', 'NA', 'NONE', 'APPLIED'].contains(rawGst);
+
         targetCustomer = liveState.customers.cast<Customer?>().firstWhere(
-          (c) => c != null && c.companyName.trim().toLowerCase() == companyName.toLowerCase(),
+          (c) {
+            if (c == null) return false;
+            if (isRealGst && c.gstin?.toUpperCase() == rawGst) return true;
+            if (last10 != null && c.phone != null) {
+              final cPhone = c.phone!.replaceAll(RegExp(r'[^0-9]'), '');
+              if (cPhone.contains(last10)) return true;
+            }
+            if (c.companyName.trim().toLowerCase() == companyName.toLowerCase()) return true;
+            return false;
+          },
           orElse: () => null,
         );
       }
 
-      final isUpdatingExisting = targetCustomer != null;
+      final isUpdatingExisting = targetCustomer != null || isDuplicate;
 
-      if (isUpdatingExisting) {
+      if (targetCustomer != null) {
         await repo.updateCustomer(targetCustomer.id, payload);
       } else {
         await repo.createCustomer(payload);
@@ -362,7 +445,9 @@ class _CustomerVendorCrmViewState extends ConsumerState<CustomerVendorCrmView> {
         setState(() => _isSaving = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('✅ Customer "$companyName" saved successfully to database & workspace!'),
+            content: Text(isUpdatingExisting
+                ? 'ℹ️ Duplicate avoided: Updated existing record for "$companyName"'
+                : '✅ Customer "$companyName" saved successfully to database & workspace!'),
             backgroundColor: const Color(0xFF10B981),
           ),
         );

@@ -716,7 +716,7 @@ class _LeadFormSheetState extends ConsumerState<_LeadFormSheet> {
         context.pop();
         widget.onSuccess();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Lead created'), backgroundColor: AppTheme.success),
+          const SnackBar(content: Text('✅ Lead saved successfully (Duplicate checked)'), backgroundColor: AppTheme.success),
         );
       }
     } catch (e) {
