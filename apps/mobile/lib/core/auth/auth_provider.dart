@@ -128,6 +128,8 @@ class AuthUser {
       case 'PANEL_MANUFACTURING':
       case 'QUALITY_CONTROL':
       case 'RESEARCH_DEVELOPMENT':
+      case 'PRODUCT_DEVELOPMENT':
+      case 'NPD':
         return canView('PRODUCTION');
       case 'PROJECTS':
         return canView('PROJECTS');
@@ -185,6 +187,8 @@ class AuthUser {
       case 'MAINTENANCE':
         return '/my-work';
       case 'RESEARCH_DEVELOPMENT':
+      case 'PRODUCT_DEVELOPMENT':
+      case 'NPD':
         return '/production/specs';
       case 'ASSET_MANAGEMENT':
         return '/inventory?view=assets';

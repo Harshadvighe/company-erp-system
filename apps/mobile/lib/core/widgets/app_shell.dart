@@ -88,6 +88,16 @@ List<_NavItem> _getAuthorizedNavItems(AuthUser? user) {
     ));
   }
 
+  // Product & Development
+  if (user.canAccessModule('PRODUCT_DEVELOPMENT')) {
+    items.add(const _NavItem(
+      label: 'Product & Development',
+      icon: Icons.precision_manufacturing_outlined,
+      activeIcon: Icons.precision_manufacturing_rounded,
+      route: '/product-development',
+    ));
+  }
+
   // 2. B2B Trading
   if (user.canAccessModule('B2B_TRADING')) {
     items.add(const _NavItem(
@@ -1188,6 +1198,7 @@ class _TopHeader extends StatelessWidget {
   String _getPageTitle(String route) {
     if (route.startsWith('/dashboard')) return 'Dashboard';
     if (route.startsWith('/sales-marketing')) return 'Sales & Marketing';
+    if (route.startsWith('/product-development')) return 'Product & Development';
     if (route.startsWith('/crm/enquiries')) return 'B2B Trading';
     if (route.startsWith('/crm/follow-ups') || route.startsWith('/customers')) return 'Customer Service';
     if (route.startsWith('/crm/invoices') || route.startsWith('/sales/invoices')) return 'Point of Sale (POS) / E-Commerce';

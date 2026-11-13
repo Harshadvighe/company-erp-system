@@ -2475,3 +2475,148 @@ model B2bMedia {
   @@map("b2b_media")
 }
 
+
+
+// -------------------------------------------------------------
+// 15. NPD / PRODUCT DEVELOPMENT & NPI LIFECYCLE MODULE
+// -------------------------------------------------------------
+
+model NpdProject {
+  id                   String              @id @default(uuid())
+  projectCode          String              @unique // PRJ-NPD-2026-001
+  projectName          String
+  skuId                String?
+  productCategory      String              @default("IoT & Embedded")
+  targetMcu            String              @default("ESP32-S3-WROOM-1")
+  operatingVoltage     String?             @default("3.3V / 12V-24V DC")
+  formFactor           String?             @default("DIN Rail 4U")
+  complianceTargets    String?             @default("CE, FCC, RoHS, WEEE")
+  currentStep          Int                 @default(1) // 1 to 24
+  currentPhase         Int                 @default(1) // 1 to 4
+  status               String              @default("ACTIVE") // ACTIVE, ON_HOLD, FROZEN, COMPLETED, CANCELLED
+  registerMap          Json?               // SSOT Register Map holding PC_REG and MB_REG mappings
+  isRegisterMapFrozen  Boolean             @default(false)
+  targetCompletionDate DateTime?
+  createdByStaffId     String?
+  createdByStaffName   String?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  steps                NpdWorkflowStep[]
+  artifacts            NpdArtifact[]
+  bomLinks             NpdBomLink[]
+  unitTestLogs         NpdUnitTestLog[]
+
+  @@map("npd_projects")
+  @@index([status])
+  @@index([currentPhase])
+  @@index([currentStep])
+}
+
+model NpdWorkflowStep {
+  id                String      @id @default(uuid())
+  projectId         String
+  stepNumber        Int         // 1 to 24
+  stepTitle         String
+  phaseNumber       Int         // 1 to 4
+  phaseName         String
+  trackType         String      @default("DUAL_TRACK") // DUAL_TRACK, HARDWARE, FIRMWARE
+  hwOwner           String?
+  hwDeliverable     String
+  swOwner           String?
+  swDeliverable     String
+  gateType          String      @default("STANDARD") // STANDARD, HARD_STOP_REVIEW, DESIGN_FREEZE, COMPLIANCE_STOP, GOLDEN_SAMPLE_LOCK, FACTORY_PASS_GATE
+  status            String      @default("PENDING") // PENDING, IN_PROGRESS, SIGNED_OFF, BLOCKED
+  signoffStaffId    String?
+  signoffStaffName  String?
+  signoffRole       String?
+  signoffComments   String?
+  signedOffAt       DateTime?
+  blockingReasons   String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  project           NpdProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, stepNumber])
+  @@map("npd_workflow_steps")
+  @@index([projectId])
+  @@index([stepNumber])
+  @@index([status])
+}
+
+model NpdArtifact {
+  id                 String      @id @default(uuid())
+  projectId          String
+  stepNumber         Int?
+  artifactCategory   String      // SCHEMATIC, GERBER, BOM, PICK_AND_PLACE, FIRMWARE_BIN, FIRMWARE_HEX, REGISTER_MAP, TEST_SPEC, CERTIFICATION, DATASHEET
+  fileName           String
+  filePath           String
+  fileSizeBytes      Int?
+  sha256Hash         String?
+  versionTag         String?     // e.g. v1.0.0-RC1
+  isFrozen           Boolean     @default(false)
+  uploadedByStaffId  String?
+  uploadedByName     String?
+  createdAt          DateTime    @default(now())
+
+  project            NpdProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("npd_artifacts")
+  @@index([projectId])
+  @@index([artifactCategory])
+}
+
+model NpdBomLink {
+  id                  String      @id @default(uuid())
+  projectId           String
+  designator          String      // R1, C3, U2
+  mpn                 String      // Manufacturer Part Number
+  manufacturer        String?
+  description         String?
+  package             String?     // 0603, QFN-48, SMD-Module
+  quantityPerPcb      Int         @default(1)
+  erpItemId           String?
+  isRohsCompliant     Boolean     @default(true)
+  rohsCertificateUrl  String?
+  lifecycleStatus     String      @default("ACTIVE") // ACTIVE, EOL, NRND, OBSOLETE
+  targetUnitCost      Float       @default(0)
+  preferredVendorId   String?
+  rfqId               String?
+  poId                String?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  project             NpdProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("npd_bom_links")
+  @@index([projectId])
+  @@index([mpn])
+}
+
+model NpdUnitTestLog {
+  id                   String      @id @default(uuid())
+  projectId            String
+  serialNumber         String      // SN-2026-NPD-00042
+  batchRunId           String?
+  stepNumber           Int         @default(23) // 21 (Bring-up), 22 (Golden Sample), 23 (Production Test)
+  firmwareVersion      String?
+  firmwareHash         String?
+  testStationId        String?
+  operatorName         String?
+  testStatus           String      // PASS, FAIL, IN_PROGRESS
+  voltageRailsResult   Json?       // {"3v3": 3.31, "5v0": 5.04, "status": "PASS"}
+  currentConsumptionMa Float?
+  rfRssiDbm            Float?
+  peripheralsTested    Json?       // {"i2c": true, "spi": true, "uart": true, "modbus": true}
+  rawTerminalLog       String?
+  failureReason        String?
+  testedAt             DateTime    @default(now())
+
+  project              NpdProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("npd_unit_test_logs")
+  @@index([projectId])
+  @@index([serialNumber])
+  @@index([testStatus])
+}

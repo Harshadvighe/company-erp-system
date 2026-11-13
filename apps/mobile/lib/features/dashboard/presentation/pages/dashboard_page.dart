@@ -469,6 +469,16 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       ));
     }
 
+    if (user.canAccessModule('PRODUCT_DEVELOPMENT')) {
+      tiles.add(const _ConsoleTileData(
+        title: 'Product & Development',
+        subtitle: '24-step NPI lifecycle, dual-track HW/FW & register map',
+        icon: Icons.precision_manufacturing_rounded,
+        route: '/product-development',
+        accentColor: Color(0xFF00B4D8),
+      ));
+    }
+
     if (user.canAccessModule('TASKS')) {
       tiles.add(const _ConsoleTileData(
         title: 'Task Manager',

@@ -41,6 +41,7 @@ import 'package:saark_erp_mobile/features/crm/presentation/pages/accounts_dashbo
 import 'package:saark_erp_mobile/features/inventory/presentation/pages/inventory_dashboard_page.dart';
 import 'package:saark_erp_mobile/features/reports/presentation/pages/reports_dashboard_page.dart';
 import 'package:saark_erp_mobile/features/crm/presentation/pages/sales_marketing_portal_page.dart';
+import 'package:saark_erp_mobile/features/product_development/presentation/pages/product_development_portal_page.dart';
 
 class RouterNotifier extends ChangeNotifier {
   final Ref _ref;
@@ -248,6 +249,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: '/crm/customer-vendor',
             name: 'crm-customer-vendor',
             builder: (context, state) => const SalesMarketingPortalPage(initialTab: 1),
+          ),
+
+          // ─── Product & Development (NPD / NPI Lifecycle) ───────
+          GoRoute(
+            path: '/product-development',
+            name: 'product-development',
+            builder: (context, state) => const ProductDevelopmentPortalPage(),
+          ),
+          GoRoute(
+            path: '/product-and-development',
+            name: 'product-and-development',
+            builder: (context, state) => const ProductDevelopmentPortalPage(),
+          ),
+          GoRoute(
+            path: '/npd',
+            name: 'npd',
+            builder: (context, state) => const ProductDevelopmentPortalPage(),
           ),
 
           // ─── CRM ─────────────────────────────────────────────────
