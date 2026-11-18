@@ -24,6 +24,7 @@ import { BiometricsModule } from './core/biometrics/biometrics.module';
 import { B2bTradingModule } from './modules/b2b-trading/b2b-trading.module';
 import { AttendanceModule } from './modules/attendance/attendance-sync.module';
 import { NpdModule } from './modules/npd/npd.module';
+import { GovernanceModule } from './modules/governance/governance.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { NpdModule } from './modules/npd/npd.module';
     B2bTradingModule,
     AttendanceModule,
     NpdModule,
+    GovernanceModule,
   ],
 })
 export class AppModule {}

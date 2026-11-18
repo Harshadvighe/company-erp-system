@@ -16,3 +16,4 @@ export class VerifyPresenceDto {
   @IsString()
   currentRoute?: string;
 }
+

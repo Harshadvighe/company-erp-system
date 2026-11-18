@@ -11,3 +11,4 @@ export class FaceAutoLoginDto {
   @IsString()
   livePhotoBase64?: string;
 }
+
