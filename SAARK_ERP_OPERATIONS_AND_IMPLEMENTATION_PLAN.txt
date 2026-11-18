@@ -156,7 +156,175 @@ ENGINE 2: BMS DIVISION & READY ELECTRONICS TRADING (Make-to-Stock / Trading)
                                  Requisition to Procurement for vendor order.
 
 ================================================================================
-4. STEP-BY-STEP IMPLEMENTATION ROADMAP
+4. DETAILED OPERATIONAL & TECHNICAL WORKFLOWS
+================================================================================
+
+--------------------------------------------------------------------------------
+WORKFLOW 1: CUSTOM PANEL ASSEMBLY & MANUFACTURING LIFECYCLE (Engineered-to-Order)
+--------------------------------------------------------------------------------
+
+[Client Enquiry] -> [BOM / Excel Import] -> [Sourcing Match ("kuthun purchase kelte")]
+       |
+       v
+[Auto-Quotation (QUO-2026-XXXXX)] -> [Customer Approval & PO] -> [Sales Order]
+       |
+       v
+[Material Reservation & Shortfall PO] -> [Shop Floor Assembly & Wiring]
+       |
+       v
+[Factory Acceptance Testing (FAT QC)] -> [Dispatch & Tax Invoice]
+
+DETAILED STEP-BY-STEP SOP:
+Step 1.1: Customer Enquiry Ingestion
+  - Customer provides pump ratings (e.g., 7.5 HP dual-pump booster system) and
+    voltage requirements (415V 3-Phase).
+  - Sales engineer logs requirement in /#/crm/enquiries.
+
+Step 1.2: Material List (BOM) Ingestion via Excel
+  - Engineer compiles or uploads component list (.xlsx) into /#/crm/quotations:
+    * Switchgear (MCBs, contactors, overload relays, timers, phase failer).
+    * Enclosure (IP55 powder-coated MS box with gland plates).
+    * Control & Indication (LED indicators, selector switches, push buttons).
+    * Wiring & Busbars (copper busbars, PVC wire ducts, terminal blocks).
+
+Step 1.3: Sourcing Matcher ("kuthun purchase kelte") & Auto-Sorting
+  - System checks past InwardEntry and PurchaseOrder records for each item.
+  - Automatically identifies:
+    * Last Supplier Name (e.g., Schneider Electric distributor, L&T vendor).
+    * Last Purchase Unit Price.
+    * Supplier Lead Time.
+  - Auto-sorts components into standard industrial categories.
+
+Step 1.4: Auto-Quotation Calculation
+  - Material Cost = Sum(Quantity * Unit Price).
+  - Labour & Assembly Charges = Standardized hourly/rating matrix.
+  - Overhead & Testing = Testing fee + packing cost.
+  - Margin = Configurable profit percentage (e.g., 15%).
+  - Tax = 18% GST under HSN Code 8537 (Electrical Control Panels).
+  - Formal PDF Quotation generated in 1 click with standard payment terms.
+
+Step 1.5: Production & FAT Quality Clearance
+  - Workstation allocated on shop floor (/production/new).
+  - Assembly technicians mount components, wire according to schematic.
+  - Quality engineer verifies 7-point FAT protocol in /production/management:
+    (1) Visual & dimensional check
+    (2) High voltage test (2.5kV for 1 min)
+    (3) Insulation resistance (>50 MegaOhms)
+    (4) Control logic & trip simulation
+    (5) Phase reversal interlock
+    (6) Earthing continuity
+    (7) Ferruling & cable gland dressing.
+  - Inspection certificate signed and panel dispatched.
+
+
+--------------------------------------------------------------------------------
+WORKFLOW 2: BMS DIVISION & READY ELECTRONICS TRADING (Make-to-Stock)
+--------------------------------------------------------------------------------
+
+[Desktop Computer Search] -> [Sales Order Entry]
+                                    |
+                                    v
+                 [Stock Decision Engine ("order madhich decide hoil")]
+                                   / \
+                                  /   \
+          [Sufficient Stock] <---/     \---> [Stock Shortfall]
+                  |                                     |
+                  v                                     v
+       [Immediate Stock Reserve]              [Auto Purchase Requisition]
+                  |                                     |
+                  v                                     v
+         [Packing & Gate Pass]                  [Vendor Order to Supplier]
+                  |                                     |
+                  v                                     v
+        [Tax Invoice & Dispatch]              [Inward Entry & Dispatch]
+
+DETAILED STEP-BY-STEP SOP:
+Step 2.1: Desktop Computer Search (Ctrl + K)
+  - Sales executive types product name or model (e.g. "TP-Link", "Gateway", "Sensor").
+  - System returns real-time catalog price, technical datasheet, and warehouse stock.
+
+Step 2.2: Sales Order Booking & Real-Time Stock Decision
+  - Executive enters order for e.g. 50 units.
+  - System immediately triggers Stock Allocation Check:
+    * Condition A: In-stock quantity >= 50.
+      Result: Badge turns GREEN ("Stock Allocated"). StockItem.availableQuantity
+      is instantly reserved to prevent overselling.
+    * Condition B: In-stock quantity = 20 (Shortfall = 30).
+      Result: Badge turns AMBER/RED ("Shortfall: 30 units").
+
+Step 2.3: Automated Procurement Trigger for Shortfall
+  - System prompts: "Generate Purchase Requisition for 30 units?".
+  - 1-click creates PurchaseRequisition in /#/purchase/orders linked to this Sales Order.
+  - Procurement team places PO with vendor.
+
+Step 2.4: Fast-Track Inward & Customer Dispatch
+  - When vendor delivers goods, InwardEntryItem marks them as "Pre-Allocated to Order".
+  - System generates Commercial Invoice, E-Way Bill details, and Dispatch Pass.
+
+
+--------------------------------------------------------------------------------
+WORKFLOW 3: MATERIAL LIST RE-USE & UPDATE ("material ani update")
+--------------------------------------------------------------------------------
+
+[Select Past Panel Template] -> [Load Existing BOM Items]
+                                        |
+                                        v
+                       [Inspect Components & Stock Availability]
+                                        |
+                                        v
+                 [Modify Quantities / Swap Custom Switchgear]
+                                        |
+                                        v
+               [Save as New Version / Release to Shop Floor Batch]
+
+DETAILED STEP-BY-STEP SOP:
+Step 3.1: Template Selection
+  - Engineer opens /#/production/new and selects "Load from Existing Panel".
+  - Chooses from standard templates (e.g., "7.5HP Dual Booster Panel").
+
+Step 3.2: Inspect Existing Material List
+  - All existing switchgear, contactors, and relays are populated in the grid.
+  - Warehouse stock column shows whether each part is in stock or needs ordering.
+
+Step 3.3: Component Customization ("ani update")
+  - Keep standard base (enclosure, terminal blocks, wiring).
+  - Swap custom components (e.g., change Siemens VFD to ABB, upgrade 16A MCB to 25A).
+  - Update quantities to match new client specifications.
+
+Step 3.4: Instant Cost Recalculation & Save
+  - System recalculates total panel cost in real time.
+  - Saves as new panel revision (e.g. PANEL-2026-0012) without re-entering unchanged data.
+
+
+--------------------------------------------------------------------------------
+WORKFLOW 4: OFFICE EXPENSE (HR / ADMIN) LIFECYCLE
+--------------------------------------------------------------------------------
+
+[Staff Expense Entry] -> [Upload Bill / Receipt Photo]
+                                  |
+                                  v
+                      [Department Admin Review]
+                                  |
+                                  v
+                [Managing Director Approval (Saarkadmin)]
+                                  |
+                                  v
+              [Posted to Accounts Ledger / Cash Reimbursement]
+
+DETAILED STEP-BY-STEP SOP:
+Step 4.1: Submission
+  - Staff logs into /#/hr or mobile app.
+  - Fills Expense Voucher: Category (Travel, Stationery, Tea/Pantry, Courier, Tools).
+  - Attaches phone camera photo of receipt.
+
+Step 4.2: Approval & Ledger Entry
+  - HR Admin verifies amount and legitimacy.
+  - Managing Director (Saarkadmin) approves voucher.
+  - Transaction automatically debits Office Expense Ledger in /#/accounts and credits
+    Petty Cash or Bank Reimbursement account.
+
+================================================================================
+5. STEP-BY-STEP IMPLEMENTATION ROADMAP
 ================================================================================
 
 PHASE 1: EXCEL BOM IMPORT & AUTO-QUOTATION GENERATOR
@@ -227,3 +395,4 @@ Test Logins:
 Document saved at:
 d:\saark_ERP\company-erp-system\SAARK_ERP_OPERATIONS_AND_IMPLEMENTATION_PLAN.txt
 ================================================================================
+
