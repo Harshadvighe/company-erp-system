@@ -48,3 +48,6 @@ tunnel_output.log
 phone_url.txt
 phone_access.html
 
+# Governance Security Leases
+.author_lease.json
+
