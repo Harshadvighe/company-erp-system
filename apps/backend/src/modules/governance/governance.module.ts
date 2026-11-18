@@ -11,3 +11,4 @@ import { PrismaService } from '../../core/database/prisma.service';
   exports: [GovernanceService],
 })
 export class GovernanceModule {}
+

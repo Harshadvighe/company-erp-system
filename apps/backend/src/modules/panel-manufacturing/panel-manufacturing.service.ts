@@ -129,12 +129,7 @@ export class PanelManufacturingService {
   // ─── 1. PRODUCTION BATCHES ───────────────────────────────────
 
   async getBatches() {
-    let batches = this.readJsonFile<any[]>('batches.json', []);
-    if (batches.length === 0) {
-      batches = this.getInitialSampleBatches();
-      this.writeJsonFile('batches.json', batches);
-    }
-    return batches;
+    return this.readJsonFile<any[]>('batches.json', []);
   }
 
   async getBatchById(id: string) {
@@ -164,8 +159,8 @@ export class PanelManufacturingService {
       startDate: dto.startDate || `${now.toISOString().split('T')[0]} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`,
       expectedCompletionDate: dto.expectedCompletionDate || new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
       meetingDate: dto.meetingDate || now.toISOString().split('T')[0],
-      assignedPersonnel: dto.assignedPersonnel || 'Rahul Verma; Sunil Pawar; Amit Deshmukh',
-      notes: dto.notes || 'High-priority manufacturing batch. Ensure wiring torque standards and FAT isolation verification.',
+      assignedPersonnel: dto.assignedPersonnel || '',
+      notes: dto.notes || '',
       attachedDocument: dto.attachedDocument || null,
       status: 'IN_PROGRESS', // DRAFT -> SCHEDULED -> READY -> IN_PROGRESS -> QA_HOLD -> COMPLETED -> RELEASED
       targetQuantity: Number(dto.targetQuantity || 10),
@@ -208,11 +203,7 @@ export class PanelManufacturingService {
   // ─── 2. PRODUCT INSPECTION & TESTING LOG ───────────────────────
 
   async getTestingRecords(batchId?: string) {
-    let records = this.readJsonFile<any[]>('testing_logs.json', []);
-    if (records.length === 0) {
-      records = this.getInitialSampleTestingRecords();
-      this.writeJsonFile('testing_logs.json', records);
-    }
+    const records = this.readJsonFile<any[]>('testing_logs.json', []);
     if (batchId) {
       return records.filter((r) => r.batchId === batchId || r.batchNumber === batchId);
     }
@@ -279,12 +270,7 @@ export class PanelManufacturingService {
   // ─── 3. DISPATCH LOG ──────────────────────────────────────────
 
   async getDispatchLogs() {
-    let logs = this.readJsonFile<any[]>('dispatch_logs.json', []);
-    if (logs.length === 0) {
-      logs = this.getInitialSampleDispatchLogs();
-      this.writeJsonFile('dispatch_logs.json', logs);
-    }
-    return logs;
+    return this.readJsonFile<any[]>('dispatch_logs.json', []);
   }
 
   async createDispatch(dto: any, actorName = 'Admin') {
@@ -326,12 +312,7 @@ export class PanelManufacturingService {
   // ─── 4. PANEL MANUFACTURING ASSEMBLY JOBS & QC ────────────────
 
   async getAssemblyJobs() {
-    let jobs = this.readJsonFile<any[]>('assembly_jobs.json', []);
-    if (jobs.length === 0) {
-      jobs = this.getInitialSampleAssemblyJobs();
-      this.writeJsonFile('assembly_jobs.json', jobs);
-    }
-    return jobs;
+    return this.readJsonFile<any[]>('assembly_jobs.json', []);
   }
 
   async createAssemblyJob(dto: any) {
@@ -777,4 +758,3 @@ export class PanelManufacturingService {
     ];
   }
 }
-

@@ -9,3 +9,4 @@ echo Locking architectural blueprint and resetting author lease...
 node apps\backend\scripts\author_file_guard.js lock
 echo.
 pause
+

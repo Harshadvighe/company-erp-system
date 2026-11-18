@@ -88,6 +88,27 @@ test('persists a production batch and updates its status and materials', async (
   assert.deepEqual(fetchedBatch.materials, materials);
 });
 
+test('returns empty collections instead of seeding fictional production records', async (t) => {
+  const service = createService(t);
+
+  assert.deepEqual(await service.getBatches(), []);
+  assert.deepEqual(await service.getTestingRecords(), []);
+  assert.deepEqual(await service.getDispatchLogs(), []);
+  assert.deepEqual(await service.getAssemblyJobs(), []);
+});
+
+test('does not assign fictional people or notes to a new batch', async (t) => {
+  const service = createService(t);
+  const batch = await service.createBatch({
+    batchNumber: 'BATCH-TEST-OPTIONAL-FIELDS',
+    productName: 'Test Control Panel',
+    targetQuantity: 1,
+  });
+
+  assert.equal(batch.assignedPersonnel, '');
+  assert.equal(batch.notes, '');
+});
+
 test('returns not found for a missing production batch', async (t) => {
   const service = createService(t);
 

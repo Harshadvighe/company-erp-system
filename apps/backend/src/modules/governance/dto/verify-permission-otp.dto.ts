@@ -26,3 +26,4 @@ export class VerifyPermissionOtpDto {
   @IsString()
   targetResource: string;
 }
+

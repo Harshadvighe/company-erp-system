@@ -50,3 +50,4 @@ echo.
 echo NOTE: When finished, run LOCK_ARCHITECTURE.bat to re-encrypt and lock!
 echo ======================================================================
 pause
+

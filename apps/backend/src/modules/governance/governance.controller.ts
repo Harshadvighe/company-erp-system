@@ -38,3 +38,4 @@ export class GovernanceController {
     return this.governanceService.verifyPermissionOtp(dto, ip);
   }
 }
+
