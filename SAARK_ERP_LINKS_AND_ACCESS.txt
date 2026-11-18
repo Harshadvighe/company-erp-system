@@ -50,6 +50,13 @@
 * Purchase / Procurement:
   https://company-erp-system-4fi6.onrender.com/#/purchase/orders
 
+* Product & Development (Dual-Track NPD Engine):
+  https://company-erp-system-4fi6.onrender.com/#/product-development
+
+* Office Local Wi-Fi Access (Host IP: 192.168.1.109):
+  http://192.168.1.109:3000
+  http://localhost:3000
+
 
 2. CLOUD INFRASTRUCTURE & REPOSITORIES
 --------------------------------------------------------------------------------
@@ -83,8 +90,33 @@
   Password : Saark@2026
   Role     : Employee (Staff)
 
+* Direct Password Bypass (Rahul Yeole):
+  Username : saarkexploration30
+  Password : Saark@2026 (or 12345678)
+  Feature  : Direct login bypass without requiring camera access
 
-4. ASSIGNED MODULE ACCESS FEATURE OVERVIEW
+
+4. BIOMETRIC SECURITY & SESSION AUTOMATION
+--------------------------------------------------------------------------------
+* Instant Face Scan Auto-Login (1:N Matching):
+  - Users can tap "Face Scan Auto-Login" without typing username/password.
+  - The system scans their face, identifies their registered HR biometric profile,
+    and immediately signs them in to their assigned module (e.g. Sales & Marketing).
+  - Alternatively, users can enter username and password as normal.
+
+* 30-Minute Presence Verification & Auto-Logout:
+  - Every 30 minutes during an active session, a live camera presence check opens.
+  - If the user's face is recognized, they stay exactly on their current screen
+    (e.g., Sales & Marketing) without interruption or page change.
+  - If the user is absent or face does not match within 45s, the system logs out automatically.
+  - Camera-bypassed users (Rahul Yeole) are exempt from camera popups.
+
+* Daily 6:00 PM Auto-Logout:
+  - Every active session is automatically logged out at 6:00 PM (18:00 local time).
+  - Logins after 6:00 PM display an "Office Hours Closed" notification.
+
+
+5. ASSIGNED MODULE ACCESS FEATURE OVERVIEW
 --------------------------------------------------------------------------------
 When HR creates or edits an employee profile:
 1. Navigate to HR Module -> Employee Profile & Onboarding.
