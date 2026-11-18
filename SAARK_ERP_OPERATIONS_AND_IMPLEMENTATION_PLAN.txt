@@ -1,0 +1,229 @@
+================================================================================
+                    SAARK EXPLORATION PVT. LTD. - ERP SYSTEM
+           OPERATIONAL WORKFLOWS, MODULE MAPPING & IMPLEMENTATION PLAN
+================================================================================
+Document Version : 1.0.0
+Date             : Wednesday, November 18, 2026
+Source Reference : Field Operational Notes & Industrial Requirements (Pages 1 & 2)
+Applicability    : Panel Manufacturing, BMS Trading, NPD, CRM, HR & Inventory
+
+================================================================================
+1. FIELD NOTEBOOK TRANSCRIPTION & BUSINESS TRANSLATION
+================================================================================
+
+--- PAGE 1 TRANSCRIPTION ---
+Item (1): OFC expense (HR) admin -
+  -> Business Meaning: Office operational expenses, staff payroll, administrative 
+     overheads, routine utilities, petty cash vouchers.
+
+Item (2): Development - (1) product develope - / - Raw material
+  -> Business Meaning: Product R&D / New Product Development (NPD), prototyping 
+     circuits, pump automation logic, raw material requirements for R&D trials.
+
+Item (3): Assembly => panel assembly.
+  -> Business Meaning: Electrical control panel assembly (VFD panels, starter 
+     panels, booster pumps, STP panels).
+
+Bullet A: Material List - component description, kuthun purchase kelte, Auto sort out
+  -> Business Meaning:
+     - Component description & technical specifications.
+     - "kuthun purchase kelte" = Tracking purchase origin and vendor history (which 
+       supplier provided this part previously, last purchase price, PO reference).
+     - "Auto sort out" = Automated grouping and sorting of components by category 
+       (Switchgear, Enclosure & Sheet Metal, Cables & Wiring, Electronics, Hardware).
+
+Bullet B: Panel Assembly - (1) Switchgear, few customize, few standard
+  -> Business Meaning: Assembly of switchgear items (MCBs, MCCBs, contactors, 
+     relays, timers, busbars). Accommodates both Standard catalog configurations 
+     and Custom client-engineered specifications.
+
+Bullet C: Quotation - Auto quotation (material list pahije) Excel sheet through ch material gheyche
+  -> Business Meaning:
+     - Auto Quotation: Commercial quotation automatically generated from Material List.
+     - "Excel sheet through ch material gheyche" = Import / ingest material lists directly 
+       via Excel spreadsheet (.xlsx / .csv) into the system, auto-compute cost, margin, 
+       and generate the formal PDF quotation.
+
+Bullet D: BMS division - (Ready product) like tp link. (1) product unique Name. - Electronic
+  -> Business Meaning:
+     - BMS (Building Management Systems) & Automation Trading Division.
+     - Handles finished / ready-to-sell electronic products (e.g., TP-Link network routers, 
+       IoT gateways, temperature sensors, electronic controllers).
+     - Products require unique product code/SKU, electronic categorization, and serial numbers.
+
+
+--- PAGE 2 TRANSCRIPTION ---
+Item (1): product -> search -> through computer -
+  -> Business Meaning: Rapid desktop computer search capability across all product 
+     catalogs, parts, ready BMS goods, and historical panel BOM configurations.
+
+Item (2): material list -> manufacturing - (material list)
+          check existing material list (existing) material ani update
+  -> Business Meaning: BOM Re-use & Versioning. When building a panel or device, 
+     engineers can open an existing product's Material List (template), inspect what 
+     parts are already in stock, modify quantities or replace components, and update 
+     it for the new production batch without starting from scratch.
+
+Item (3): BMS -> order madhich decide hoil kiti material ahe
+  -> Business Meaning: Real-time Available-to-Promise (ATP) stock decision at Order 
+     Entry. When an order is created for BMS goods, the system immediately checks 
+     warehouse stock:
+     - If in stock: Immediate reservation and ready for dispatch.
+     - If stock shortfall: Immediately informs sales staff and triggers a Purchase 
+       Requisition for the missing quantity.
+
+================================================================================
+2. MASTER ERP MODULE MAPPING TABLE
+================================================================================
+
++-------------------------------------+-----------------------------+---------------------------+-----------------------------------------------+
+| Handwritten Notebook Item           | Target ERP Module           | Live Route / Screen       | Database Entities & Tables                    |
++-------------------------------------+-----------------------------+---------------------------+-----------------------------------------------+
+| (1) OFC Expense (HR / Admin)        | HR & Payroll / Accounts     | /#/hr                     | PayrollRecord, Staff, Department,             |
+|                                     |                             | /#/accounts               | Accounts Ledger Vouchers                      |
++-------------------------------------+-----------------------------+---------------------------+-----------------------------------------------+
+| (2) Development & Raw Material      | Product & Development (NPD) | /#/product-development    | NpdProject, NpdBomLink, NpdArtifact,          |
+|                                     |                             |                           | NpdWorkflowStep (Dual-Track Engine)           |
++-------------------------------------+-----------------------------+---------------------------+-----------------------------------------------+
+| (3) Assembly (Switchgear Panels)    | Panel Manufacturing / Prod  | /#/production/new         | PanelSpecification, PanelBOMItem,             |
+|     (Standard vs Custom)            |                             | /#/production/management  | WorkstationAllocation, QC Protocols           |
++-------------------------------------+-----------------------------+---------------------------+-----------------------------------------------+
+| Material List (Vendor Source &      | Inventory & Procurement     | /#/inventory              | StockItem, Vendor, PurchaseOrder,             |
+| Auto-Sort: "kuthun purchase kelte") |                             | /#/purchase/orders        | InwardEntryItem, ProductCategory              |
++-------------------------------------+-----------------------------+---------------------------+-----------------------------------------------+
+| Auto-Quotation via Excel Sheet      | Sales & Marketing (CRM)     | /#/crm/quotations         | Quotation, QuotationItem,                     |
+| ("Excel sheet through material")    |                             | /#/sales-marketing        | BulkImport Service (Excel Parser)             |
++-------------------------------------+-----------------------------+---------------------------+-----------------------------------------------+
+| BMS Division (Ready Products        | B2B Trading & Products      | /#/crm/enquiries          | Product (FINISHED_GOODS_TRADING),             |
+| like TP-Link, Electronic)           |                             | /#/inventory              | B2bProduct, B2bSupplier, B2bVariant           |
++-------------------------------------+-----------------------------+---------------------------+-----------------------------------------------+
+| Product Search via Computer         | Global ERP Desktop Search   | Top Search Bar            | Search Index across Products, BOMs,           |
+|                                     |                             | /api/v1/crm/search        | Vendors & Quotations                          |
++-------------------------------------+-----------------------------+---------------------------+-----------------------------------------------+
+| Re-use & Update Material List       | Panel Manufacturing BOM     | /#/production/new         | PanelSpecification.bomItems,                  |
+| ("material ani update")             |                             | /#/production             | Clone & Edit BOM Workflow                     |
++-------------------------------------+-----------------------------+---------------------------+-----------------------------------------------+
+| BMS Order Stock Decision            | Commercial Sales Orders     | /#/sales-marketing        | SalesOrder, SalesOrderItem, StockItem,        |
+| ("order madhich decide hoil")       |                             | /api/v1/sales/orders      | PurchaseRequisition (ATP Check)               |
++-------------------------------------+-----------------------------+---------------------------+-----------------------------------------------+
+
+================================================================================
+3. SYSTEM ARCHITECTURE: TWO CORE OPERATIONAL ENGINES
+================================================================================
+
+Saark Exploration Pvt. Ltd. operates two primary industrial & trading workflows:
+
+--------------------------------------------------------------------------------
+ENGINE 1: CUSTOM PANEL ASSEMBLY & MANUFACTURING (Engineered-to-Order)
+--------------------------------------------------------------------------------
+1. Engineering / NPD:
+   - Circuit schematic and pump automation specifications created in NPD.
+   - Raw materials and component BOM identified.
+
+2. Material List & Sourcing ("kuthun purchase kelte"):
+   - Each component links to vendor purchase records.
+   - Displays last supplier name, previous purchase price, and vendor lead time.
+   - Auto-categorizes components into:
+     * Switchgear (MCB, MCCB, Contactors, OLR)
+     * Enclosure & Sheet Metal (IP55 powder-coated box)
+     * Busbars & Cabling
+     * Control Electronics & Indicators
+
+3. Excel Auto-Quotation Engine:
+   - Sales/Engineering staff uploads Excel sheet with BOM lines.
+   - System computes:
+     Material Cost + Labour & Overheads + Profit Margin (%) + 18% GST (HSN 8537).
+   - Generates official Quotation (QUO-2026-XXXXX) in 1 click.
+
+4. Assembly & Quality Control (QC):
+   - Shop floor wiring, component mounting, and busbar fitting.
+   - Factory Acceptance Testing (FAT) protocol verification in /production/management.
+
+--------------------------------------------------------------------------------
+ENGINE 2: BMS DIVISION & READY ELECTRONICS TRADING (Make-to-Stock / Trading)
+--------------------------------------------------------------------------------
+1. Product Catalog:
+   - Standard electronics and IoT products (TP-Link routers, gateways, sensors).
+   - Unique SKU codes, electronic specifications, manufacturer warranty.
+
+2. Rapid Desktop Computer Search:
+   - Instant search via ERP search bar for instant pricing, specifications, and availability.
+
+3. Live Order Stock Decision ("order madhich decide hoil kiti material ahe"):
+   - When entering a Sales Order, system compares order quantity against available warehouse stock.
+   - Case A: Stock Sufficient -> Allocated immediately; generates Picking Slip & Tax Invoice.
+   - Case B: Stock Shortfall  -> Calculates missing units; automatically generates Purchase 
+                                 Requisition to Procurement for vendor order.
+
+================================================================================
+4. STEP-BY-STEP IMPLEMENTATION ROADMAP
+================================================================================
+
+PHASE 1: EXCEL BOM IMPORT & AUTO-QUOTATION GENERATOR
+--------------------------------------------------------------------------------
+Goal: Eliminate manual quotation calculation; import BOM from Excel and show vendor history.
+Steps:
+1. Backend Endpoint:
+   - POST /api/v1/sales/quotations/import-bom-excel
+   - Accepts .xlsx file with columns: Component, Specification, Make, Quantity, Unit.
+2. Sourcing Matcher ("kuthun purchase kelte"):
+   - Queries historical PurchaseOrder and InwardEntry tables for matching component name.
+   - Auto-populates estimated unit price and suggests preferred vendor.
+3. Pricing & PDF Output:
+   - Automatically generates formal Saark Exploration Quotation with standard terms:
+     * Payment: 50% Advance, 50% Against Proforma before Dispatch
+     * Delivery: 2 to 3 weeks
+     * Warranty: 18 months from supply / 12 months from commissioning
+
+PHASE 2: BMS DIVISION & REAL-TIME ORDER STOCK DECISION
+--------------------------------------------------------------------------------
+Goal: Provide instant inventory decision during order booking.
+Steps:
+1. Product Master Tagging:
+   - Add productType badge: PANEL_ASSEMBLY vs BMS_READY_ELECTRONIC.
+2. Sales Order Real-time Check:
+   - When user enters product and quantity on Sales Order screen:
+   - System displays visual stock badge:
+     * GREEN : "Full Stock Available (X units in Main Warehouse)"
+     * AMBER : "Partial Stock (X available, Y missing)"
+     * RED   : "Zero Stock - Click to create Purchase Requisition"
+3. Auto Purchase Requisition:
+   - One-click transfer of shortfall to Procurement module.
+
+PHASE 3: DESKTOP SEARCH & EXISTING MATERIAL LIST RE-USE
+--------------------------------------------------------------------------------
+Goal: Fast lookup and ability to clone and edit existing BOMs.
+Steps:
+1. Desktop Search:
+   - Keyboard shortcut (Ctrl + K) opens global search for products, parts, and past quotes.
+2. BOM Clone & Update ("material ani update"):
+   - In /#/production/new, add "Load Existing Panel Template" dropdown.
+   - Populates form with existing switchgear specifications.
+   - Allows engineer to adjust quantities, swap components, and save as new batch.
+
+PHASE 4: OFFICE EXPENSE (HR / ADMIN) WORKFLOW
+--------------------------------------------------------------------------------
+Goal: Simple management of administrative and operational expenses.
+Steps:
+1. Expense Entry Screen:
+   - Category: Office Stationery, Travel / Conveyance, Tea / Pantry, Utilities, Repairs.
+   - Attachment: Receipt / bill photo.
+2. Approval Cycle:
+   - Submitted by staff -> Approved by Managing Director (Saarkadmin) -> Posted to Accounts ledger.
+
+================================================================================
+5. ACCESS URLS & VERIFIED LOCAL CREDENTIALS
+================================================================================
+* Local Web ERP Host     : http://localhost:3000
+* Office Wi-Fi Access    : http://192.168.1.104:3000
+* Swagger Documentation  : http://localhost:3000/api/docs
+* Direct APK Download    : http://192.168.1.104:3000/download/apk
+
+Test Logins:
+- Rahul Yeole (Sales & Marketing) : saarkexploration30 / Saark@2026
+- Managing Director (SuperAdmin)  : Saarkadmin / 12345678
+
+================================================================================
+Document saved at:
+d:\saark_ERP\company-erp-system\SAARK_ERP_OPERATIONS_AND_IMPLEMENTATION_PLAN.txt
+================================================================================

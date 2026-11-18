@@ -53,9 +53,10 @@
 * Product & Development (Dual-Track NPD Engine):
   https://company-erp-system-4fi6.onrender.com/#/product-development
 
-* Office Local Wi-Fi Access (Host IP: 192.168.1.109):
-  http://192.168.1.109:3000
+* Office Local Wi-Fi Access (Host PC Current IP: 192.168.1.104):
   http://localhost:3000
+  http://127.0.0.1:3000
+  http://192.168.1.104:3000
 
 
 2. CLOUD INFRASTRUCTURE & REPOSITORIES
