@@ -71,6 +71,9 @@
   - main
   - attendance-biometric-integration
 
+* Operational Blueprint & Module Implementation Plan:
+  SAARK_ERP_OPERATIONS_AND_IMPLEMENTATION_PLAN.txt
+
 
 3. DEFAULT SYSTEM LOGIN CREDENTIALS
 --------------------------------------------------------------------------------
