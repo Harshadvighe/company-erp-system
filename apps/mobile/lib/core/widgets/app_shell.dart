@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +6,7 @@ import 'package:saark_erp_mobile/core/auth/auth_provider.dart';
 import 'package:saark_erp_mobile/core/theme/app_theme.dart';
 import 'package:saark_erp_mobile/core/widgets/back_to_dashboard_button.dart';
 import 'package:saark_erp_mobile/core/widgets/saark_logo.dart';
+import 'package:saark_erp_mobile/core/biometrics/session_presence_dialog.dart';
 
 /// Opens the Enterprise Database Record Dashboard.
 Future<void> _openDatabasePortal(BuildContext context) async {
@@ -29,6 +31,143 @@ class AppShell extends ConsumerStatefulWidget {
 }
 
 class _AppShellState extends ConsumerState<AppShell> {
+  Timer? _presenceTimer;
+  Timer? _officeHoursTimer;
+  bool _isPresenceDialogOpen = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _startPresenceTimer();
+    _startOfficeHoursTimer();
+  }
+
+  @override
+  void dispose() {
+    _presenceTimer?.cancel();
+    _officeHoursTimer?.cancel();
+    super.dispose();
+  }
+
+  bool _isBypassUser(AuthUser? user) {
+    if (user == null) return false;
+    final u = user.username.toLowerCase();
+    final n = user.fullName.toLowerCase();
+    return u == 'saarkexploration30' ||
+        u == 'saarkadmin' ||
+        n.contains('rahul') ||
+        user.employeeId == 'EMP-2026-005';
+  }
+
+  void _startPresenceTimer() {
+    _presenceTimer?.cancel();
+    // Check face presence every 30 minutes
+    _presenceTimer = Timer.periodic(const Duration(minutes: 30), (_) {
+      _triggerPresenceCheck();
+    });
+  }
+
+  void _startOfficeHoursTimer() {
+    _officeHoursTimer?.cancel();
+    // Check clock every 15 seconds for 6:00 PM auto-logout
+    _officeHoursTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      _checkEveningAutoLogout();
+    });
+  }
+
+  void _checkEveningAutoLogout() {
+    final now = DateTime.now();
+    // 6:00 PM is 18:00
+    if (now.hour >= 18) {
+      final user = ref.read(currentUserProvider);
+      if (user != null) {
+        _officeHoursTimer?.cancel();
+        _presenceTimer?.cancel();
+
+        ref.read(authProvider.notifier).logout();
+        if (mounted) {
+          context.go('/login');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.schedule_rounded, color: Colors.white, size: 20),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '⏰ Office Hours Closed (6:00 PM Auto-Logout Active). The system has automatically logged you out for the day.',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: Color(0xFFFF9800),
+              duration: Duration(seconds: 8),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  void _triggerPresenceCheck() {
+    if (!mounted || _isPresenceDialogOpen) return;
+
+    final user = ref.read(currentUserProvider);
+    if (user == null) return;
+
+    // Automatic bypass for Rahul Yeole / Saarkadmin
+    if (_isBypassUser(user)) {
+      return;
+    }
+
+    _isPresenceDialogOpen = true;
+
+    SessionPresenceDialog.show(
+      context,
+      currentRoute: widget.currentRoute,
+      onVerified: () {
+        _isPresenceDialogOpen = false;
+        _startPresenceTimer(); // Reset 30-minute timer for next check
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.verified_rounded, color: Colors.white, size: 18),
+                  SizedBox(width: 8),
+                  Text('Presence verified. Resuming your work without change.'),
+                ],
+              ),
+              backgroundColor: Color(0xFF10B981),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      },
+      onFailed: () {
+        _isPresenceDialogOpen = false;
+        ref.read(authProvider.notifier).logout();
+        if (mounted) {
+          context.go('/login');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.no_accounts_rounded, color: Colors.white, size: 18),
+                  SizedBox(width: 8),
+                  Text('Automatic Logout: 30-minute face presence verification failed (user not detected).'),
+                ],
+              ),
+              backgroundColor: Colors.redAccent,
+              duration: Duration(seconds: 6),
+            ),
+          );
+        }
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.currentRoute.startsWith('/hr') ||

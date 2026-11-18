@@ -3,6 +3,8 @@ import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { FaceVerifyDto } from './dto/face-verify.dto';
+import { FaceAutoLoginDto } from './dto/face-auto-login.dto';
+import { VerifyPresenceDto } from './dto/verify-presence.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
 @ApiTags('Authentication')
@@ -49,6 +51,37 @@ export class AuthController {
   async verifyFace(@Body() dto: FaceVerifyDto, @Req() req: any) {
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     return this.authService.verifyFace(dto, ip);
+  }
+
+  @Post('face-login')
+  @ApiOperation({
+    summary: 'Instant 1:N Facial Auto-Login (Camera only)',
+    description: 'Scans live camera face photograph, automatically matches against registered biometric templates, and logs in the recognized employee.',
+  })
+  async faceAutoLogin(@Body() dto: FaceAutoLoginDto, @Req() req: any) {
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const userAgent = req.headers['user-agent'] || '';
+    return this.authService.faceAutoLogin(dto, ip, userAgent);
+  }
+
+  @Post('verify-presence')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Periodic 30-Minute Presence Verification',
+    description: 'Verifies the live face of the logged-in user to confirm presence without changing pages.',
+  })
+  async verifyPresence(@Req() req: any, @Body() dto: VerifyPresenceDto) {
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    return this.authService.verifyPresence(req.user.id, dto, ip);
+  }
+
+  @Get('office-hours-status')
+  @ApiOperation({ summary: 'Check if current time is past office hours (6:00 PM cutoff)' })
+  async getOfficeHoursStatus() {
+    return {
+      isPastOfficeHours: this.authService.isPastOfficeHours(),
+      cutoffHour: 18,
+    };
   }
 
   @Get('face-config')

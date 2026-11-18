@@ -11,6 +11,8 @@ import { AuditService } from '../../core/audit/audit.service';
 import { FaceRecognitionService } from '../../core/biometrics/face-recognition.service';
 import { LoginDto } from './dto/login.dto';
 import { FaceVerifyDto } from './dto/face-verify.dto';
+import { FaceAutoLoginDto } from './dto/face-auto-login.dto';
+import { VerifyPresenceDto } from './dto/verify-presence.dto';
 
 @Injectable()
 export class AuthService {
@@ -22,6 +24,17 @@ export class AuthService {
     private readonly auditService: AuditService,
     private readonly faceRecognitionService: FaceRecognitionService,
   ) {}
+
+  /**
+   * Checks whether the current time in IST (Indian Standard Time, UTC+5:30) is past 6:00 PM (18:00)
+   */
+  public isPastOfficeHours(): boolean {
+    const now = new Date();
+    // Office hours end strictly at 6:00 PM (18:00) IST
+    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const istTime = new Date(utc + (3600000 * 5.5));
+    return istTime.getHours() >= 18;
+  }
 
   /**
   /**
@@ -147,6 +160,18 @@ export class AuthService {
         ipAddress,
       });
       return this.generateAuthenticatedSession(user, ipAddress, userAgent, false, 'CREDENTIALS_BYPASS');
+    }
+
+    // Enforce 6:00 PM cutoff for non-admin users
+    const isUserAdmin = (user.userRoles || []).some((ur: any) => {
+      const c = (ur.role?.code || ur.role?.name || '').toUpperCase();
+      return c === 'ADMIN' || c === 'SUPER_ADMIN' || c === 'ROLE_ADMIN';
+    }) || user.username?.toLowerCase() === 'saarkadmin';
+
+    if (this.isPastOfficeHours() && !isUserAdmin && !isRahulYeole) {
+      throw new UnauthorizedException(
+        'Office hours ended at 6:00 PM. System automatically restricts non-administrative access until the next business day.',
+      );
     }
 
     // STEP 2: Facial Biometric Verification
@@ -335,6 +360,18 @@ export class AuthService {
         ipAddress,
       });
       return this.generateAuthenticatedSession(user, ipAddress, userAgent, false, 'CREDENTIALS_BYPASS');
+    }
+
+    // Enforce 6:00 PM cutoff for non-admin users
+    const isUserAdminStrict = (user.userRoles || []).some((ur: any) => {
+      const c = (ur.role?.code || ur.role?.name || '').toUpperCase();
+      return c === 'ADMIN' || c === 'SUPER_ADMIN' || c === 'ROLE_ADMIN';
+    }) || user.username?.toLowerCase() === 'saarkadmin';
+
+    if (this.isPastOfficeHours() && !isUserAdminStrict && !isRahulYeole) {
+      throw new UnauthorizedException(
+        'Office hours ended at 6:00 PM. System automatically restricts non-administrative access until the next business day.',
+      );
     }
 
     // STEP 2 & 3: Facial Biometric Verification and Session Grant
@@ -726,6 +763,305 @@ export class AuthService {
   }
 
   /**
+   * 1:N Facial Biometric Auto-Login (Camera-Only Login)
+   * Captures live face photograph, extracts 128-dimensional embedding,
+   * searches all active enrolled biometrics in the database,
+   * identifies the user, and immediately generates their authenticated session.
+   */
+  async faceAutoLogin(dto: FaceAutoLoginDto, ipAddress?: string, userAgent?: string) {
+    if (this.isPastOfficeHours()) {
+      throw new UnauthorizedException(
+        'Office hours ended at 6:00 PM. System access is closed for the day.',
+      );
+    }
+
+    const faceData = dto.face_data ?? dto.livePhotoBase64;
+    if (!faceData) {
+      throw new BadRequestException('Face photograph is required for Face Auto-Login.');
+    }
+
+    // 1. Extract live descriptor & verify liveness
+    let liveDescriptor: number[];
+    let liveFace: any = null;
+    if (Array.isArray(faceData)) {
+      liveDescriptor = this.faceRecognitionService.validateDescriptorArray(faceData);
+    } else {
+      liveFace = await this.faceRecognitionService.validateAndExtractFace(faceData);
+      if (!liveFace.livenessPassed) {
+        throw new UnauthorizedException(
+          'Liveness check failed. Please ensure adequate lighting and look straight at the camera.',
+        );
+      }
+      liveDescriptor = liveFace.descriptor;
+    }
+
+    // 2. Fetch all active registered employee biometrics
+    const activeBiometrics = await this.prisma.employeeFaceBiometric.findMany({
+      where: { isActive: true },
+      include: {
+        user: {
+          include: {
+            department: true,
+            staff: true,
+            faceBiometric: true,
+            employee: { include: { faceBiometric: true } },
+            userRoles: {
+              include: {
+                role: {
+                  include: {
+                    rolePermissions: { include: { permission: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
+        employee: {
+          include: {
+            user: {
+              include: {
+                department: true,
+                staff: true,
+                faceBiometric: true,
+                employee: { include: { faceBiometric: true } },
+                userRoles: {
+                  include: {
+                    role: {
+                      include: {
+                        rolePermissions: { include: { permission: true } },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!activeBiometrics || activeBiometrics.length === 0) {
+      throw new UnauthorizedException(
+        'No registered face biometrics found in the database. Please sign in with username and password, then register your face in your HR profile.',
+      );
+    }
+
+    const settings = await this.faceRecognitionService.getFaceAuthSettings();
+    let bestMatchUser: any = null;
+    let bestSimilarity = -1;
+    let bestDistance = 999;
+
+    for (const bio of activeBiometrics) {
+      const candidateUser = bio.user || bio.employee?.user;
+      if (!candidateUser || candidateUser.status !== 'ACTIVE') continue;
+
+      try {
+        const storedDescriptor = this.faceRecognitionService.decryptEmbedding(
+          bio.encryptedEmbedding,
+          bio.embeddingIv,
+          bio.embeddingAuthTag,
+        );
+
+        const match = this.faceRecognitionService.compareFaces(
+          liveDescriptor,
+          storedDescriptor,
+          settings.matchThreshold ?? 0.55,
+        );
+
+        if (match.similarity > bestSimilarity) {
+          bestSimilarity = match.similarity;
+          bestDistance = match.distance;
+          bestMatchUser = candidateUser;
+        }
+      } catch (err: any) {
+        this.logger.warn(`Biometric decrypt error for bio ${bio.id}: ${err.message}`);
+      }
+    }
+
+    const passedMatch = bestMatchUser && (bestSimilarity >= 0.70 || bestDistance <= (settings.matchThreshold ?? 0.55));
+    const canAutoLogin = passedMatch || (activeBiometrics.length === 1 && bestSimilarity >= 0.50 && liveFace?.livenessPassed);
+
+    if (!canAutoLogin || !bestMatchUser) {
+      this.logger.warn(
+        `Face Auto-Login rejection: Best candidate similarity: ${(bestSimilarity * 100).toFixed(1)}%, distance: ${bestDistance}`,
+      );
+      throw new UnauthorizedException(
+        'Face not recognized in the system. Please ensure your face is well-lit and centered, or sign in using your Username & Password.',
+      );
+    }
+
+    // Check user lockout
+    if (bestMatchUser.faceLockoutUntil && new Date(bestMatchUser.faceLockoutUntil) > new Date()) {
+      const remainingMinutes = Math.ceil(
+        (new Date(bestMatchUser.faceLockoutUntil).getTime() - Date.now()) / (60 * 1000),
+      );
+      throw new UnauthorizedException(
+        `Face verification locked for ${bestMatchUser.fullName}. Please wait ${remainingMinutes} minute(s) or use password login.`,
+      );
+    }
+
+    // Reset failed counter
+    await this.prisma.user.update({
+      where: { id: bestMatchUser.id },
+      data: {
+        failedFaceAttempts: 0,
+        faceLockoutUntil: null,
+      },
+    });
+
+    await this.auditService.log({
+      userId: bestMatchUser.id,
+      userEmail: bestMatchUser.email,
+      action: 'FACE_AUTO_LOGIN_SUCCESS',
+      module: 'AUTH',
+      details: `Face Auto-Login successful for ${bestMatchUser.fullName} (${bestMatchUser.username}). Similarity: ${(bestSimilarity * 100).toFixed(1)}%, Distance: ${bestDistance}`,
+      ipAddress,
+    });
+
+    return this.generateAuthenticatedSession(
+      bestMatchUser,
+      ipAddress,
+      userAgent,
+      true,
+      'FACE_AUTO_LOGIN',
+    );
+  }
+
+  /**
+   * Periodic 30-Minute Face Presence Verification
+   * Verifies that the authorized person is still sitting at their computer/device.
+   * If verified, allows the session to continue seamlessly without navigation changes.
+   */
+  async verifyPresence(userId: string, dto: VerifyPresenceDto, ipAddress?: string) {
+    if (this.isPastOfficeHours()) {
+      return {
+        verified: false,
+        pastOfficeHours: true,
+        message: 'Office hours concluded at 6:00 PM. Session auto-logout enforced.',
+      };
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        department: true,
+        employee: { include: { faceBiometric: true } },
+        faceBiometric: true,
+        userRoles: { include: { role: true } },
+      },
+    });
+
+    if (!user || user.status !== 'ACTIVE') {
+      return { verified: false, message: 'User account inactive or not found.' };
+    }
+
+    // Check bypass for Rahul Yeole or Saarkadmin
+    const isRahulYeole =
+      user.id === '973dfbd1-b895-472f-99b9-743b30941eba' ||
+      user.username?.toLowerCase() === 'saarkexploration30' ||
+      user.fullName?.toLowerCase().includes('rahul') ||
+      (user as any).employee?.employeeCode === 'EMP-2026-005';
+
+    if (isRahulYeole || user.username === 'Saarkadmin') {
+      return {
+        verified: true,
+        bypass: true,
+        message: 'Presence verified (Camera bypass active for authorized user).',
+      };
+    }
+
+    const faceData = dto.face_data ?? dto.livePhotoBase64;
+    if (!faceData) {
+      return { verified: false, message: 'No live face photograph provided.' };
+    }
+
+    let liveDescriptor: number[];
+    let liveFace: any = null;
+    try {
+      if (Array.isArray(faceData)) {
+        liveDescriptor = this.faceRecognitionService.validateDescriptorArray(faceData);
+      } else {
+        liveFace = await this.faceRecognitionService.validateAndExtractFace(faceData);
+        if (!liveFace.livenessPassed) {
+          return { verified: false, message: 'Liveness check failed.' };
+        }
+        liveDescriptor = liveFace.descriptor;
+      }
+    } catch (e: any) {
+      return { verified: false, message: e.message || 'Face detection failed.' };
+    }
+
+    let activeBiometric = user.faceBiometric || user.employee?.faceBiometric;
+    if (!activeBiometric || !activeBiometric.isActive) {
+      activeBiometric = await this.prisma.employeeFaceBiometric.findFirst({
+        where: {
+          OR: [
+            { userId: user.id },
+            ...(user.employee?.id ? [{ employeeId: user.employee.id }] : []),
+          ],
+          isActive: true,
+        },
+      });
+    }
+
+    if (!activeBiometric || !activeBiometric.isActive) {
+      return {
+        verified: true,
+        warning: 'Face presence confirmed via camera stream (no stored template on file).',
+      };
+    }
+
+    const storedDescriptor = this.faceRecognitionService.decryptEmbedding(
+      activeBiometric.encryptedEmbedding,
+      activeBiometric.embeddingIv,
+      activeBiometric.embeddingAuthTag,
+    );
+
+    const settings = await this.faceRecognitionService.getFaceAuthSettings();
+    const match = this.faceRecognitionService.compareFaces(
+      liveDescriptor,
+      storedDescriptor,
+      settings.matchThreshold ?? 0.55,
+    );
+
+    const isMatch = match.isMatch || match.similarity >= 0.70;
+
+    if (isMatch) {
+      await this.auditService.log({
+        userId: user.id,
+        userEmail: user.email,
+        action: 'PRESENCE_VERIFIED_30MIN',
+        module: 'AUTH',
+        details: `30-minute presence check passed for ${user.fullName} (${user.username}) at route ${dto.currentRoute || 'N/A'}. Similarity: ${(match.similarity * 100).toFixed(1)}%`,
+        ipAddress,
+      });
+
+      return {
+        verified: true,
+        similarity: match.similarity,
+        distance: match.distance,
+        message: 'Presence verified successfully.',
+      };
+    } else {
+      await this.auditService.log({
+        userId: user.id,
+        userEmail: user.email,
+        action: 'PRESENCE_CHECK_FAILED',
+        module: 'AUTH',
+        details: `30-minute presence check failed (face mismatch) for ${user.fullName} at route ${dto.currentRoute || 'N/A'}. Similarity: ${(match.similarity * 100).toFixed(1)}%`,
+        ipAddress,
+      });
+
+      return {
+        verified: false,
+        similarity: match.similarity,
+        distance: match.distance,
+        message: 'Face does not match authenticated user.',
+      };
+    }
+  }
+
+  /**
    * Helper to sign JWT tokens and record user login session in PostgreSQL database
    */
   private async generateAuthenticatedSession(
@@ -1055,6 +1391,25 @@ export class AuthService {
    * Active Session Heartbeat
    */
   async heartbeat(userId: string, sessionId?: string) {
+    if (this.isPastOfficeHours()) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: { userRoles: { include: { role: true } } },
+      });
+      const isAdmin = (user?.userRoles || []).some((ur: any) => {
+        const c = (ur.role?.code || ur.role?.name || '').toUpperCase();
+        return c === 'ADMIN' || c === 'SUPER_ADMIN' || c === 'ROLE_ADMIN';
+      }) || user?.username?.toLowerCase() === 'saarkadmin';
+
+      if (!isAdmin) {
+        return {
+          success: false,
+          autoLogout: true,
+          message: 'Office hours concluded at 6:00 PM. Auto-logout enforced.',
+        };
+      }
+    }
+
     if (sessionId) {
       await this.prisma.userSession.updateMany({
         where: { id: sessionId, userId, status: 'ACTIVE' },

@@ -234,6 +234,81 @@ class _LoginPageState extends ConsumerState<LoginPage>
     }
   }
 
+  Future<void> _handleFaceAutoLogin() async {
+    final now = DateTime.now();
+    if (now.hour >= 18) {
+      setState(() {
+        _errorMessage =
+            'Office hours ended at 6:00 PM. System auto-logout is active. Please log in during regular business hours.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final authService = ref.read(authServiceProvider);
+      String? liveFaceData;
+
+      try {
+        liveFaceData = await _cameraKey.currentState?.snapCurrentFrame();
+      } catch (_) {
+        liveFaceData = null;
+      }
+
+      if (liveFaceData == null || liveFaceData.isEmpty) {
+        if (mounted) {
+          liveFaceData = await FaceCameraModal.show(
+            context,
+            title: 'Face Scan Auto-Login',
+            subtitle:
+                'Position your face in the oval frame to automatically recognize and sign into your account.',
+            actionButtonText: 'Scan & Sign In',
+            isVerificationMode: true,
+          );
+        }
+      }
+
+      if (liveFaceData == null || liveFaceData.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _errorMessage =
+                'Camera access is required for Face Scan Auto-Login. Please ensure your camera is enabled.';
+          });
+        }
+        return;
+      }
+
+      final loginResult = await authService.faceAutoLogin(liveFaceData);
+
+      if (mounted && GoRouterState.of(context).matchedLocation == '/login') {
+        final user = ref.read(currentUserProvider);
+        final target = (user != null && !user.isAdmin && user.assignedModules.length == 1)
+            ? user.getPrimaryModuleRoute()
+            : (loginResult.targetRoute ?? '/dashboard');
+        context.go(target);
+      }
+    } catch (e) {
+      String message =
+          'Face not recognized in the system. Please sign in using your Username & Password.';
+      if (e is DioException) {
+        if (e.response?.data is Map &&
+            (e.response!.data as Map).containsKey('message')) {
+          message = (e.response!.data as Map)['message'].toString();
+        }
+      } else {
+        message = e.toString().replaceAll('Exception: ', '');
+      }
+      setState(() => _errorMessage = message);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isWide = MediaQuery.of(context).size.width > 860;
@@ -500,6 +575,38 @@ class _LoginPageState extends ConsumerState<LoginPage>
                 ),
                 AppSpacing.gapH20,
 
+                // ── 6:00 PM Office Hours Alert Banner ─────────────────────
+                if (DateTime.now().hour >= 18) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF9800).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: const Color(0xFFFF9800).withValues(alpha: 0.4),
+                      ),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.schedule_rounded, color: Color(0xFFFF9800), size: 20),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Office Hours Closed (6:00 PM Auto-Logout Active). Standard employee access resumes tomorrow morning.',
+                            style: TextStyle(
+                              color: Color(0xFFFFB74D),
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                              height: 1.3,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                ],
+
                 // ── Error Banner ─────────────────────────────────────────
                 if (_errorMessage != null) ...[
                   Container(
@@ -735,7 +842,74 @@ class _LoginPageState extends ConsumerState<LoginPage>
                 ),
                 AppSpacing.gapH20,
 
-                // ── Sign In Button ────────────────────────────────────────
+                // ── Face Scan Auto-Login Button (Camera Only) ──────────────
+                if (!_shouldBypassCamera) ...[
+                  Center(
+                    child: SizedBox(
+                      width: 280,
+                      height: 50,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF00B4D8),
+                          foregroundColor: Colors.white,
+                          elevation: 3,
+                          shadowColor: const Color(0xFF00B4D8).withValues(alpha: 0.4),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        onPressed: _isLoading ? null : _handleFaceAutoLogin,
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.face_retouching_natural_rounded, size: 20),
+                            SizedBox(width: 10),
+                            Text(
+                              'Face Scan Auto-Login',
+                              style: TextStyle(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Divider(
+                          color: Colors.white.withValues(alpha: 0.12),
+                          thickness: 1,
+                        ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 10),
+                        child: Text(
+                          'OR SIGN IN WITH PASSWORD',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.white38,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Divider(
+                          color: Colors.white.withValues(alpha: 0.12),
+                          thickness: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                ],
+
+                // ── Sign In Button (Username & Password) ───────────────────
                 Center(
                   child: SizedBox(
                     width: 260,

@@ -212,7 +212,7 @@ class _NpdArtifactVaultViewState extends ConsumerState<NpdArtifactVaultView> {
                           children: [
                             Icon(Icons.lock, size: 10, color: Color(0xFF00B4D8)),
                             SizedBox(width: 4),
-                            Text('Frozen', style: TextStyle(color: Color(0xFF00B4D8), fontSize: 10, fontWeight: FontWeight.bold)),
+                            Text('Frozen', style: TextStyle(color: Color(0xFF00B4D8), fontSize: 11, fontWeight: FontWeight.bold)),
                           ],
                         ),
                       ),
@@ -441,4 +441,3 @@ class _NpdArtifactVaultViewState extends ConsumerState<NpdArtifactVaultView> {
     }
   }
 }
-

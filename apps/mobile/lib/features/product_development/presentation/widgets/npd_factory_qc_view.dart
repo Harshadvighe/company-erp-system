@@ -299,7 +299,7 @@ class _NpdFactoryQcViewState extends ConsumerState<NpdFactoryQcView> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1E2128),
-        title: Text('Terminal Diagnostic: ${log.serialNumber}', style: const TextStyle(color: Colors.white, fontSize: 15)),
+        title: Text('Terminal Diagnostic: ${log.serialNumber}', style: const TextStyle(color: Colors.white, fontSize: 16)),
         content: SizedBox(
           width: 580,
           child: Container(
@@ -379,4 +379,3 @@ class _NpdFactoryQcViewState extends ConsumerState<NpdFactoryQcView> {
     }
   }
 }
-

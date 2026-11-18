@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:saark_erp_mobile/core/auth/auth_provider.dart';
 import '../../data/npd_models.dart';
 import '../../data/npd_repository.dart';
@@ -32,62 +33,70 @@ class _ProductDevelopmentPortalPageState
     final size = MediaQuery.of(context).size;
     final isCompact = size.width < 768;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF14161B),
-      body: SafeArea(
-        top: false,
-        child: Column(
-          children: [
-            // ─── 1. Desktop Window Strip ─────────────────────────────────────
-            _buildWindowBar(user),
+    return Theme(
+      data: Theme.of(context).copyWith(
+        textTheme: GoogleFonts.interTextTheme(Theme.of(context).textTheme),
+      ),
+      child: Scaffold(
+        backgroundColor: const Color(0xFF14161B),
+        body: SafeArea(
+          top: false,
+          child: Column(
+            children: [
+              // ─── 1. Desktop Window Strip ─────────────────────────────────────
+              _buildWindowBar(user),
 
-            // ─── 2. Top Header Banner ────────────────────────────────────────
-            _buildTopHeader(context, isCompact, projectsAsync, selectedId),
+              // ─── 2. Top Header Banner ────────────────────────────────────────
+              _buildTopHeader(context, isCompact, projectsAsync, selectedId),
 
-            // ─── 3. Main Workspace Area ──────────────────────────────────────
-            Expanded(
-              child: boardAsync.when(
-                loading: () => const Center(
-                  child: CircularProgressIndicator(color: Color(0xFF3A86FF)),
-                ),
-                error: (err, stack) => Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
-                      const SizedBox(height: 12),
-                      Text('Error loading NPD Board: $err', style: const TextStyle(color: Colors.white70)),
-                      const SizedBox(height: 12),
-                      ElevatedButton(
-                        onPressed: () => ref.refresh(currentBoardDataProvider),
-                        child: const Text('Retry'),
-                      ),
-                    ],
+              // ─── 3. Main Workspace Area ──────────────────────────────────────
+              Expanded(
+                child: boardAsync.when(
+                  loading: () => const Center(
+                    child: CircularProgressIndicator(color: Color(0xFF3A86FF)),
                   ),
-                ),
-                data: (boardData) {
-                  if (boardData == null) {
-                    return _buildEmptyState();
-                  }
-
-                  return Column(
-                    children: [
-                      // Sub-Tabs Bar
-                      _buildSubTabBar(boardData),
-
-                      // Tab View Content
-                      Expanded(
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.all(20),
-                          child: _buildActiveTabContent(boardData),
+                  error: (err, stack) => Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error_outline,
+                            size: 48, color: Colors.redAccent),
+                        const SizedBox(height: 12),
+                        Text('Error loading NPD Board: $err',
+                            style: const TextStyle(color: Colors.white70)),
+                        const SizedBox(height: 12),
+                        ElevatedButton(
+                          onPressed: () =>
+                              ref.refresh(currentBoardDataProvider),
+                          child: const Text('Retry'),
                         ),
-                      ),
-                    ],
-                  );
-                },
+                      ],
+                    ),
+                  ),
+                  data: (boardData) {
+                    if (boardData == null) {
+                      return _buildEmptyState();
+                    }
+
+                    return Column(
+                      children: [
+                        // Sub-Tabs Bar
+                        _buildSubTabBar(boardData),
+
+                        // Tab View Content
+                        Expanded(
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.all(20),
+                            child: _buildActiveTabContent(boardData),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -104,7 +113,8 @@ class _ProductDevelopmentPortalPageState
           IconButton(
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
-            icon: const Icon(Icons.arrow_back_rounded, color: Colors.white70, size: 18),
+            icon: const Icon(Icons.arrow_back_rounded,
+                color: Colors.white70, size: 18),
             onPressed: () => context.go('/dashboard'),
           ),
           const SizedBox(width: 12),
@@ -128,11 +138,15 @@ class _ProductDevelopmentPortalPageState
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.account_circle, color: Color(0xFF3A86FF), size: 14),
+                const Icon(Icons.account_circle,
+                    color: Color(0xFF3A86FF), size: 14),
                 const SizedBox(width: 6),
                 Text(
                   user?.fullName ?? user?.username ?? 'Engineering Lead',
-                  style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600),
                 ),
               ],
             ),
@@ -163,12 +177,14 @@ class _ProductDevelopmentPortalPageState
               width: 220,
               child: LinearProgressIndicator(minHeight: 2),
             ),
-            error: (_, __) => const Text('Error', style: TextStyle(color: Colors.redAccent)),
+            error: (_, __) =>
+                const Text('Error', style: TextStyle(color: Colors.redAccent)),
             data: (projects) {
               if (projects.isEmpty) {
                 return const Text(
                   'No Projects',
-                  style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                      color: Colors.white70, fontWeight: FontWeight.bold),
                 );
               }
 
@@ -186,14 +202,18 @@ class _ProductDevelopmentPortalPageState
                       color: const Color(0xFF3A86FF).withOpacity(0.15),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.precision_manufacturing_rounded, color: Color(0xFF3A86FF), size: 24),
+                    child: const Icon(Icons.precision_manufacturing_rounded,
+                        color: Color(0xFF3A86FF), size: 24),
                   ),
                   const SizedBox(width: 12),
                   DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
                       value: currentProject.id,
                       dropdownColor: const Color(0xFF252932),
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16),
                       items: projects.map((p) {
                         return DropdownMenuItem<String>(
                           value: p.id,
@@ -202,7 +222,9 @@ class _ProductDevelopmentPortalPageState
                       }).toList(),
                       onChanged: (newId) {
                         if (newId != null) {
-                          ref.read(selectedNpdProjectIdProvider.notifier).state = newId;
+                          ref
+                              .read(selectedNpdProjectIdProvider.notifier)
+                              .state = newId;
                           ref.refresh(currentBoardDataProvider);
                         }
                       },
@@ -211,20 +233,26 @@ class _ProductDevelopmentPortalPageState
                   const SizedBox(width: 12),
                   // MCU Badge
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: const Color(0xFF4CC9F0).withOpacity(0.12),
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: const Color(0xFF4CC9F0).withOpacity(0.3)),
+                      border: Border.all(
+                          color: const Color(0xFF4CC9F0).withOpacity(0.3)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.memory, size: 12, color: Color(0xFF4CC9F0)),
+                        const Icon(Icons.memory,
+                            size: 12, color: Color(0xFF4CC9F0)),
                         const SizedBox(width: 4),
                         Text(
                           currentProject.targetMcu,
-                          style: const TextStyle(color: Color(0xFF4CC9F0), fontSize: 11, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                              color: Color(0xFF4CC9F0),
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -242,10 +270,12 @@ class _ProductDevelopmentPortalPageState
               backgroundColor: const Color(0xFF3A86FF),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.add_rounded, size: 18),
-            label: const Text('New Project', style: TextStyle(fontWeight: FontWeight.bold)),
+            label: const Text('New Project',
+                style: TextStyle(fontWeight: FontWeight.bold)),
             onPressed: () => _showCreateProjectDialog(),
           ),
         ],
@@ -258,8 +288,14 @@ class _ProductDevelopmentPortalPageState
     final tabs = [
       {'title': '📋 24-Step Workflow Board', 'index': 0},
       {'title': '📑 SSOT Register Map', 'index': 1},
-      {'title': '📦 Engineering BOM & RoHS (${boardData.totalBomCount})', 'index': 2},
-      {'title': '🔒 Artifact Vault (${boardData.artifacts.length})', 'index': 3},
+      {
+        'title': '📦 Engineering BOM & RoHS (${boardData.totalBomCount})',
+        'index': 2
+      },
+      {
+        'title': '🔒 Artifact Vault (${boardData.artifacts.length})',
+        'index': 3
+      },
       {'title': '⚡ Factory QC Test Logs (${boardData.totalTests})', 'index': 4},
     ];
 
@@ -281,11 +317,14 @@ class _ProductDevelopmentPortalPageState
                   return InkWell(
                     onTap: () => setState(() => _activeTab = idx),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
                         border: Border(
                           bottom: BorderSide(
-                            color: isSelected ? const Color(0xFF3A86FF) : Colors.transparent,
+                            color: isSelected
+                                ? const Color(0xFF3A86FF)
+                                : Colors.transparent,
                             width: 2.5,
                           ),
                         ),
@@ -295,7 +334,8 @@ class _ProductDevelopmentPortalPageState
                         style: TextStyle(
                           color: isSelected ? Colors.white : Colors.white60,
                           fontSize: 13,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                          fontWeight:
+                              isSelected ? FontWeight.bold : FontWeight.w500,
                         ),
                       ),
                     ),
@@ -311,7 +351,8 @@ class _ProductDevelopmentPortalPageState
             decoration: BoxDecoration(
               color: const Color(0xFF2EC4B6).withOpacity(0.15),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFF2EC4B6).withOpacity(0.3)),
+              border:
+                  Border.all(color: const Color(0xFF2EC4B6).withOpacity(0.3)),
             ),
             child: Text(
               'Progress: ${boardData.signedOffSteps}/24 Steps (${boardData.progressPct}%)',
@@ -380,29 +421,37 @@ class _ProductDevelopmentPortalPageState
                 color: const Color(0xFF3A86FF).withOpacity(0.12),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.precision_manufacturing_rounded, size: 48, color: Color(0xFF3A86FF)),
+              child: const Icon(Icons.precision_manufacturing_rounded,
+                  size: 48, color: Color(0xFF3A86FF)),
             ),
             const SizedBox(height: 16),
             const Text(
               'No Product Development Projects Found',
-              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             const Text(
               'Create a project to initialize the 4-Phase, 24-Step Dual-Track (Hardware + Firmware) Workflow Engine with SSOT Register Mapping.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white60, fontSize: 13, height: 1.4),
+              style:
+                  TextStyle(color: Colors.white60, fontSize: 13, height: 1.4),
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF3A86FF),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
               ),
               icon: const Icon(Icons.rocket_launch_rounded, size: 18),
-              label: const Text('Initialize Industrial IoT Gateway Project', style: TextStyle(fontWeight: FontWeight.bold)),
+              label: const Text('Initialize Industrial IoT Gateway Project',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
               onPressed: () => _seedDefaultProject(),
             ),
           ],
@@ -423,14 +472,16 @@ class _ProductDevelopmentPortalPageState
         'complianceTargets': 'CE, FCC Part 15, RoHS 3, WEEE, BIS CRS',
       });
 
-      ref.read(selectedNpdProjectIdProvider.notifier).state = newBoard.project.id;
+      ref.read(selectedNpdProjectIdProvider.notifier).state =
+          newBoard.project.id;
       ref.refresh(npdProjectsProvider);
       ref.refresh(currentBoardDataProvider);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Project initialized with 24 workflow steps & SSOT register map!'),
+            content: Text(
+                'Project initialized with 24 workflow steps & SSOT register map!'),
             backgroundColor: Color(0xFF2EC4B6),
           ),
         );
@@ -438,7 +489,8 @@ class _ProductDevelopmentPortalPageState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.redAccent),
+          SnackBar(
+              content: Text('Error: $e'), backgroundColor: Colors.redAccent),
         );
       }
     }
@@ -453,78 +505,137 @@ class _ProductDevelopmentPortalPageState
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => Dialog(
         backgroundColor: const Color(0xFF1E2128),
-        title: const Text('Create New NPD Project', style: TextStyle(color: Colors.white)),
-        content: SizedBox(
-          width: 480,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        child: Container(
+          width: 580,
+          padding: const EdgeInsets.all(22),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                TextField(
-                  controller: nameCtrl,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(labelText: 'Project Name (e.g. Smart Energy Meter)'),
+                const Text(
+                  'Create New NPD Project',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Divider(color: Colors.white24, height: 22),
+                _buildProjectDialogField(
+                  nameCtrl,
+                  'Project Name',
+                  hintText: 'e.g. Smart Energy Meter',
                 ),
                 const SizedBox(height: 10),
-                TextField(
-                  controller: mcuCtrl,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(labelText: 'Target MCU / Processor'),
+                _buildProjectDialogField(
+                  mcuCtrl,
+                  'Target MCU / Processor',
                 ),
                 const SizedBox(height: 10),
-                TextField(
-                  controller: catCtrl,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(labelText: 'Product Category'),
+                _buildProjectDialogField(
+                  catCtrl,
+                  'Product Category',
                 ),
                 const SizedBox(height: 10),
-                TextField(
-                  controller: voltCtrl,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(labelText: 'Operating Voltage'),
+                _buildProjectDialogField(
+                  voltCtrl,
+                  'Operating Voltage',
                 ),
                 const SizedBox(height: 10),
-                TextField(
-                  controller: formCtrl,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(labelText: 'Form Factor / Enclosure'),
+                _buildProjectDialogField(
+                  formCtrl,
+                  'Form Factor / Enclosure',
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(color: Colors.white70, fontSize: 13),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF3A86FF),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
+                      ),
+                      onPressed: () async {
+                        if (nameCtrl.text.trim().isEmpty) return;
+                        try {
+                          final repo = ref.read(npdRepositoryProvider);
+                          final res = await repo.createProject({
+                            'projectName': nameCtrl.text.trim(),
+                            'targetMcu': mcuCtrl.text.trim(),
+                            'productCategory': catCtrl.text.trim(),
+                            'operatingVoltage': voltCtrl.text.trim(),
+                            'formFactor': formCtrl.text.trim(),
+                          });
+                          Navigator.pop(ctx);
+                          ref
+                              .read(selectedNpdProjectIdProvider.notifier)
+                              .state = res.project.id;
+                          ref.refresh(npdProjectsProvider);
+                          ref.refresh(currentBoardDataProvider);
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                                content: Text('Error: $e'),
+                                backgroundColor: Colors.redAccent),
+                          );
+                        }
+                      },
+                      child: const Text(
+                        'Create Project',
+                        style: TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF3A86FF)),
-            onPressed: () async {
-              if (nameCtrl.text.trim().isEmpty) return;
-              try {
-                final repo = ref.read(npdRepositoryProvider);
-                final res = await repo.createProject({
-                  'projectName': nameCtrl.text.trim(),
-                  'targetMcu': mcuCtrl.text.trim(),
-                  'productCategory': catCtrl.text.trim(),
-                  'operatingVoltage': voltCtrl.text.trim(),
-                  'formFactor': formCtrl.text.trim(),
-                });
-                Navigator.pop(ctx);
-                ref.read(selectedNpdProjectIdProvider.notifier).state = res.project.id;
-                ref.refresh(npdProjectsProvider);
-                ref.refresh(currentBoardDataProvider);
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error: $e'), backgroundColor: Colors.redAccent),
-                );
-              }
-            },
-            child: const Text('Create Project'),
-          ),
-        ],
+      ),
+    );
+  }
+
+  Widget _buildProjectDialogField(
+    TextEditingController controller,
+    String label, {
+    String? hintText,
+  }) {
+    return TextField(
+      controller: controller,
+      style: const TextStyle(color: Colors.white, fontSize: 13),
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hintText,
+        labelStyle: const TextStyle(
+          color: Color(0xFFF97316),
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+        hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
+        enabledBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: Colors.white24),
+        ),
+        focusedBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: Color(0xFF3A86FF)),
+        ),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 8),
       ),
     );
   }
 }
-

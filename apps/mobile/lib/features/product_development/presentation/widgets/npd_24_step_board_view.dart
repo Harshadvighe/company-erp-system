@@ -183,7 +183,7 @@ class _Npd24StepBoardViewState extends ConsumerState<Npd24StepBoardView> {
                             'Step ${step.stepNumber}: ${step.stepTitle}',
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 15,
+                              fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
                           ),

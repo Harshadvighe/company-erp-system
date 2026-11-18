@@ -80,6 +80,34 @@ class AuthRepository {
     return response.data as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> faceAutoLogin(String faceData) async {
+    final response = await _dio.post('/auth/face-login', data: {
+      'face_data': faceData,
+      'livePhotoBase64': faceData,
+    });
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> verifyPresence(String faceData, {String? currentRoute}) async {
+    final response = await _dio.post('/auth/verify-presence', data: {
+      'face_data': faceData,
+      'livePhotoBase64': faceData,
+      if (currentRoute != null) 'currentRoute': currentRoute,
+    });
+    return response.data as Map<String, dynamic>;
+  }
+
+  Future<bool> checkOfficeHours() async {
+    try {
+      final response = await _dio.get('/auth/office-hours-status');
+      final data = response.data as Map<String, dynamic>;
+      return data['isPastOfficeHours'] == true;
+    } catch (_) {
+      final now = DateTime.now();
+      return now.hour >= 18;
+    }
+  }
+
   Future<Map<String, dynamic>> getCurrentProfile() async {
     final response = await _dio.get('/auth/me');
     return response.data as Map<String, dynamic>;
@@ -170,6 +198,50 @@ class AuthService {
       tokens['accessToken'] as String,
       tokens['refreshToken'] as String,
     );
+  }
+
+  Future<LoginResult> faceAutoLogin(String faceData) async {
+    _authNotifier.setLoading(true);
+    _authNotifier.setError(null);
+
+    try {
+      final response = await _repo.faceAutoLogin(faceData);
+      final data = response['data'] ?? response;
+
+      final userMap = data['user'] as Map<String, dynamic>;
+      final tokens = data['tokens'] as Map<String, dynamic>;
+
+      final user = AuthUser.fromJson(userMap);
+      await _authNotifier.setUser(
+        user,
+        tokens['accessToken'] as String,
+        tokens['refreshToken'] as String,
+      );
+
+      final targetRoute = data['targetRoute'] as String? ?? userMap['targetRoute'] as String?;
+      final targetModule = data['targetModule'] as String? ?? userMap['targetModule'] as String?;
+
+      return LoginResult(
+        requiresFaceVerification: false,
+        userMap: userMap,
+        targetRoute: targetRoute,
+        targetModule: targetModule,
+        isSuccess: true,
+        message: data['message'] as String? ?? 'Face Auto-Login successful',
+      );
+    } catch (e) {
+      _authNotifier.setLoading(false);
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> verifyPresence(String faceData, {String? currentRoute}) async {
+    try {
+      final res = await _repo.verifyPresence(faceData, currentRoute: currentRoute);
+      return res['data'] ?? res;
+    } catch (e) {
+      return {'verified': false, 'error': e.toString()};
+    }
   }
 }
 
