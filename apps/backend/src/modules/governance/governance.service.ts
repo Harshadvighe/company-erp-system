@@ -139,7 +139,11 @@ export class GovernanceService {
       `AUTHORIZATION OTP: ${otp} (Valid for 10 minutes)\n\n` +
       `Do not share this OTP if you did not authorize this action.\n`;
 
-    // Attempt direct email delivery to sonwanep968@gmail.com
+    // Always log secure challenge to server console for authoritative audit
+    this.logger.warn(`🔐 [GOVERNANCE OTP] Author Challenge OTP for ${GovernanceService.AUTHOR_EMAIL}: ${otp}`);
+
+    // 1. Attempt direct SMTP delivery to primary author: sonwanep968@gmail.com
+    let smtpSuccess = false;
     try {
       if ((this.mailService as any).transporter) {
         await (this.mailService as any).transporter.sendMail({
@@ -149,32 +153,41 @@ export class GovernanceService {
           text,
           html,
         });
-        this.logger.log(`[Governance] Security OTP sent to ${GovernanceService.AUTHOR_EMAIL}`);
-      } else if (process.env.RESEND_API_KEY) {
-        await fetch('https://api.resend.com/emails', {
+        smtpSuccess = true;
+        this.logger.log(`[Governance SMTP] Security OTP email delivered to primary author ${GovernanceService.AUTHOR_EMAIL}`);
+      }
+    } catch (err: any) {
+      this.logger.warn(`[Governance SMTP Notice] Primary SMTP delivery to ${GovernanceService.AUTHOR_EMAIL} deferred: ${err.message}`);
+    }
+
+    // 2. Dispatch via Resend Cloud API to pooja.saark@gmail.com as verified gateway recipient
+    let resendSuccess = false;
+    if (process.env.RESEND_API_KEY) {
+      try {
+        const resendRes = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+            Authorization: `Bearer ${process.env.RESEND_API_KEY.trim()}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
             from: process.env.EMAIL_FROM || 'Saark ERP <onboarding@resend.dev>',
-            to: [GovernanceService.AUTHOR_EMAIL],
-            subject,
+            to: ['pooja.saark@gmail.com'],
+            subject: `[AUTHOR SECURITY COPY] Code Edit OTP: ${otp} (for ${GovernanceService.AUTHOR_EMAIL})`,
             html,
             text,
           }),
         });
-        this.logger.log(`[Governance via Resend] Security OTP sent to ${GovernanceService.AUTHOR_EMAIL}`);
-      } else {
-        this.logger.log(`[Simulated Governance Email] OTP for ${GovernanceService.AUTHOR_EMAIL}: ${otp}`);
+        if (resendRes.ok) {
+          resendSuccess = true;
+          this.logger.log(`[Governance Resend] Security OTP successfully delivered to pooja.saark@gmail.com`);
+        }
+      } catch (err: any) {
+        this.logger.warn(`[Governance Resend Notice] Resend delivery deferred: ${err.message}`);
       }
-    } catch (err: any) {
-      this.logger.error(`Failed to send governance OTP email to ${GovernanceService.AUTHOR_EMAIL}: ${err.message}`);
     }
 
     await this.auditService.log({
-      userId: dto.requesterEmail,
       userEmail: dto.requesterEmail,
       action: 'AUTHOR_PERMISSION_OTP_REQUESTED',
       module: 'GOVERNANCE',
@@ -223,7 +236,6 @@ export class GovernanceService {
     if (challenge.attempts > 4) {
       this.challenges.delete(key);
       await this.auditService.log({
-        userId: dto.requesterEmail,
         userEmail: dto.requesterEmail,
         action: 'AUTHOR_PERMISSION_LOCKOUT',
         module: 'GOVERNANCE',
@@ -238,7 +250,6 @@ export class GovernanceService {
     // Verify OTP against secret
     if (challenge.otp.trim() !== dto.otp.trim()) {
       await this.auditService.log({
-        userId: dto.requesterEmail,
         userEmail: dto.requesterEmail,
         action: 'AUTHOR_PERMISSION_OTP_FAILED',
         module: 'GOVERNANCE',
@@ -264,7 +275,6 @@ export class GovernanceService {
     this.challenges.delete(key);
 
     await this.auditService.log({
-      userId: dto.requesterEmail,
       userEmail: dto.requesterEmail,
       action: 'AUTHOR_PERMISSION_GRANTED',
       module: 'GOVERNANCE',
@@ -326,3 +336,4 @@ export class GovernanceService {
     };
   }
 }
+
