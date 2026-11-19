@@ -2620,3 +2620,45 @@ model NpdUnitTestLog {
   @@index([serialNumber])
   @@index([testStatus])
 }
+
+
+// -------------------------------------------------------------
+// WORKFLOW 4: OFFICE EXPENSE (HR / ADMIN) LIFECYCLE
+// -------------------------------------------------------------
+model OfficeExpense {
+  id              String    @id @default(uuid())
+  voucherNumber   String    @unique @map("voucher_number")
+  title           String
+  category        String    // TRAVEL, STATIONERY, TEA_PANTRY, COURIER, TOOLS, UTILITIES, OTHER
+  amount          Float
+  expenseDate     DateTime  @default(now()) @map("expense_date")
+  description     String?
+  receiptUrl      String?   @map("receipt_url")
+  status          String    @default("SUBMITTED") // SUBMITTED, REVIEWED, APPROVED, REJECTED, PAID
+  
+  staffId         String?   @map("staff_id")
+  staffName       String?   @map("staff_name")
+  staffEmail      String?   @map("staff_email")
+  department      String?
+
+  reviewedBy      String?   @map("reviewed_by")
+  reviewedAt      DateTime? @map("reviewed_at")
+  reviewNotes     String?   @map("review_notes")
+
+  approvedBy      String?   @map("approved_by")
+  approvedAt      DateTime? @map("approved_at")
+  approvalNotes   String?   @map("approval_notes")
+
+  paymentMode     String?   @map("payment_mode") // PETTY_CASH, BANK_TRANSFER, UPI
+  ledgerAccount   String?   @default("OFFICE_EXPENSE_LEDGER") @map("ledger_account")
+  ledgerRef       String?   @map("ledger_ref")
+  paidAt          DateTime? @map("paid_at")
+
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @default(now()) @map("updated_at")
+
+  @@map("office_expenses")
+  @@index([status])
+  @@index([category])
+  @@index([staffEmail])
+}

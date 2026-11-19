@@ -18,6 +18,7 @@ import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { CreateLeaveDto, UpdateLeaveStatusDto } from './dto/create-leave.dto';
 import { ClockInDto, ClockOutDto } from './dto/clock-in.dto';
 import { AllocateWorkstationDto, LogOvertimeDto, ReportSafetyIncidentDto } from './dto/industrial.dto';
+import { CreateExpenseDto, ReviewExpenseDto, ApproveExpenseDto } from './dto/expense.dto';
 
 @ApiTags('Human Resources (HR) & Industrial Workforce')
 @ApiBearerAuth()
@@ -246,5 +247,52 @@ export class HrController {
     @Query('year') year?: number,
   ) {
     return this.hrService.getPayrollRecords(month, year);
+  }
+
+  // -------------------------------------------------------------
+  // WORKFLOW 4: OFFICE EXPENSE (HR / ADMIN) LIFECYCLE
+  // -------------------------------------------------------------
+  @Get('expenses')
+  @ApiOperation({ summary: 'List all office expense vouchers with category and status filters' })
+  async getExpenses(
+    @Query('status') status?: string,
+    @Query('category') category?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.hrService.getExpenses(status, category, search);
+  }
+
+  @Get('expenses/summary')
+  @ApiOperation({ summary: 'Get office expense statistical summary & category totals' })
+  async getExpenseSummary() {
+    return this.hrService.getExpenseSummary();
+  }
+
+  @Post('expenses')
+  @ApiOperation({ summary: 'Submit a new staff expense voucher with receipt photo (Step 4.1)' })
+  async createExpense(@Body() dto: CreateExpenseDto, @Req() req: any) {
+    return this.hrService.createExpense(dto, req.user);
+  }
+
+  @Patch('expenses/:id/review')
+  @ApiOperation({ summary: 'Department / HR Admin review of expense voucher (Step 4.2)' })
+  async reviewExpense(
+    @Param('id') id: string,
+    @Body() dto: ReviewExpenseDto,
+    @Req() req: any,
+  ) {
+    const reviewer = req.user?.fullName || req.user?.name || req.user?.email || 'Department Admin';
+    return this.hrService.reviewExpense(id, dto, reviewer);
+  }
+
+  @Patch('expenses/:id/approve')
+  @ApiOperation({ summary: 'Managing Director approval & automatic ledger posting (Step 4.2 & 4.3)' })
+  async approveExpense(
+    @Param('id') id: string,
+    @Body() dto: ApproveExpenseDto,
+    @Req() req: any,
+  ) {
+    const approver = req.user?.username || req.user?.email || 'Saarkadmin';
+    return this.hrService.approveExpense(id, dto, approver);
   }
 }

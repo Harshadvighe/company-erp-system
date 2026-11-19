@@ -9,6 +9,7 @@ import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { CreateLeaveDto, UpdateLeaveStatusDto } from './dto/create-leave.dto';
 import { ClockInDto, ClockOutDto } from './dto/clock-in.dto';
 import { AllocateWorkstationDto, LogOvertimeDto, ReportSafetyIncidentDto } from './dto/industrial.dto';
+import { CreateExpenseDto, ReviewExpenseDto, ApproveExpenseDto } from './dto/expense.dto';
 
 @Injectable()
 export class HrService {
@@ -1510,5 +1511,208 @@ export class HrService {
       },
       orderBy: { slipNumber: 'asc' },
     });
+  }
+
+  // -------------------------------------------------------------
+  // 11. WORKFLOW 4: OFFICE EXPENSE (HR / ADMIN) LIFECYCLE
+  // -------------------------------------------------------------
+  async getExpenses(status?: string, category?: string, search?: string) {
+    let query = `SELECT * FROM office_expenses WHERE 1=1`;
+    const params: any[] = [];
+
+    if (status && status !== 'ALL') {
+      params.push(status);
+      query += ` AND status = $${params.length}`;
+    }
+    if (category && category !== 'ALL') {
+      params.push(category);
+      query += ` AND category = $${params.length}`;
+    }
+    if (search) {
+      params.push(`%${search}%`);
+      query += ` AND (title ILIKE $${params.length} OR voucher_number ILIKE $${params.length} OR staff_name ILIKE $${params.length} OR description ILIKE $${params.length})`;
+    }
+    query += ` ORDER BY created_at DESC`;
+
+    return this.prisma.$queryRawUnsafe(query, ...params);
+  }
+
+  async getExpenseSummary() {
+    const rows: any[] = await this.prisma.$queryRawUnsafe(`
+      SELECT 
+        COUNT(*)::int as total_vouchers,
+        COALESCE(SUM(amount), 0)::float as total_amount,
+        COUNT(*) FILTER (WHERE status = 'SUBMITTED')::int as pending_review,
+        COUNT(*) FILTER (WHERE status = 'REVIEWED')::int as pending_approval,
+        COUNT(*) FILTER (WHERE status IN ('APPROVED', 'PAID'))::int as approved_count,
+        COALESCE(SUM(amount) FILTER (WHERE status IN ('APPROVED', 'PAID')), 0)::float as approved_amount
+      FROM office_expenses;
+    `);
+
+    const byCategory: any[] = await this.prisma.$queryRawUnsafe(`
+      SELECT category, COUNT(*)::int as count, COALESCE(SUM(amount), 0)::float as total
+      FROM office_expenses
+      GROUP BY category
+      ORDER BY total DESC;
+    `);
+
+    return {
+      summary: rows[0] || {},
+      byCategory,
+    };
+  }
+
+  async createExpense(dto: CreateExpenseDto, user: any) {
+    const countRes: any[] = await this.prisma.$queryRawUnsafe(`SELECT COUNT(*)::int as cnt FROM office_expenses;`);
+    const nextSeq = (countRes[0]?.cnt || 0) + 1;
+    const voucherNumber = `EXP-2026-${String(nextSeq).padStart(5, '0')}`;
+    const id = `exp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+
+    const staffId = user?.id || null;
+    const staffName = dto.staffName || user?.fullName || user?.name || user?.username || 'Saark Staff';
+    const staffEmail = user?.email || (user?.username ? `${user.username}@saark.in` : 'staff@saark.in');
+    const department = dto.department || user?.department || 'Operations';
+    const expenseDate = dto.expenseDate ? new Date(dto.expenseDate) : new Date();
+
+    await this.prisma.$executeRawUnsafe(
+      `INSERT INTO office_expenses (
+        id, voucher_number, title, category, amount, expense_date, description,
+        receipt_url, status, staff_id, staff_name, staff_email, department, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'SUBMITTED', $9, $10, $11, $12, NOW(), NOW())`,
+      id,
+      voucherNumber,
+      dto.title,
+      dto.category,
+      Number(dto.amount),
+      expenseDate,
+      dto.description || null,
+      dto.receiptUrl || null,
+      staffId,
+      staffName,
+      staffEmail,
+      department,
+    );
+
+    this.logger.log(`[OfficeExpense] Created voucher ${voucherNumber} (₹${dto.amount}) by ${staffName}`);
+
+    return {
+      id,
+      voucherNumber,
+      title: dto.title,
+      category: dto.category,
+      amount: dto.amount,
+      status: 'SUBMITTED',
+      message: 'Expense voucher submitted successfully. Forwarded to Department / HR Admin for review.',
+    };
+  }
+
+  async reviewExpense(id: string, dto: ReviewExpenseDto, reviewer: string) {
+    const existing: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT * FROM office_expenses WHERE id = $1`,
+      id,
+    );
+    if (!existing || existing.length === 0) {
+      throw new NotFoundException(`Expense voucher with ID ${id} not found`);
+    }
+
+    const newStatus = dto.status === 'REVIEWED' ? 'REVIEWED' : 'REJECTED';
+
+    await this.prisma.$executeRawUnsafe(
+      `UPDATE office_expenses SET
+        status = $1,
+        reviewed_by = $2,
+        reviewed_at = NOW(),
+        review_notes = $3,
+        updated_at = NOW()
+      WHERE id = $4`,
+      newStatus,
+      reviewer,
+      dto.reviewNotes || null,
+      id,
+    );
+
+    this.logger.log(`[OfficeExpense] Voucher ${existing[0].voucher_number} marked as ${newStatus} by ${reviewer}`);
+
+    return {
+      id,
+      voucherNumber: existing[0].voucher_number,
+      status: newStatus,
+      reviewedBy: reviewer,
+      message: newStatus === 'REVIEWED'
+        ? 'Voucher reviewed & verified. Forwarded to Managing Director (Saarkadmin) for final approval.'
+        : 'Voucher rejected during Department Admin review.',
+    };
+  }
+
+  async approveExpense(id: string, dto: ApproveExpenseDto, approver: string) {
+    const existing: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT * FROM office_expenses WHERE id = $1`,
+      id,
+    );
+    if (!existing || existing.length === 0) {
+      throw new NotFoundException(`Expense voucher with ID ${id} not found`);
+    }
+
+    if (dto.status === 'REJECTED') {
+      await this.prisma.$executeRawUnsafe(
+        `UPDATE office_expenses SET
+          status = 'REJECTED',
+          approved_by = $1,
+          approved_at = NOW(),
+          approval_notes = $2,
+          updated_at = NOW()
+        WHERE id = $3`,
+        approver,
+        dto.approvalNotes || null,
+        id,
+      );
+
+      return {
+        id,
+        voucherNumber: existing[0].voucher_number,
+        status: 'REJECTED',
+        approvedBy: approver,
+        message: 'Expense voucher rejected by Managing Director.',
+      };
+    }
+
+    // Step 4.2 & 4.3: Managing Director Approval & Ledger Posting
+    const markPaid = dto.markPaid !== false;
+    const finalStatus = markPaid ? 'PAID' : 'APPROVED';
+    const paymentMode = dto.paymentMode || 'PETTY_CASH';
+    const ledgerRef = `JV-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    await this.prisma.$executeRawUnsafe(
+      `UPDATE office_expenses SET
+        status = $1,
+        approved_by = $2,
+        approved_at = NOW(),
+        approval_notes = $3,
+        payment_mode = $4,
+        ledger_account = 'OFFICE_EXPENSE_LEDGER',
+        ledger_ref = $5,
+        paid_at = ${markPaid ? 'NOW()' : 'NULL'},
+        updated_at = NOW()
+      WHERE id = $6`,
+      finalStatus,
+      approver,
+      dto.approvalNotes || 'Approved by Managing Director',
+      paymentMode,
+      ledgerRef,
+      id,
+    );
+
+    this.logger.log(`[OfficeExpense] Voucher ${existing[0].voucher_number} APPROVED by MD ${approver}. Posted to Ledger (${ledgerRef}, Mode: ${paymentMode})`);
+
+    return {
+      id,
+      voucherNumber: existing[0].voucher_number,
+      status: finalStatus,
+      approvedBy: approver,
+      paymentMode,
+      ledgerAccount: 'OFFICE_EXPENSE_LEDGER',
+      ledgerRef,
+      message: `Voucher approved by Managing Director. Automatically debited Office Expense Ledger and credited ${paymentMode} (${ledgerRef}).`,
+    };
   }
 }
