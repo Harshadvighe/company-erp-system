@@ -19,7 +19,7 @@ class LoginPage extends ConsumerStatefulWidget {
 }
 
 class _LoginPageState extends ConsumerState<LoginPage>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -53,11 +53,47 @@ class _LoginPageState extends ConsumerState<LoginPage>
   late Animation<Offset> _slideAnimation;
   late Animation<double> _scaleAnimation;
 
+  // ── Running Status & Cyber Motion Controllers ──
+  late AnimationController _pulseController;
+  late Animation<double> _floatAnimation;
+  late Animation<double> _scaleBreatheAnimation;
+  late Animation<double> _glowAnimation;
+
+  late AnimationController _scanController;
+  late Animation<double> _scanAnimation;
+
+  late AnimationController _particleController;
+
+  static const List<_TechParticle> _particles = [
+    _TechParticle(x: 0.08, speed: 0.9, radius: 1.8, opacity: 0.45, color: Color(0xFF00E5FF)),
+    _TechParticle(x: 0.15, speed: 1.4, radius: 2.2, opacity: 0.60, color: Color(0xFFFF7A00)),
+    _TechParticle(x: 0.22, speed: 0.7, radius: 1.4, opacity: 0.35, color: Color(0xFF00E5FF)),
+    _TechParticle(x: 0.28, speed: 1.1, radius: 2.0, opacity: 0.50, color: Color(0xFF00E5FF)),
+    _TechParticle(x: 0.35, speed: 1.6, radius: 2.4, opacity: 0.65, color: Color(0xFFFF7A00)),
+    _TechParticle(x: 0.42, speed: 0.8, radius: 1.5, opacity: 0.40, color: Color(0xFF00E5FF)),
+    _TechParticle(x: 0.48, speed: 1.3, radius: 2.1, opacity: 0.55, color: Color(0xFF00E5FF)),
+    _TechParticle(x: 0.55, speed: 1.0, radius: 1.8, opacity: 0.45, color: Color(0xFFFF7A00)),
+    _TechParticle(x: 0.62, speed: 1.5, radius: 2.3, opacity: 0.60, color: Color(0xFF00E5FF)),
+    _TechParticle(x: 0.68, speed: 0.85, radius: 1.6, opacity: 0.38, color: Color(0xFF00E5FF)),
+    _TechParticle(x: 0.75, speed: 1.2, radius: 2.0, opacity: 0.52, color: Color(0xFFFF7A00)),
+    _TechParticle(x: 0.82, speed: 1.7, radius: 2.5, opacity: 0.65, color: Color(0xFF00E5FF)),
+    _TechParticle(x: 0.88, speed: 0.95, radius: 1.7, opacity: 0.42, color: Color(0xFF00E5FF)),
+    _TechParticle(x: 0.94, speed: 1.35, radius: 2.2, opacity: 0.58, color: Color(0xFFFF7A00)),
+    _TechParticle(x: 0.12, speed: 1.25, radius: 1.9, opacity: 0.48, color: Color(0xFF00E5FF)),
+    _TechParticle(x: 0.25, speed: 1.8, radius: 2.4, opacity: 0.62, color: Color(0xFFFF7A00)),
+    _TechParticle(x: 0.38, speed: 0.75, radius: 1.5, opacity: 0.36, color: Color(0xFF00E5FF)),
+    _TechParticle(x: 0.52, speed: 1.45, radius: 2.1, opacity: 0.55, color: Color(0xFF00E5FF)),
+    _TechParticle(x: 0.65, speed: 1.15, radius: 1.8, opacity: 0.46, color: Color(0xFFFF7A00)),
+    _TechParticle(x: 0.78, speed: 1.6, radius: 2.3, opacity: 0.60, color: Color(0xFF00E5FF)),
+    _TechParticle(x: 0.91, speed: 0.8, radius: 1.4, opacity: 0.35, color: Color(0xFF00E5FF)),
+  ];
+
   @override
   void initState() {
     super.initState();
     _loadSavedUsername();
     _emailController.addListener(_onEmailChanged);
+
     _fadeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 700),
@@ -70,6 +106,36 @@ class _LoginPageState extends ConsumerState<LoginPage>
     _scaleAnimation = Tween<double>(begin: 0.96, end: 1.0).animate(
       CurvedAnimation(parent: _fadeController, curve: Curves.easeOutBack),
     );
+
+    // Continuous running status animations
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3600),
+    )..repeat(reverse: true);
+
+    _floatAnimation = Tween<double>(begin: -7.0, end: 7.0).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+    _scaleBreatheAnimation = Tween<double>(begin: 1.0, end: 1.045).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+    _glowAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
+    _scanController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3400),
+    )..repeat();
+
+    _scanAnimation = Tween<double>(begin: -0.15, end: 1.15).animate(
+      CurvedAnimation(parent: _scanController, curve: Curves.linear),
+    );
+
+    _particleController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 14),
+    )..repeat();
   }
 
   void _onEmailChanged() {
@@ -82,6 +148,9 @@ class _LoginPageState extends ConsumerState<LoginPage>
     _emailController.dispose();
     _passwordController.dispose();
     _fadeController.dispose();
+    _pulseController.dispose();
+    _scanController.dispose();
+    _particleController.dispose();
     super.dispose();
   }
 
@@ -307,40 +376,186 @@ class _LoginPageState extends ConsumerState<LoginPage>
   Widget _buildDesktopLayout() {
     return Row(
       children: [
-        // Left brand panel — full-height image background
+        // Left brand panel — full-height animated "Running Status" cyber panel
         Expanded(
           flex: 5,
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // Full-height background image
-              Image.asset(
-                'assets/images/erp_security_panel.jpg',
-                fit: BoxFit.cover,
+              // 1. Ken Burns / Breathing animated background image
+              AnimatedBuilder(
+                animation: _pulseController,
+                builder: (context, child) {
+                  return Transform.scale(
+                    scale: _scaleBreatheAnimation.value,
+                    child: child,
+                  );
+                },
+                child: Image.asset(
+                  'assets/images/erp_security_panel.jpg',
+                  fit: BoxFit.cover,
+                ),
               ),
-              // Dark overlay so text remains readable
+
+              // 2. Dark tech overlay so foreground text remains crisp
               Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.black.withValues(alpha: 0.72),
-                      Colors.black.withValues(alpha: 0.60),
+                      Colors.black.withValues(alpha: 0.70),
+                      Colors.black.withValues(alpha: 0.55),
                     ],
                   ),
                 ),
               ),
-              // Foreground content
+
+              // 3. Animated data flow particles running across circuit traces
+              AnimatedBuilder(
+                animation: _particleController,
+                builder: (context, _) {
+                  return CustomPaint(
+                    size: Size.infinite,
+                    painter: _TechParticlePainter(
+                      progress: _particleController.value,
+                      particles: _particles,
+                    ),
+                  );
+                },
+              ),
+
+              // 4. Cyber Scanning Wave / Laser energy line running vertically
+              AnimatedBuilder(
+                animation: _scanController,
+                builder: (context, _) {
+                  return LayoutBuilder(
+                    builder: (context, constraints) {
+                      final top = _scanAnimation.value * constraints.maxHeight;
+                      return Positioned(
+                        top: top,
+                        left: 0,
+                        right: 0,
+                        height: 90,
+                        child: IgnorePointer(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.transparent,
+                                  const Color(0xFF00E5FF).withValues(alpha: 0.05),
+                                  const Color(0xFF00E5FF).withValues(alpha: 0.22),
+                                  Colors.white.withValues(alpha: 0.55),
+                                  const Color(0xFFFF7A00).withValues(alpha: 0.20),
+                                  Colors.transparent,
+                                ],
+                                stops: const [0.0, 0.25, 0.47, 0.5, 0.53, 1.0],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+
+              // 5. Foreground Content with Animated "Running Status" Elements
               Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const SaarkFullLogoCard(
-                    width: 260,
-                    height: 170,
-                    padding: AppSpacing.allBase,
+                  // Animated "Running Status" Live System Badge
+                  AnimatedBuilder(
+                    animation: _pulseController,
+                    builder: (context, _) {
+                      final glow = _glowAnimation.value;
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 24),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.60),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: const Color(0xFF00E676).withValues(alpha: 0.40 + 0.40 * glow),
+                            width: 1.2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF00E676).withValues(alpha: 0.15 + 0.20 * glow),
+                              blurRadius: 12 + 6 * glow,
+                              spreadRadius: 1 + 2 * glow,
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF00E676),
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF00E676),
+                                    blurRadius: 6 + 6 * glow,
+                                    spreadRadius: 2 + 2 * glow,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'ERP CORE RUNNING • SYSTEM OPERATIONAL',
+                              style: TextStyle(
+                                color: Color(0xFF00E676),
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
-                  AppSpacing.gapH32,
+
+                  // Floating Logo Card with breathing neon aura
+                  AnimatedBuilder(
+                    animation: _pulseController,
+                    builder: (context, child) {
+                      return Transform.translate(
+                        offset: Offset(0, _floatAnimation.value),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.primary.withValues(alpha: 0.20 + 0.15 * _glowAnimation.value),
+                                blurRadius: 30 + 15 * _glowAnimation.value,
+                                spreadRadius: 3 + 3 * _glowAnimation.value,
+                              ),
+                              BoxShadow(
+                                color: const Color(0xFF00E5FF).withValues(alpha: 0.14 * (1.0 - _glowAnimation.value)),
+                                blurRadius: 20,
+                                spreadRadius: 1,
+                              ),
+                            ],
+                          ),
+                          child: child,
+                        ),
+                      );
+                    },
+                    child: const SaarkFullLogoCard(
+                      width: 260,
+                      height: 170,
+                      padding: AppSpacing.allBase,
+                    ),
+                  ),
+                  const SizedBox(height: 28),
                   const Text(
                     'SAARK EXPLORATION',
                     style: TextStyle(
@@ -360,7 +575,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                       color: Colors.white70,
                     ),
                   ),
-                  AppSpacing.gapH40,
+                  AppSpacing.gapH32,
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 64),
                     child: Text(
@@ -373,7 +588,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                       ),
                     ),
                   ),
-                  AppSpacing.gapH40,
+                  AppSpacing.gapH32,
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 64),
                     child: Wrap(
@@ -381,24 +596,57 @@ class _LoginPageState extends ConsumerState<LoginPage>
                       runSpacing: 8,
                       alignment: WrapAlignment.center,
                       children: [
-                        'CRM','Sales','Purchase','Inventory',
-                        'Production','Projects','HR'
-                      ]
-                          .map((f) => Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 14, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.08),
-                                  border: Border.all(
-                                      color: AppTheme.primary
-                                          .withValues(alpha: 0.5)),
-                                  borderRadius: BorderRadius.circular(20),
+                        'CRM',
+                        'Sales',
+                        'Purchase',
+                        'Inventory',
+                        'Production',
+                        'Projects',
+                        'HR',
+                      ].asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final f = entry.value;
+                        return AnimatedBuilder(
+                          animation: _pulseController,
+                          builder: (context, _) {
+                            final shift = (idx * 0.14);
+                            final val = ((_pulseController.value + shift) % 1.0);
+                            final isLit = val > 0.40 && val < 0.85;
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: isLit
+                                    ? AppTheme.primary.withValues(alpha: 0.18)
+                                    : Colors.white.withValues(alpha: 0.08),
+                                border: Border.all(
+                                  color: isLit
+                                      ? const Color(0xFF00E5FF).withValues(alpha: 0.80)
+                                      : AppTheme.primary.withValues(alpha: 0.40),
+                                  width: isLit ? 1.4 : 1.0,
                                 ),
-                                child: Text(f,
-                                    style: const TextStyle(
-                                        color: Colors.white70, fontSize: 12)),
-                              ))
-                          .toList(),
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: isLit
+                                    ? [
+                                        BoxShadow(
+                                          color: const Color(0xFF00E5FF).withValues(alpha: 0.25),
+                                          blurRadius: 8,
+                                          spreadRadius: 1,
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: Text(
+                                f,
+                                style: TextStyle(
+                                  color: isLit ? Colors.white : Colors.white70,
+                                  fontSize: 12,
+                                  fontWeight: isLit ? FontWeight.w600 : FontWeight.normal,
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      }).toList(),
                     ),
                   ),
                 ],
@@ -451,8 +699,32 @@ class _LoginPageState extends ConsumerState<LoginPage>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const SaarkFullLogoCard(
-                    width: 200, height: 130, padding: EdgeInsets.all(12)),
+                AnimatedBuilder(
+                  animation: _pulseController,
+                  builder: (context, child) {
+                    return Transform.translate(
+                      offset: Offset(0, _floatAnimation.value * 0.6),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.primary.withValues(alpha: 0.20 + 0.15 * _glowAnimation.value),
+                              blurRadius: 20,
+                              spreadRadius: 2,
+                            ),
+                          ],
+                        ),
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: const SaarkFullLogoCard(
+                    width: 200,
+                    height: 130,
+                    padding: EdgeInsets.all(12),
+                  ),
+                ),
                 const SizedBox(height: 12),
                 const Text(
                   'ENTERPRISE ERP PORTAL',
@@ -940,4 +1212,68 @@ class _LoginPageState extends ConsumerState<LoginPage>
     return Container(
         width: 1, height: 12, color: Colors.white.withValues(alpha: 0.1));
   }
+}
+
+class _TechParticle {
+  final double x;
+  final double speed;
+  final double radius;
+  final double opacity;
+  final Color color;
+
+  const _TechParticle({
+    required this.x,
+    required this.speed,
+    required this.radius,
+    required this.opacity,
+    required this.color,
+  });
+}
+
+class _TechParticlePainter extends CustomPainter {
+  final double progress;
+  final List<_TechParticle> particles;
+
+  _TechParticlePainter({required this.progress, required this.particles});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final points = <Offset>[];
+    for (final p in particles) {
+      final y = ((1.0 - ((progress * p.speed) % 1.0)) * size.height);
+      final x = p.x * size.width;
+      final offset = Offset(x, y);
+      points.add(offset);
+
+      final paint = Paint()
+        ..color = p.color.withValues(alpha: p.opacity)
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(offset, p.radius, paint);
+
+      // Soft ambient glow halo
+      final glowPaint = Paint()
+        ..color = p.color.withValues(alpha: p.opacity * 0.40)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
+      canvas.drawCircle(offset, p.radius * 2.2, glowPaint);
+    }
+
+    // Dynamic connecting cyber data lines between close nodes
+    final linePaint = Paint()
+      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.12)
+      ..strokeWidth = 0.8;
+    for (int i = 0; i < points.length; i++) {
+      for (int j = i + 1; j < points.length; j++) {
+        final d = (points[i] - points[j]).distance;
+        if (d < 75) {
+          final alpha = (1.0 - (d / 75)) * 0.18;
+          linePaint.color = const Color(0xFF00E5FF).withValues(alpha: alpha);
+          canvas.drawLine(points[i], points[j], linePaint);
+        }
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _TechParticlePainter oldDelegate) =>
+      oldDelegate.progress != progress;
 }
