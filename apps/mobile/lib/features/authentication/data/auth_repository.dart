@@ -80,10 +80,12 @@ class AuthRepository {
     return response.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> faceAutoLogin(String faceData) async {
+  Future<Map<String, dynamic>> faceAutoLogin(String faceData, {String? username}) async {
     final response = await _dio.post('/auth/face-login', data: {
       'face_data': faceData,
       'livePhotoBase64': faceData,
+      if (username != null && username.isNotEmpty) 'username': username,
+      if (username != null && username.isNotEmpty) 'identifier': username,
     });
     return response.data as Map<String, dynamic>;
   }
@@ -200,12 +202,12 @@ class AuthService {
     );
   }
 
-  Future<LoginResult> faceAutoLogin(String faceData) async {
+  Future<LoginResult> faceAutoLogin(String faceData, {String? username}) async {
     _authNotifier.setLoading(true);
     _authNotifier.setError(null);
 
     try {
-      final response = await _repo.faceAutoLogin(faceData);
+      final response = await _repo.faceAutoLogin(faceData, username: username);
       final data = response['data'] ?? response;
 
       final userMap = data['user'] as Map<String, dynamic>;

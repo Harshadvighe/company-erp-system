@@ -283,7 +283,11 @@ class _LoginPageState extends ConsumerState<LoginPage>
         return;
       }
 
-      final loginResult = await authService.faceAutoLogin(liveFaceData);
+      final usernameHint = _emailController.text.trim();
+      final loginResult = await authService.faceAutoLogin(
+        liveFaceData,
+        username: usernameHint.isNotEmpty ? usernameHint : null,
+      );
 
       if (mounted && GoRouterState.of(context).matchedLocation == '/login') {
         final user = ref.read(currentUserProvider);
@@ -437,11 +441,15 @@ class _LoginPageState extends ConsumerState<LoginPage>
               ),
             ),
             child: Center(
-              child: SlideTransition(
-                position: _slideAnimation,
-                child: ScaleTransition(
-                  scale: _scaleAnimation,
-                  child: _buildLoginForm(maxWidth: 420),
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                child: SlideTransition(
+                  position: _slideAnimation,
+                  child: ScaleTransition(
+                    scale: _scaleAnimation,
+                    child: _buildLoginForm(maxWidth: 420),
+                  ),
                 ),
               ),
             ),
@@ -744,14 +752,14 @@ class _LoginPageState extends ConsumerState<LoginPage>
                           borderRadius: BorderRadius.circular(12),
                           child: _shouldBypassCamera
                               ? Container(
-                                  height: 200,
+                                  height: 145,
                                   width: double.infinity,
                                   color: const Color(0xFF131518),
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       Container(
-                                        padding: const EdgeInsets.all(12),
+                                        padding: const EdgeInsets.all(10),
                                         decoration: BoxDecoration(
                                           color: const Color(0xFF10B981).withValues(alpha: 0.15),
                                           shape: BoxShape.circle,
@@ -762,21 +770,21 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                         child: const Icon(
                                           Icons.no_photography_rounded,
                                           color: Color(0xFF10B981),
-                                          size: 34,
+                                          size: 28,
                                         ),
                                       ),
-                                      const SizedBox(height: 10),
+                                      const SizedBox(height: 6),
                                       Text(
                                         _isRahulYeole
                                             ? 'Rahul Yeole (Direct Password Login)'
                                             : 'Laptop Camera Bypassed',
                                         style: const TextStyle(
                                           color: Colors.white,
-                                          fontSize: 12.5,
+                                          fontSize: 12,
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
-                                      const SizedBox(height: 4),
+                                      const SizedBox(height: 2),
                                       Text(
                                         _isRahulYeole
                                             ? 'No camera or face scan required.\nDirect access with username & password.'
@@ -784,7 +792,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                         textAlign: TextAlign.center,
                                         style: const TextStyle(
                                           color: Colors.white54,
-                                          fontSize: 10.5,
+                                          fontSize: 10,
                                         ),
                                       ),
                                     ],
@@ -792,7 +800,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                 )
                               : LiveCameraStreamViewport(
                                   key: _cameraKey,
-                                  height: 200,
+                                  height: 145,
                                 ),
                         ),
                       ),
@@ -840,44 +848,65 @@ class _LoginPageState extends ConsumerState<LoginPage>
                       ),
                   ],
                 ),
-                AppSpacing.gapH20,
+                AppSpacing.gapH16,
 
-                // ── Face Scan Auto-Login Button (Camera Only) ──────────────
-                if (!_shouldBypassCamera) ...[
-                  Center(
-                    child: SizedBox(
-                      width: 280,
-                      height: 50,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF00B4D8),
-                          foregroundColor: Colors.white,
-                          elevation: 3,
-                          shadowColor: const Color(0xFF00B4D8).withValues(alpha: 0.4),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        onPressed: _isLoading ? null : _handleFaceAutoLogin,
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.face_retouching_natural_rounded, size: 20),
-                            SizedBox(width: 10),
-                            Text(
-                              'Face Scan Auto-Login',
-                              style: TextStyle(
-                                fontSize: 14.5,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.3,
-                              ),
-                            ),
-                          ],
+                // ── Primary Action: Sign In Button (Username & Password + Live Biometrics) ──
+                Center(
+                  child: SizedBox(
+                    width: 280,
+                    height: 50,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primary,
+                        foregroundColor: Colors.white,
+                        elevation: 4,
+                        shadowColor: AppTheme.primary.withValues(alpha: 0.45),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
                         ),
                       ),
+                      onPressed: _isLoading ? null : _handleLogin,
+                      child: _isLoading
+                          ? const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2.5,
+                                  ),
+                                ),
+                                SizedBox(width: 12),
+                                Text('Verifying...',
+                                    style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600)),
+                              ],
+                            )
+                          : const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.login_rounded, size: 19),
+                                SizedBox(width: 10),
+                                Text(
+                                  'Sign In (Password & Face)',
+                                  style: TextStyle(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.4,
+                                  ),
+                                ),
+                              ],
+                            ),
                     ),
                   ),
-                  const SizedBox(height: 14),
+                ),
+
+                // ── Secondary Action: Quick Face Scan Auto-Login (Camera Only) ──
+                if (!_shouldBypassCamera) ...[
+                  const SizedBox(height: 12),
                   Row(
                     children: [
                       Expanded(
@@ -889,7 +918,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                       const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 10),
                         child: Text(
-                          'OR SIGN IN WITH PASSWORD',
+                          'OR QUICK CAMERA ACCESS',
                           style: TextStyle(
                             fontSize: 10,
                             color: Colors.white38,
@@ -906,62 +935,40 @@ class _LoginPageState extends ConsumerState<LoginPage>
                       ),
                     ],
                   ),
-                  const SizedBox(height: 14),
-                ],
-
-                // ── Sign In Button (Username & Password) ───────────────────
-                Center(
-                  child: SizedBox(
-                    width: 260,
-                    height: 52,
-                    child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primary,
-                      foregroundColor: Colors.white,
-                      elevation: 3,
-                      shadowColor: AppTheme.primary.withValues(alpha: 0.4),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                  const SizedBox(height: 12),
+                  Center(
+                    child: SizedBox(
+                      width: 280,
+                      height: 44,
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF00E5FF),
+                          side: const BorderSide(color: Color(0xFF00E5FF), width: 1.5),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          backgroundColor: const Color(0xFF00E5FF).withValues(alpha: 0.08),
+                        ),
+                        onPressed: _isLoading ? null : _handleFaceAutoLogin,
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.face_retouching_natural_rounded, size: 18),
+                            SizedBox(width: 8),
+                            Text(
+                              'Face Scan Auto-Login',
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    onPressed: _isLoading ? null : _handleLogin,
-                    child: _isLoading
-                        ? const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2.5,
-                                ),
-                              ),
-                              SizedBox(width: 12),
-                              Text('Verifying...',
-                                  style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600)),
-                            ],
-                          )
-                        : const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.login_rounded, size: 18),
-                              SizedBox(width: 10),
-                              Text(
-                                'Sign In',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ],
-                          ),
                   ),
-                ),
-                 ),
+                ],
                 AppSpacing.gapH16,
 
                 // ── Security Footer ───────────────────────────────────────

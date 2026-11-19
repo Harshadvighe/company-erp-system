@@ -10,5 +10,15 @@ export class FaceAutoLoginDto {
   @IsOptional()
   @IsString()
   livePhotoBase64?: string;
+
+  @ApiPropertyOptional({ description: 'Optional username or email hint for targeted biometric verification' })
+  @IsOptional()
+  @IsString()
+  username?: string;
+
+  @ApiPropertyOptional({ description: 'Optional identifier (username or email)' })
+  @IsOptional()
+  @IsString()
+  identifier?: string;
 }
 

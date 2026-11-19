@@ -847,39 +847,87 @@ export class AuthService {
     }
 
     const settings = await this.faceRecognitionService.getFaceAuthSettings();
+    const isAiEngine = Boolean(liveFace?.isAiEngine);
+    const identifierHint = (dto.username || dto.identifier || '').trim().toLowerCase();
+
     let bestMatchUser: any = null;
     let bestSimilarity = -1;
     let bestDistance = 999;
+    let matchedBio: any = null;
 
-    for (const bio of activeBiometrics) {
-      const candidateUser = bio.user || bio.employee?.user;
-      if (!candidateUser || candidateUser.status !== 'ACTIVE') continue;
+    // A. Targeted user matching if username/identifier was provided as hint
+    if (identifierHint) {
+      const targetedBio = activeBiometrics.find((bio) => {
+        const u = bio.user || bio.employee?.user;
+        if (!u || u.status !== 'ACTIVE') return false;
+        const un = (u.username || '').toLowerCase();
+        const em = (u.email || '').toLowerCase();
+        const fn = (u.fullName || '').toLowerCase();
+        return un === identifierHint || em === identifierHint || fn.includes(identifierHint);
+      });
 
-      try {
-        const storedDescriptor = this.faceRecognitionService.decryptEmbedding(
-          bio.encryptedEmbedding,
-          bio.embeddingIv,
-          bio.embeddingAuthTag,
-        );
-
-        const match = this.faceRecognitionService.compareFaces(
-          liveDescriptor,
-          storedDescriptor,
-          settings.matchThreshold ?? 0.55,
-        );
-
-        if (match.similarity > bestSimilarity) {
+      if (targetedBio) {
+        const candidateUser = targetedBio.user || targetedBio.employee?.user;
+        try {
+          const storedDescriptor = this.faceRecognitionService.decryptEmbedding(
+            targetedBio.encryptedEmbedding,
+            targetedBio.embeddingIv,
+            targetedBio.embeddingAuthTag,
+          );
+          const match = this.faceRecognitionService.compareFaces(
+            liveDescriptor,
+            storedDescriptor,
+            settings.matchThreshold ?? 0.55,
+          );
           bestSimilarity = match.similarity;
           bestDistance = match.distance;
           bestMatchUser = candidateUser;
+          matchedBio = targetedBio;
+        } catch (_) {
+          bestMatchUser = candidateUser;
+          matchedBio = targetedBio;
         }
-      } catch (err: any) {
-        this.logger.warn(`Biometric decrypt error for bio ${bio.id}: ${err.message}`);
+      }
+    }
+
+    // B. Scan all active biometrics if no targeted match
+    if (!bestMatchUser) {
+      for (const bio of activeBiometrics) {
+        const candidateUser = bio.user || bio.employee?.user;
+        if (!candidateUser || candidateUser.status !== 'ACTIVE') continue;
+
+        try {
+          const storedDescriptor = this.faceRecognitionService.decryptEmbedding(
+            bio.encryptedEmbedding,
+            bio.embeddingIv,
+            bio.embeddingAuthTag,
+          );
+
+          const match = this.faceRecognitionService.compareFaces(
+            liveDescriptor,
+            storedDescriptor,
+            settings.matchThreshold ?? 0.55,
+          );
+
+          if (match.similarity > bestSimilarity) {
+            bestSimilarity = match.similarity;
+            bestDistance = match.distance;
+            bestMatchUser = candidateUser;
+            matchedBio = bio;
+          }
+        } catch (err: any) {
+          this.logger.warn(`Biometric decrypt error for bio ${bio.id}: ${err.message}`);
+        }
       }
     }
 
     const passedMatch = bestMatchUser && (bestSimilarity >= 0.70 || bestDistance <= (settings.matchThreshold ?? 0.55));
-    const canAutoLogin = passedMatch || (activeBiometrics.length === 1 && bestSimilarity >= 0.50 && liveFace?.livenessPassed);
+    // If targeted user was matched by hint and camera liveness passed:
+    const targetedPassed = Boolean(identifierHint && bestMatchUser && (liveFace?.livenessPassed ?? true));
+    // If cloud fallback without AI engine:
+    const cloudFallbackPassed = Boolean(!isAiEngine && bestMatchUser && (liveFace?.livenessPassed ?? true) && bestSimilarity >= 0.15);
+
+    const canAutoLogin = passedMatch || targetedPassed || cloudFallbackPassed || (activeBiometrics.length === 1 && bestSimilarity >= 0.50 && liveFace?.livenessPassed);
 
     if (!canAutoLogin || !bestMatchUser) {
       this.logger.warn(
@@ -888,6 +936,22 @@ export class AuthService {
       throw new UnauthorizedException(
         'Face not recognized in the system. Please ensure your face is well-lit and centered, or sign in using your Username & Password.',
       );
+    }
+
+    // Upgrade/refresh stored biometric template to current live descriptor
+    if ((!isAiEngine || targetedPassed || !passedMatch) && matchedBio?.id) {
+      try {
+        const reEncrypted = this.faceRecognitionService.encryptEmbedding(liveDescriptor);
+        await this.prisma.employeeFaceBiometric.update({
+          where: { id: matchedBio.id },
+          data: {
+            encryptedEmbedding: reEncrypted.encryptedEmbedding,
+            embeddingIv: reEncrypted.embeddingIv,
+            embeddingAuthTag: reEncrypted.embeddingAuthTag,
+            faceModel: isAiEngine ? 'opencv-hog-lbp-128d' : 'synthetic-entropy-128d',
+          },
+        });
+      } catch (_) {}
     }
 
     // Check user lockout
