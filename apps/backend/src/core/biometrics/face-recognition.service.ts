@@ -7,6 +7,7 @@ import { spawn } from 'child_process';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as jpeg from 'jpeg-js';
 import { PrismaService } from '../database/prisma.service';
 
 export interface FaceExtractionResult {
@@ -135,8 +136,9 @@ export class FaceRecognitionService {
       );
       fs.writeFileSync(tempFilePath, buffer);
 
-      return await new Promise<FaceExtractionResult | null>((resolve) => {
-        const pyProc = spawn('python', [scriptPath, 'extract', '--input', tempFilePath]);
+      const tryRun = (cmd: string) =>
+        new Promise<FaceExtractionResult | null>((resolve) => {
+          const pyProc = spawn(cmd, [scriptPath, 'extract', '--input', tempFilePath]);
         let stdout = '';
         let stderr = '';
 
@@ -182,16 +184,151 @@ export class FaceRecognitionService {
           resolve(null);
         });
 
-        pyProc.on('error', (err) => {
-          try {
-            if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
-          } catch (_) {}
-          this.logger.debug(`Python process spawn error: ${err.message}`);
-          resolve(null);
-        });
+        pyProc.on('error', () => resolve(null));
       });
+
+      let result = await tryRun('python3');
+      if (!result) {
+        result = await tryRun('python');
+      }
+
+      try {
+        if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+      } catch (_) {}
+
+      return result;
     } catch (e: any) {
       this.logger.debug(`extractWithPython caught error: ${e.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Pure JavaScript extraction of a 128-dimensional facial spatial gradient & texture descriptor.
+   * Matches the mathematical principles of HOG (Histogram of Oriented Gradients) & Spatial Intensity Grids.
+   * Decodes actual JPEG pixels (RGBA), converts to grayscale, extracts the centered face ROI (4x4 spatial grid),
+   * and computes 8 directional and texture bins per cell = 128 normalized dimensions.
+   */
+  public extract128dWithPureJs(buffer: Buffer): number[] | null {
+    try {
+      const decoded = (jpeg as any).decode(buffer, { useTArray: true, maxMemoryUsageInMB: 128 });
+      if (!decoded || !decoded.width || !decoded.height || !decoded.data) {
+        return null;
+      }
+
+      const { width, height, data } = decoded;
+
+      // Extract centered face ROI (central 60% horizontally and vertically where the face is centered)
+      const roiStartX = Math.floor(width * 0.20);
+      const roiEndX = Math.floor(width * 0.80);
+      const roiStartY = Math.floor(height * 0.15);
+      const roiEndY = Math.floor(height * 0.85);
+
+      const roiW = roiEndX - roiStartX;
+      const roiH = roiEndY - roiStartY;
+      if (roiW < 32 || roiH < 32) return null;
+
+      // Convert ROI to grayscale matrix
+      const gray = new Float32Array(roiW * roiH);
+      for (let y = 0; y < roiH; y++) {
+        const srcRow = (roiStartY + y) * width;
+        const dstRow = y * roiW;
+        for (let x = 0; x < roiW; x++) {
+          const pxIdx = (srcRow + roiStartX + x) * 4;
+          const r = data[pxIdx];
+          const g = data[pxIdx + 1];
+          const b = data[pxIdx + 2];
+          gray[dstRow + x] = 0.299 * r + 0.587 * g + 0.114 * b;
+        }
+      }
+
+      // Compute 4x4 spatial grid cells (16 cells total)
+      // For each cell:
+      // Bins 0-3: Directional Gradients (Horizontal, Vertical, Diagonal 45, Diagonal 135)
+      // Bins 4-5: Mean luminance & Local Contrast (variance)
+      // Bins 6-7: High-frequency texture transitions (positive & negative derivative crossings)
+      // 8 features * 16 cells = 128 dimensions!
+      const descriptor = new Array<number>(128).fill(0);
+      const cellW = Math.floor(roiW / 4);
+      const cellH = Math.floor(roiH / 4);
+
+      let normSq = 0;
+      for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < 4; c++) {
+          const cellIdx = (r * 4 + c) * 8;
+          const startX = c * cellW;
+          const endX = (c + 1) * cellW;
+          const startY = r * cellH;
+          const endY = (r + 1) * cellH;
+
+          let sumL = 0;
+          let sumSqL = 0;
+          let gradH = 0;
+          let gradV = 0;
+          let gradDiag1 = 0;
+          let gradDiag2 = 0;
+          let posCrossings = 0;
+          let negCrossings = 0;
+          let count = 0;
+
+          for (let y = startY; y < endY - 1; y++) {
+            const rowOffset = y * roiW;
+            const nextRowOffset = (y + 1) * roiW;
+            for (let x = startX; x < endX - 1; x++) {
+              const val = gray[rowOffset + x];
+              const valRight = gray[rowOffset + x + 1];
+              const valDown = gray[nextRowOffset + x];
+              const valDiag = gray[nextRowOffset + x + 1];
+
+              sumL += val;
+              sumSqL += val * val;
+              count++;
+
+              const dx = valRight - val;
+              const dy = valDown - val;
+              const ddiag1 = valDiag - val;
+              const ddiag2 = valRight - valDown;
+
+              gradH += Math.abs(dx);
+              gradV += Math.abs(dy);
+              gradDiag1 += Math.abs(ddiag1);
+              gradDiag2 += Math.abs(ddiag2);
+
+              if (dx > 4.0) posCrossings++;
+              else if (dx < -4.0) negCrossings++;
+            }
+          }
+
+          if (count > 0) {
+            const mean = sumL / count;
+            const variance = Math.max(0, (sumSqL / count) - (mean * mean));
+            const stdDev = Math.sqrt(variance);
+
+            descriptor[cellIdx + 0] = gradH / count;
+            descriptor[cellIdx + 1] = gradV / count;
+            descriptor[cellIdx + 2] = gradDiag1 / count;
+            descriptor[cellIdx + 3] = gradDiag2 / count;
+            descriptor[cellIdx + 4] = mean / 255.0;
+            descriptor[cellIdx + 5] = stdDev / 128.0;
+            descriptor[cellIdx + 6] = posCrossings / count;
+            descriptor[cellIdx + 7] = negCrossings / count;
+          }
+
+          for (let b = 0; b < 8; b++) {
+            normSq += descriptor[cellIdx + b] * descriptor[cellIdx + b];
+          }
+        }
+      }
+
+      // L2 unit-normalize vector to hypersphere (length 1.0)
+      const norm = Math.sqrt(normSq) || 1.0;
+      for (let i = 0; i < 128; i++) {
+        descriptor[i] = Math.round((descriptor[i] / norm) * 10000) / 10000;
+      }
+
+      return descriptor;
+    } catch (e: any) {
+      this.logger.debug(`extract128dWithPureJs error: ${e.message}`);
       return null;
     }
   }
@@ -274,8 +411,9 @@ export class FaceRecognitionService {
     }
 
     // 5. Generate 128-dimensional normalized facial descriptor vector
-    // Using deep structural feature hashing across high/low frequency spatial domains
-    const descriptor = this.generate128dDescriptor(buffer, stats);
+    // Uses pure JavaScript HOG & Spatial Grid Feature Extraction if available, else statistical entropy descriptor
+    const jsDescriptor = this.extract128dWithPureJs(buffer);
+    const descriptor = jsDescriptor ?? this.generate128dDescriptor(buffer, stats);
 
     return {
       faceDetected: true,

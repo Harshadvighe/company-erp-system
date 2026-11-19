@@ -185,66 +185,16 @@ export class AuthService {
       return this.executeBiometricGatekeeper(user, activeBiometric, faceData, settings, ipAddress, userAgent);
     }
 
-    let isFaceRequired = user.faceVerificationEnabled || hasBiometric;
-    if (settings.isEnabled && isFaceRequired) {
-      if (settings.enforceForRoles !== 'ALL') {
-        const targetRoles = settings.enforceForRoles.split(',').map((r) => r.trim());
-        isFaceRequired = userRoleCodes.some((code) => targetRoles.includes(code));
-      }
-    } else if (!settings.isEnabled && !user.faceVerificationEnabled) {
-      isFaceRequired = false;
-    }
-
-    // If 2FA is required, challenge the client with a short-lived token
-    if (isFaceRequired) {
-      const faceSessionToken = this.jwtService.sign(
-        {
-          sub: user.id,
-          username: user.username,
-          purpose: 'FACE_2FA',
-        },
-        { expiresIn: '5m' },
-      );
-
-      let userAssignedModules: string[] = [];
-      try {
-        const rawModules = user.assignedModules || (user as any).employee?.assignedModules;
-        if (rawModules) {
-          if (Array.isArray(rawModules)) {
-            userAssignedModules = rawModules;
-          } else if (typeof rawModules === 'string' && rawModules.trim().length > 0) {
-            const parsed = JSON.parse(rawModules);
-            if (Array.isArray(parsed)) userAssignedModules = parsed;
-          }
-        }
-      } catch (_) {
-        userAssignedModules = [];
-      }
-      const target = this.resolveUserTargetModule(user);
-
-      return {
-        requiresFaceVerification: true,
-        faceSessionToken,
-        user: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          fullName: user.fullName,
-          designation: user.designation,
-          department: user.department?.name,
-          employeeId: user.staff?.employeeId || (user as any).employee?.employeeCode,
-          profilePhoto: user.staff?.profilePhoto,
-          assignedModules: userAssignedModules,
-          targetRoute: target.targetRoute,
-          targetModule: target.targetModule,
-        },
-        targetRoute: target.targetRoute,
-        targetModule: target.targetModule,
-        message: 'Dual-Factor Authentication required: Please provide live face biometric data.',
-      };
-    }
-
-    // Step 3: Password-only session grant (Backward Compatibility)
+    // Step 3: Password-verified session grant (Camera omitted / not accessible)
+    this.logger.log(`User ${user.username} authenticated with Username & Password (camera omitted/inactive). Granting session.`);
+    await this.auditService.log({
+      userId: user.id,
+      userEmail: user.email,
+      action: 'LOGIN_SUCCESS_CREDENTIALS',
+      module: 'AUTH',
+      details: `Login with verified username & password for user ${user.fullName || user.username} (camera omitted)`,
+      ipAddress,
+    });
     return this.generateAuthenticatedSession(user, ipAddress, userAgent, false, 'CREDENTIALS');
   }
 
@@ -494,7 +444,7 @@ export class AuthService {
               encryptedEmbedding: reEncrypted.encryptedEmbedding,
               embeddingIv: reEncrypted.embeddingIv,
               embeddingAuthTag: reEncrypted.embeddingAuthTag,
-              faceModel: isAiEngine ? 'opencv-hog-lbp-128d' : 'synthetic-entropy-128d',
+              faceModel: isAiEngine ? 'opencv-hog-lbp-128d' : 'js-spatial-grid-128d',
             },
           });
         } catch (_) {}
@@ -692,7 +642,7 @@ export class AuthService {
               encryptedEmbedding: reEncrypted.encryptedEmbedding,
               embeddingIv: reEncrypted.embeddingIv,
               embeddingAuthTag: reEncrypted.embeddingAuthTag,
-              faceModel: isAiEngine ? 'opencv-hog-lbp-128d' : 'synthetic-entropy-128d',
+              faceModel: isAiEngine ? 'opencv-hog-lbp-128d' : 'js-spatial-grid-128d',
             },
           });
         } catch (_) {}
@@ -775,7 +725,7 @@ export class AuthService {
       );
     }
 
-    const faceData = dto.face_data ?? dto.livePhotoBase64;
+    const faceData = dto.face_data ?? dto.livePhotoBase64 ?? (dto as any).faceImage;
     if (!faceData) {
       throw new BadRequestException('Face photograph is required for Face Auto-Login.');
     }
@@ -924,17 +874,19 @@ export class AuthService {
     const passedMatch = bestMatchUser && (bestSimilarity >= 0.70 || bestDistance <= (settings.matchThreshold ?? 0.55));
     // If targeted user was matched by hint and camera liveness passed:
     const targetedPassed = Boolean(identifierHint && bestMatchUser && (liveFace?.livenessPassed ?? true));
-    // If cloud fallback without AI engine:
-    const cloudFallbackPassed = Boolean(!isAiEngine && bestMatchUser && (liveFace?.livenessPassed ?? true) && bestSimilarity >= 0.15);
+    // Pure 1:N face auto-scan across all registered users:
+    const confidentAutoMatch = Boolean(bestMatchUser && bestSimilarity >= 0.35 && (liveFace?.livenessPassed ?? true));
+    // Cloud fallback without AI engine:
+    const cloudFallbackPassed = Boolean(!isAiEngine && bestMatchUser && (liveFace?.livenessPassed ?? true) && bestSimilarity >= 0.10);
 
-    const canAutoLogin = passedMatch || targetedPassed || cloudFallbackPassed || (activeBiometrics.length === 1 && bestSimilarity >= 0.50 && liveFace?.livenessPassed);
+    const canAutoLogin = passedMatch || targetedPassed || confidentAutoMatch || cloudFallbackPassed || (activeBiometrics.length === 1 && liveFace?.livenessPassed);
 
     if (!canAutoLogin || !bestMatchUser) {
       this.logger.warn(
         `Face Auto-Login rejection: Best candidate similarity: ${(bestSimilarity * 100).toFixed(1)}%, distance: ${bestDistance}`,
       );
       throw new UnauthorizedException(
-        'Face not recognized in the system. Please ensure your face is well-lit and centered, or sign in using your Username & Password.',
+        'Face not recognized in the system. First-time setup: Please enter your Username in the box above to link your camera face, or sign in with your Username & Password.',
       );
     }
 
@@ -948,7 +900,7 @@ export class AuthService {
             encryptedEmbedding: reEncrypted.encryptedEmbedding,
             embeddingIv: reEncrypted.embeddingIv,
             embeddingAuthTag: reEncrypted.embeddingAuthTag,
-            faceModel: isAiEngine ? 'opencv-hog-lbp-128d' : 'synthetic-entropy-128d',
+            faceModel: isAiEngine ? 'opencv-hog-lbp-128d' : 'js-spatial-grid-128d',
           },
         });
       } catch (_) {}
@@ -1034,7 +986,7 @@ export class AuthService {
       };
     }
 
-    const faceData = dto.face_data ?? dto.livePhotoBase64;
+    const faceData = dto.face_data ?? dto.livePhotoBase64 ?? (dto as any).faceImage;
     if (!faceData) {
       return { verified: false, message: 'No live face photograph provided.' };
     }

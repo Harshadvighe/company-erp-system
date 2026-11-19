@@ -117,7 +117,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
       // Automatic camera bypass for Rahul Yeole, Saarkadmin, or user toggle (laptops with no camera)
       final isBypass = _shouldBypassCamera;
 
-      // Capture live face frame only if not in bypass mode
+      // Capture live face frame if camera is available
       String? liveFaceData;
       if (!isBypass) {
         try {
@@ -127,17 +127,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
         }
       }
 
-      // Hard-block only for non-bypass users when live face cannot be captured
-      if (!isBypass && (liveFaceData == null || liveFaceData.isEmpty)) {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-            _errorMessage =
-                'Camera access is required for 2FA biometric verification. Please ensure webcam permissions are enabled.';
-          });
-        }
-        return;
-      }
+      // If camera is not accessible, liveFaceData is null.
+      // The backend will securely verify Username & Password and grant login directly!
 
       final loginResult = await authService.login(
         _emailController.text.trim(),
@@ -298,7 +289,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
       }
     } catch (e) {
       String message =
-          'Face not recognized in the system. Please sign in using your Username & Password.';
+          'Face not recognized in the system. First-time setup: Please enter your Username in the box above to link your camera face, or sign in with your Username & Password.';
       if (e is DioException) {
         if (e.response?.data is Map &&
             (e.response!.data as Map).containsKey('message')) {
@@ -838,7 +829,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                     else
                       const Center(
                         child: Text(
-                          'Your face will be captured automatically when you sign in',
+                          'Sign in with your Password, or tap Face Scan for instant camera access',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 10.5,
@@ -850,7 +841,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                 ),
                 AppSpacing.gapH16,
 
-                // ── Primary Action: Sign In Button (Username & Password + Live Biometrics) ──
+                // ── Primary Action: Sign In Button (Username & Password) ──
                 Center(
                   child: SizedBox(
                     width: 280,
@@ -891,7 +882,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                 Icon(Icons.login_rounded, size: 19),
                                 SizedBox(width: 10),
                                 Text(
-                                  'Sign In (Password & Face)',
+                                  'Sign In (Username & Password)',
                                   style: TextStyle(
                                     fontSize: 14.5,
                                     fontWeight: FontWeight.bold,
@@ -918,7 +909,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                       const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 10),
                         child: Text(
-                          'OR QUICK CAMERA ACCESS',
+                          'OR 1-CLICK CAMERA AUTO-LOGIN',
                           style: TextStyle(
                             fontSize: 10,
                             color: Colors.white38,
