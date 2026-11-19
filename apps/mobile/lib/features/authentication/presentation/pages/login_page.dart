@@ -104,128 +104,6 @@ class _LoginPageState extends ConsumerState<LoginPage>
   }
 
   Future<void> _handleLogin() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final authService = ref.read(authServiceProvider);
-
-      // Automatic camera bypass for Rahul Yeole, Saarkadmin, or user toggle (laptops with no camera)
-      final isBypass = _shouldBypassCamera;
-
-      // Capture live face frame if camera is available
-      String? liveFaceData;
-      if (!isBypass) {
-        try {
-          liveFaceData = await _cameraKey.currentState?.snapCurrentFrame();
-        } catch (_) {
-          liveFaceData = null;
-        }
-      }
-
-      // If camera is not accessible, liveFaceData is null.
-      // The backend will securely verify Username & Password and grant login directly!
-
-      final loginResult = await authService.login(
-        _emailController.text.trim(),
-        _passwordController.text,
-        faceData: liveFaceData,
-      );
-
-      final inputLower = _emailController.text.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '');
-      final isBypassUser = isBypass ||
-          inputLower == 'saarkadmin' ||
-          inputLower == 'saarkexploration30' ||
-          inputLower == 'saarkexploration30@gmail.com' ||
-          inputLower == 'rahulyeole' ||
-          inputLower.contains('rahul') ||
-          (loginResult.userMap?['username']?.toString().toLowerCase() == 'saarkexploration30') ||
-          (loginResult.userMap?['fullName']?.toString().toLowerCase().contains('rahul') == true &&
-              loginResult.userMap?['fullName']?.toString().toLowerCase().contains('yeole') == true);
-
-      // Two-step face challenge fallback (bypassed for Saarkadmin & Rahul Yeole)
-      if (!isBypassUser &&
-          loginResult.requiresFaceVerification &&
-          loginResult.faceSessionToken != null) {
-        if (mounted) {
-          setState(() => _isLoading = false);
-
-          final fullName = loginResult.userMap?['fullName'] ??
-              loginResult.userMap?['username'] ??
-              'User';
-          final capturedFace = await FaceCameraModal.show(
-            context,
-            title: 'Face Biometric Verification',
-            subtitle:
-                'Welcome $fullName. Position your face in the frame to complete verification.',
-            actionButtonText: 'Verify & Sign In',
-            isVerificationMode: true,
-          );
-
-          if (capturedFace != null) {
-            setState(() {
-              _isLoading = true;
-              _errorMessage = null;
-            });
-            await authService.verifyFace(
-              loginResult.faceSessionToken!,
-              capturedFace,
-            );
-            if (mounted &&
-                GoRouterState.of(context).matchedLocation == '/login') {
-              final user = ref.read(currentUserProvider);
-              final target = (user != null && !user.isAdmin && user.assignedModules.length == 1)
-                  ? user.getPrimaryModuleRoute()
-                  : '/dashboard';
-              context.go(target);
-            }
-          } else {
-            setState(() {
-              _errorMessage =
-                  'Face verification cancelled. Biometric authentication is required.';
-            });
-          }
-        }
-        return;
-      }
-
-      await AppStorage.write('last_login_username', _emailController.text.trim());
-
-      if (mounted &&
-          GoRouterState.of(context).matchedLocation == '/login') {
-        final user = ref.read(currentUserProvider);
-        final target = (user != null && !user.isAdmin && user.assignedModules.length == 1)
-            ? user.getPrimaryModuleRoute()
-            : (loginResult.targetRoute ?? '/dashboard');
-        context.go(target);
-      }
-    } catch (e) {
-      String message =
-          'Authentication failed. Please check your credentials.';
-      if (e is DioException) {
-        if (e.type == DioExceptionType.connectionError ||
-            e.type == DioExceptionType.connectionTimeout ||
-            e.type == DioExceptionType.receiveTimeout) {
-          message =
-              'Server is waking up or connecting. Please wait 10-15 seconds and tap Sign In again.';
-        } else if (e.response?.data is Map &&
-            (e.response!.data as Map).containsKey('message')) {
-          message = (e.response!.data as Map)['message'].toString();
-        }
-      } else {
-        message = e.toString().replaceAll('Exception: ', '');
-      }
-      setState(() => _errorMessage = message);
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _handleFaceAutoLogin() async {
     final now = DateTime.now();
     if (now.hour >= 18) {
       setState(() {
@@ -235,6 +113,132 @@ class _LoginPageState extends ConsumerState<LoginPage>
       return;
     }
 
+    final emailOrUsername = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    // ── SCENARIO A: Password Provided -> Sign In with Username & Password ──
+    if (password.isNotEmpty) {
+      if (emailOrUsername.isEmpty) {
+        setState(() => _errorMessage = 'Please enter your username or email.');
+        return;
+      }
+
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+
+      try {
+        final authService = ref.read(authServiceProvider);
+        final isBypass = _shouldBypassCamera;
+
+        // Capture live face frame if camera is available
+        String? liveFaceData;
+        if (!isBypass) {
+          try {
+            liveFaceData = await _cameraKey.currentState?.snapCurrentFrame();
+          } catch (_) {
+            liveFaceData = null;
+          }
+        }
+
+        final loginResult = await authService.login(
+          emailOrUsername,
+          password,
+          faceData: liveFaceData,
+        );
+
+        final inputLower = emailOrUsername.toLowerCase().replaceAll(RegExp(r'\s+'), '');
+        final isBypassUser = isBypass ||
+            inputLower == 'saarkadmin' ||
+            inputLower == 'saarkexploration30' ||
+            inputLower == 'saarkexploration30@gmail.com' ||
+            inputLower == 'rahulyeole' ||
+            inputLower.contains('rahul') ||
+            (loginResult.userMap?['username']?.toString().toLowerCase() == 'saarkexploration30') ||
+            (loginResult.userMap?['fullName']?.toString().toLowerCase().contains('rahul') == true &&
+                loginResult.userMap?['fullName']?.toString().toLowerCase().contains('yeole') == true);
+
+        // Two-step face challenge fallback (bypassed for Saarkadmin & Rahul Yeole)
+        if (!isBypassUser &&
+            loginResult.requiresFaceVerification &&
+            loginResult.faceSessionToken != null) {
+          if (mounted) {
+            setState(() => _isLoading = false);
+
+            final fullName = loginResult.userMap?['fullName'] ??
+                loginResult.userMap?['username'] ??
+                'User';
+            final capturedFace = await FaceCameraModal.show(
+              context,
+              title: 'Face Biometric Verification',
+              subtitle:
+                  'Welcome $fullName. Position your face in the frame to complete verification.',
+              actionButtonText: 'Verify & Sign In',
+              isVerificationMode: true,
+            );
+
+            if (capturedFace != null) {
+              setState(() {
+                _isLoading = true;
+                _errorMessage = null;
+              });
+              await authService.verifyFace(
+                loginResult.faceSessionToken!,
+                capturedFace,
+              );
+              if (mounted &&
+                  GoRouterState.of(context).matchedLocation == '/login') {
+                final user = ref.read(currentUserProvider);
+                final target = (user != null && !user.isAdmin && user.assignedModules.length == 1)
+                    ? user.getPrimaryModuleRoute()
+                    : '/dashboard';
+                context.go(target);
+              }
+            } else {
+              setState(() {
+                _errorMessage =
+                    'Face verification cancelled. Biometric authentication is required.';
+              });
+            }
+          }
+          return;
+        }
+
+        await AppStorage.write('last_login_username', emailOrUsername);
+
+        if (mounted &&
+            GoRouterState.of(context).matchedLocation == '/login') {
+          final user = ref.read(currentUserProvider);
+          final target = (user != null && !user.isAdmin && user.assignedModules.length == 1)
+              ? user.getPrimaryModuleRoute()
+              : (loginResult.targetRoute ?? '/dashboard');
+          context.go(target);
+        }
+      } catch (e) {
+        String message =
+            'Authentication failed. Please check your credentials.';
+        if (e is DioException) {
+          if (e.type == DioExceptionType.connectionError ||
+              e.type == DioExceptionType.connectionTimeout ||
+              e.type == DioExceptionType.receiveTimeout) {
+            message =
+                'Server is waking up or connecting. Please wait 10-15 seconds and tap Sign In again.';
+          } else if (e.response?.data is Map &&
+              (e.response!.data as Map).containsKey('message')) {
+            message = (e.response!.data as Map)['message'].toString();
+          }
+        } else {
+          message = e.toString().replaceAll('Exception: ', '');
+        }
+        setState(() => _errorMessage = message);
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
+      return;
+    }
+
+    // ── SCENARIO B: Password Not Provided -> Internal Face Scan Sign-In ──
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -251,33 +255,17 @@ class _LoginPageState extends ConsumerState<LoginPage>
       }
 
       if (liveFaceData == null || liveFaceData.isEmpty) {
-        if (mounted) {
-          liveFaceData = await FaceCameraModal.show(
-            context,
-            title: 'Face Scan Auto-Login',
-            subtitle:
-                'Position your face in the oval frame to automatically recognize and sign into your account.',
-            actionButtonText: 'Scan & Sign In',
-            isVerificationMode: true,
-          );
-        }
-      }
-
-      if (liveFaceData == null || liveFaceData.isEmpty) {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-            _errorMessage =
-                'Camera access is required for Face Scan Auto-Login. Please ensure your camera is enabled.';
-          });
-        }
+        setState(() {
+          _isLoading = false;
+          _errorMessage =
+              'Please enter your password to sign in, or ensure camera is enabled.';
+        });
         return;
       }
 
-      final usernameHint = _emailController.text.trim();
       final loginResult = await authService.faceAutoLogin(
         liveFaceData,
-        username: usernameHint.isNotEmpty ? usernameHint : null,
+        username: emailOrUsername.isNotEmpty ? emailOrUsername : null,
       );
 
       if (mounted && GoRouterState.of(context).matchedLocation == '/login') {
@@ -289,7 +277,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
       }
     } catch (e) {
       String message =
-          'Face not recognized in the system. First-time setup: Please enter your Username in the box above to link your camera face, or sign in with your Username & Password.';
+          'Face not recognized. Please sign in using your Username & Password.';
       if (e is DioException) {
         if (e.response?.data is Map &&
             (e.response!.data as Map).containsKey('message')) {
@@ -647,9 +635,6 @@ class _LoginPageState extends ConsumerState<LoginPage>
                     hintText: 'Enter your username or email',
                     prefixIcon: Icon(Icons.person_outline),
                   ),
-                  validator: (v) => (v == null || v.isEmpty)
-                      ? 'Username or email is required'
-                      : null,
                 ),
                 AppSpacing.gapH12,
 
@@ -673,9 +658,6 @@ class _LoginPageState extends ConsumerState<LoginPage>
                           () => _obscurePassword = !_obscurePassword),
                     ),
                   ),
-                  validator: (v) => (v == null || v.isEmpty)
-                      ? 'Password is required'
-                      : null,
                 ),
                 AppSpacing.gapH16,
 
@@ -826,22 +808,11 @@ class _LoginPageState extends ConsumerState<LoginPage>
                           ],
                         ),
                       )
-                    else
-                      const Center(
-                        child: Text(
-                          'Sign in with your Password, or tap Face Scan for instant camera access',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            color: AppTypography.darkTextMuted,
-                          ),
-                        ),
-                      ),
                   ],
                 ),
                 AppSpacing.gapH16,
 
-                // ── Primary Action: Sign In Button (Username & Password) ──
+                // ── Single Action: Sign In Button ──
                 Center(
                   child: SizedBox(
                     width: 280,
@@ -870,7 +841,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                   ),
                                 ),
                                 SizedBox(width: 12),
-                                Text('Verifying...',
+                                Text('Signing in...',
                                     style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w600)),
@@ -882,9 +853,9 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                 Icon(Icons.login_rounded, size: 19),
                                 SizedBox(width: 10),
                                 Text(
-                                  'Sign In (Username & Password)',
+                                  'Sign In',
                                   style: TextStyle(
-                                    fontSize: 14.5,
+                                    fontSize: 15,
                                     fontWeight: FontWeight.bold,
                                     letterSpacing: 0.4,
                                   ),
@@ -894,72 +865,6 @@ class _LoginPageState extends ConsumerState<LoginPage>
                     ),
                   ),
                 ),
-
-                // ── Secondary Action: Quick Face Scan Auto-Login (Camera Only) ──
-                if (!_shouldBypassCamera) ...[
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Divider(
-                          color: Colors.white.withValues(alpha: 0.12),
-                          thickness: 1,
-                        ),
-                      ),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 10),
-                        child: Text(
-                          'OR 1-CLICK CAMERA AUTO-LOGIN',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.white38,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: Divider(
-                          color: Colors.white.withValues(alpha: 0.12),
-                          thickness: 1,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Center(
-                    child: SizedBox(
-                      width: 280,
-                      height: 44,
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF00E5FF),
-                          side: const BorderSide(color: Color(0xFF00E5FF), width: 1.5),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          backgroundColor: const Color(0xFF00E5FF).withValues(alpha: 0.08),
-                        ),
-                        onPressed: _isLoading ? null : _handleFaceAutoLogin,
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.face_retouching_natural_rounded, size: 18),
-                            SizedBox(width: 8),
-                            Text(
-                              'Face Scan Auto-Login',
-                              style: TextStyle(
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.3,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
                 AppSpacing.gapH16,
 
                 // ── Security Footer ───────────────────────────────────────
