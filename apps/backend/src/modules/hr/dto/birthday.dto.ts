@@ -14,6 +14,11 @@ export class SendBirthdayWishDto {
 }
 
 export class BroadcastBirthdayWishesDto {
+  @ApiPropertyOptional({ description: 'Optional target employee ID if broadcasting for a specific celebrant' })
+  @IsOptional()
+  @IsString()
+  employeeId?: string;
+
   @ApiPropertyOptional({ description: 'Official company broadcast birthday message' })
   @IsOptional()
   @IsString()
