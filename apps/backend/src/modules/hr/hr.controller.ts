@@ -19,6 +19,7 @@ import { CreateLeaveDto, UpdateLeaveStatusDto } from './dto/create-leave.dto';
 import { ClockInDto, ClockOutDto } from './dto/clock-in.dto';
 import { AllocateWorkstationDto, LogOvertimeDto, ReportSafetyIncidentDto } from './dto/industrial.dto';
 import { CreateExpenseDto, ReviewExpenseDto, ApproveExpenseDto } from './dto/expense.dto';
+import { SendBirthdayWishDto, BroadcastBirthdayWishesDto } from './dto/birthday.dto';
 
 @ApiTags('Human Resources (HR) & Industrial Workforce')
 @ApiBearerAuth()
@@ -317,5 +318,32 @@ export class HrController {
   async resetUserIdleLimit(@Param('id') userId: string, @Req() req: any) {
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     return this.hrService.resetUserIdleLimit(userId, req.user, ip);
+  }
+
+  // -------------------------------------------------------------
+  // AUTOMATED BIRTHDAY NOTIFICATIONS & CELEBRATION SYSTEM
+  // -------------------------------------------------------------
+  @Get('birthdays/today')
+  @ApiOperation({
+    summary: 'Check today\'s employee birthdays, upcoming birthdays, and celebrant wish status',
+  })
+  async getTodayBirthdays(@Req() req: any) {
+    return this.hrService.getTodayBirthdays(req.user?.id, req.user?.email);
+  }
+
+  @Post('birthdays/wish')
+  @ApiOperation({
+    summary: 'Send personalized birthday greetings & wishes to celebrant',
+  })
+  async sendBirthdayWish(@Body() dto: SendBirthdayWishDto, @Req() req: any) {
+    return this.hrService.sendBirthdayWish(dto, req.user);
+  }
+
+  @Post('birthdays/broadcast')
+  @ApiOperation({
+    summary: 'Broadcast company-wide birthday celebration notification to all system users',
+  })
+  async broadcastBirthdayWishes(@Body() dto: BroadcastBirthdayWishesDto, @Req() req: any) {
+    return this.hrService.broadcastBirthdayWishes(dto, req.user);
   }
 }

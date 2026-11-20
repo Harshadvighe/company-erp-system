@@ -7,6 +7,8 @@ import 'package:saark_erp_mobile/core/theme/app_theme.dart';
 import 'package:saark_erp_mobile/core/widgets/back_to_dashboard_button.dart';
 import 'package:saark_erp_mobile/core/widgets/saark_logo.dart';
 import 'package:saark_erp_mobile/core/biometrics/session_presence_dialog.dart';
+import 'package:saark_erp_mobile/core/network/dio_client.dart';
+import 'package:saark_erp_mobile/core/widgets/birthday_celebration_dialog.dart';
 
 /// Opens the Enterprise Database Record Dashboard.
 Future<void> _openDatabasePortal(BuildContext context) async {
@@ -15,6 +17,8 @@ Future<void> _openDatabasePortal(BuildContext context) async {
 
 // ─── Responsive Shell ────────────────────────────────────────────────────────
 
+
+final todayBirthdayCelebrationProvider = StateProvider<Map<String, dynamic>?>((ref) => null);
 
 class AppShell extends ConsumerStatefulWidget {
   final Widget child;
@@ -35,11 +39,39 @@ class _AppShellState extends ConsumerState<AppShell> {
   Timer? _officeHoursTimer;
   bool _isPresenceDialogOpen = false;
 
+  static bool _birthdayPromptShownThisSession = false;
+  Map<String, dynamic>? _birthdayData;
+
   @override
   void initState() {
     super.initState();
     _startPresenceTimer();
     _startOfficeHoursTimer();
+    _checkBirthdays();
+  }
+
+  Future<void> _checkBirthdays() async {
+    try {
+      final dio = ref.read(dioProvider);
+      final res = await dio.get('/hr/birthdays/today');
+      if (res.statusCode == 200 && res.data != null) {
+        final d = res.data['data'] ?? res.data;
+        if (d is Map<String, dynamic>) {
+          if (mounted) {
+            setState(() => _birthdayData = d);
+            ref.read(todayBirthdayCelebrationProvider.notifier).state = d;
+          }
+          if (!_birthdayPromptShownThisSession && d['hasCelebrantsToday'] == true) {
+            _birthdayPromptShownThisSession = true;
+            Future.delayed(const Duration(milliseconds: 900), () {
+              if (mounted) {
+                BirthdayCelebrationDialog.show(context, d);
+              }
+            });
+          }
+        }
+      }
+    } catch (_) {}
   }
 
   @override
@@ -826,6 +858,7 @@ class _MobileShellState extends ConsumerState<_MobileShell> {
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
+    final birthdayData = ref.watch(todayBirthdayCelebrationProvider);
     final navItems = _getAuthorizedNavItems(user);
     final isDashboard = widget.currentRoute == '/dashboard' || widget.currentRoute == '/';
 
@@ -927,9 +960,76 @@ class _MobileShellState extends ConsumerState<_MobileShell> {
                     : null,
               ),
               actions: [
+                if (birthdayData != null && birthdayData['hasCelebrantsToday'] == true) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: InkWell(
+                      onTap: () {
+                        BirthdayCelebrationDialog.show(context, birthdayData);
+                      },
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFF26522), Color(0xFFFF8A00)],
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFF26522).withOpacity(0.35),
+                              blurRadius: 8,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.cake, color: Colors.white, size: 14),
+                            const SizedBox(width: 5),
+                            Text(
+                              birthdayData['isMyBirthday'] == true
+                                  ? 'Happy Birthday! 🎉'
+                                  : "Birthday Today! 🎂",
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 IconButton(
-                  icon: const Icon(Icons.notifications_outlined),
-                  onPressed: () {},
+                  icon: Stack(
+                    children: [
+                      const Icon(Icons.notifications_outlined),
+                      if (birthdayData != null && birthdayData['hasCelebrantsToday'] == true)
+                        Positioned(
+                          right: 0,
+                          top: 0,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFF26522),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  tooltip: 'Celebrations & Notifications',
+                  onPressed: () {
+                    if (birthdayData != null && birthdayData['hasCelebrantsToday'] == true) {
+                      BirthdayCelebrationDialog.show(context, birthdayData);
+                    }
+                  },
                 ),
                 PopupMenuButton(
                   icon: CircleAvatar(
@@ -1207,6 +1307,7 @@ class _TopHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final birthdayData = ref.watch(todayBirthdayCelebrationProvider);
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
@@ -1262,26 +1363,75 @@ class _TopHeader extends StatelessWidget {
             ),
           ),
           AppSpacing.gapW16,
+          // Today's Birthday Celebration Pill
+          if (birthdayData != null && birthdayData['hasCelebrantsToday'] == true) ...[
+            InkWell(
+              onTap: () {
+                BirthdayCelebrationDialog.show(context, birthdayData);
+              },
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFF26522), Color(0xFFFF8A00)],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFF26522).withOpacity(0.35),
+                      blurRadius: 10,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.cake, color: Colors.white, size: 16),
+                    const SizedBox(width: 6),
+                    Text(
+                      birthdayData['isMyBirthday'] == true
+                          ? 'Happy Birthday to You! 🎉'
+                          : "Today's Birthday! 🎂",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            AppSpacing.gapW16,
+          ],
           // Notifications
           IconButton(
             icon: Stack(
               children: [
                 const Icon(Icons.notifications_outlined, color: AppTypography.darkTextSecondary),
-                Positioned(
-                  right: 0,
-                  top: 0,
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: AppTheme.error,
-                      shape: BoxShape.circle,
+                if (birthdayData != null && birthdayData['hasCelebrantsToday'] == true)
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF26522),
+                        shape: BoxShape.circle,
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
-            onPressed: () {},
+            tooltip: 'Celebrations & Notifications',
+            onPressed: () {
+              if (birthdayData != null && birthdayData['hasCelebrantsToday'] == true) {
+                BirthdayCelebrationDialog.show(context, birthdayData);
+              }
+            },
           ),
           const SizedBox(width: 8),
           // User Avatar + dropdown

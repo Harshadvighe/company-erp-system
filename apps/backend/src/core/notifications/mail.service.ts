@@ -22,12 +22,20 @@ export interface SendCredentialsUpdatedEmailOptions {
   portalUrl?: string;
 }
 
+export interface SendBirthdayWishEmailOptions {
+  to: string;
+  fullName: string;
+  senderName: string;
+  message: string;
+  portalUrl?: string;
+}
+
 export interface MailLogEntry {
   id: string;
   timestamp: string;
   to: string;
   subject: string;
-  type: 'WELCOME_ONBOARDING' | 'CREDENTIALS_UPDATED';
+  type: 'WELCOME_ONBOARDING' | 'CREDENTIALS_UPDATED' | 'BIRTHDAY_WISH';
   success: boolean;
   contentSnippet: string;
   filePath?: string;
@@ -131,7 +139,7 @@ export class MailService {
     subject: string,
     html: string,
     text: string,
-    type: 'WELCOME_ONBOARDING' | 'CREDENTIALS_UPDATED',
+    type: 'WELCOME_ONBOARDING' | 'CREDENTIALS_UPDATED' | 'BIRTHDAY_WISH',
   ): Promise<boolean> {
     const fromAddress = process.env.SMTP_FROM || process.env.EMAIL_FROM || 'no-reply@saarkexploration.com';
     const logId = `mail_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
@@ -451,6 +459,85 @@ Your Saark ERP login credentials have been updated by Administration:
     `.trim();
 
     return this.dispatchEmail(options.to, subject, html, text, 'CREDENTIALS_UPDATED');
+  }
+
+  /**
+   * 3. Warm Celebratory Birthday Wish Email dispatched to Employee
+   */
+  public async sendBirthdayEmail(options: SendBirthdayWishEmailOptions): Promise<boolean> {
+    const portalUrl = options.portalUrl || this.portalBaseUrl;
+    const subject = `🎉 Happy Birthday, ${options.fullName}! 🎂 Best Wishes from Saark Exploration`;
+    const logoImg = this.getCompanyLogoBase64();
+
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0e1013; color: #dcdcdc; margin: 0; padding: 20px; }
+    .card { max-width: 520px; margin: 0 auto; background-color: #16181d; border-radius: 12px; border: 1px solid #2a2d35; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+    .top-bar { background: linear-gradient(135deg, #111317 0%, #1a162b 100%); padding: 24px 20px; text-align: center; border-bottom: 2px solid #F26522; }
+    .top-bar h1 { margin: 8px 0 0 0; color: #ffffff; font-size: 18px; font-weight: 700; letter-spacing: 0.5px; }
+    .top-bar p { margin: 3px 0 0 0; color: #F26522; font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+    .body { padding: 24px; text-align: center; }
+    .badge { display: inline-block; background: rgba(242, 101, 34, 0.15); border: 1px solid #F26522; color: #F26522; font-size: 12px; font-weight: bold; padding: 4px 14px; border-radius: 20px; margin-bottom: 16px; }
+    .salutation { font-size: 22px; font-weight: 700; color: #ffffff; margin-bottom: 12px; }
+    .wish-box { background: #1e2129; border: 1px solid #2d313c; border-left: 4px solid #00E5FF; border-radius: 8px; padding: 18px 20px; margin: 20px 0; text-align: left; font-size: 14px; line-height: 1.6; color: #e1e7ec; }
+    .sender { font-size: 12px; color: #00E5FF; font-weight: 600; margin-top: 10px; text-align: right; }
+    .action { text-align: center; margin: 22px 0 10px 0; }
+    .btn { background: linear-gradient(135deg, #F26522 0%, #ff8342 100%); color: #ffffff !important; text-decoration: none; padding: 12px 30px; border-radius: 6px; font-weight: 700; font-size: 14px; display: inline-block; box-shadow: 0 4px 14px rgba(242, 101, 34, 0.4); }
+    .footer { padding: 16px 20px; text-align: center; background-color: #111317; border-top: 1px solid #22252c; font-size: 11px; color: #8a909d; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="top-bar">
+      ${logoImg ? `<img src="${logoImg}" alt="Logo" style="max-height: 52px; width: auto; max-width: 180px; object-fit: contain; background: #ffffff; padding: 4px 8px; border-radius: 4px; margin-bottom: 8px;" /><br/>` : ''}
+      <h1>SAARK EXPLORATION Pvt. Ltd.</h1>
+      <p>WE DEVELOPE HIGH END TECHNOLOGY</p>
+    </div>
+    <div class="body">
+      <div class="badge">🎂 TODAY'S BIRTHDAY CELEBRATION 🎈</div>
+      <div class="salutation">Happy Birthday, ${options.fullName}! 🎉</div>
+      <p style="color: #b0b4be; font-size: 14px; line-height: 1.5; margin: 0 0 16px 0;">
+        Wishing you a fantastic birthday and a glorious year ahead filled with happiness, health, and stellar achievements!
+      </p>
+
+      <div class="wish-box">
+        "${options.message}"
+        <div class="sender">— Best wishes from ${options.senderName}</div>
+      </div>
+
+      <div class="action">
+        <a href="${portalUrl}" class="btn">Open Saark ERP Portal</a>
+      </div>
+    </div>
+    <div class="footer">
+      📍 Registered Office & Works: S NO 46, CHAITNAYA Industrial Estate, Manaji Nagar, Narhe, Pune 411041<br/>
+      © 2026 Saark Exploration Pvt. Ltd. • All rights reserved.
+    </div>
+  </div>
+</body>
+</html>
+    `.trim();
+
+    const text = `
+🎉 HAPPY BIRTHDAY, ${options.fullName}! 🎂
+
+Dear ${options.fullName},
+
+Wishing you a very Happy Birthday from all of us at Saark Exploration Private Limited!
+
+"${options.message}"
+— Best wishes from ${options.senderName}
+
+Visit Portal: ${portalUrl}
+
+© 2026 Saark Exploration Pvt. Ltd.
+    `.trim();
+
+    return this.dispatchEmail(options.to, subject, html, text, 'BIRTHDAY_WISH');
   }
 
   /**

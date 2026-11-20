@@ -1853,4 +1853,252 @@ export class HrService {
       user: updatedUser,
     };
   }
+
+  // -------------------------------------------------------------
+  // 13. AUTOMATED BIRTHDAY NOTIFICATIONS & CELEBRATION SYSTEM
+  // -------------------------------------------------------------
+  async getTodayBirthdays(currentUserId?: string, currentUserEmail?: string) {
+    const now = new Date();
+    // Indian Standard Time (IST)
+    const istString = now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
+    const istDate = new Date(istString);
+    const currentMonth = istDate.getMonth() + 1; // 1 to 12
+    const currentDay = istDate.getDate(); // 1 to 31
+
+    const employees = await this.prisma.employee.findMany({
+      where: { status: 'ACTIVE' },
+      include: {
+        department: true,
+        user: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            fullName: true,
+          },
+        },
+      },
+    });
+
+    const todayCelebrants: any[] = [];
+    const upcoming: any[] = [];
+
+    for (const emp of employees) {
+      if (!emp.dateOfBirth) continue;
+      const dob = new Date(emp.dateOfBirth);
+      const dobMonth = dob.getUTCMonth() + 1;
+      const dobDay = dob.getUTCDate();
+
+      const isToday =
+        (dobMonth === currentMonth && dobDay === currentDay) ||
+        (dob.getMonth() + 1 === currentMonth && dob.getDate() === currentDay);
+
+      const birthYear = dob.getFullYear();
+      const age = istDate.getFullYear() - birthYear;
+
+      if (isToday) {
+        // Fetch wishes sent today
+        const wishes: any[] = await this.prisma.$queryRawUnsafe(
+          `SELECT id, sender_name, sender_user_id, message, created_at
+           FROM birthday_wishes
+           WHERE employee_id = $1
+           ORDER BY created_at DESC`,
+          emp.id,
+        );
+
+        const hasSentWish = wishes.some(
+          (w: any) => w.sender_user_id === currentUserId,
+        );
+
+        todayCelebrants.push({
+          id: emp.id,
+          userId: emp.userId,
+          employeeCode: emp.employeeCode,
+          fullName: `${emp.firstName} ${emp.lastName}`.trim(),
+          firstName: emp.firstName,
+          lastName: emp.lastName,
+          email: emp.email,
+          phone: emp.phone,
+          designation: emp.designation,
+          department: emp.department?.name || 'General Operations',
+          workerCategory: emp.workerCategory,
+          avatarUrl: emp.avatarUrl,
+          dateOfBirth: emp.dateOfBirth,
+          age: age > 0 ? age : null,
+          wishesCount: wishes.length,
+          wishes,
+          hasSentWish,
+        });
+      } else {
+        // Calculate days remaining until next birthday
+        let nextBday = new Date(istDate.getFullYear(), dobMonth - 1, dobDay);
+        if (nextBday < istDate) {
+          nextBday = new Date(istDate.getFullYear() + 1, dobMonth - 1, dobDay);
+        }
+        const diffMs = nextBday.getTime() - istDate.getTime();
+        const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        if (diffDays > 0 && diffDays <= 30) {
+          upcoming.push({
+            id: emp.id,
+            fullName: `${emp.firstName} ${emp.lastName}`.trim(),
+            designation: emp.designation,
+            department: emp.department?.name || 'General Operations',
+            dateOfBirth: emp.dateOfBirth,
+            daysAway: diffDays,
+            birthdayFormatted: `${dobDay} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][dobMonth - 1]}`,
+          });
+        }
+      }
+    }
+
+    upcoming.sort((a, b) => a.daysAway - b.daysAway);
+
+    const myCelebration = todayCelebrants.find((c) => {
+      return (
+        (c.userId && c.userId === currentUserId) ||
+        (c.email && currentUserEmail && c.email.toLowerCase() === currentUserEmail.toLowerCase())
+      );
+    });
+    const isMyBirthday = Boolean(myCelebration);
+
+    return {
+      hasCelebrantsToday: todayCelebrants.length > 0,
+      isMyBirthday,
+      myCelebration: myCelebration || null,
+      celebrants: todayCelebrants,
+      upcoming,
+      totalWishesToday: todayCelebrants.reduce((acc, c) => acc + (c.wishesCount || 0), 0),
+    };
+  }
+
+  async sendBirthdayWish(dto: { employeeId: string; message?: string }, currentUser: any) {
+    const emp = await this.prisma.employee.findUnique({
+      where: { id: dto.employeeId },
+      include: { user: true, department: true },
+    });
+
+    if (!emp) {
+      throw new NotFoundException(`Employee with ID ${dto.employeeId} not found`);
+    }
+
+    const senderName = currentUser?.fullName || currentUser?.username || 'Saark Team Member';
+    const defaultWish = `🎂 Wishing you a very Happy Birthday, ${emp.firstName}! May your year be filled with immense happiness, robust health, and continued success! 🎉 — With warm regards from ${senderName}`;
+    const message = (dto.message && dto.message.trim().length > 0) ? dto.message.trim() : defaultWish;
+
+    const wishId = `wish-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+
+    await this.prisma.$executeRawUnsafe(
+      `INSERT INTO birthday_wishes (
+        id, employee_id, sender_user_id, sender_name, sender_avatar,
+        recipient_name, recipient_email, message, wish_date, created_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_DATE, NOW())`,
+      wishId,
+      emp.id,
+      currentUser.id,
+      senderName,
+      null,
+      `${emp.firstName} ${emp.lastName}`.trim(),
+      emp.email,
+      message,
+    );
+
+    // In-app Notification for the birthday celebrant
+    if (emp.userId) {
+      try {
+        await this.prisma.notification.create({
+          data: {
+            userId: emp.userId,
+            title: `🎉 Happy Birthday Wish from ${senderName}! 🎂`,
+            message,
+            module: 'HR',
+            entityId: wishId,
+          },
+        });
+      } catch (_) {}
+    }
+
+    // Log security audit record
+    await this.auditService.log({
+      userId: currentUser.id,
+      userEmail: currentUser.email,
+      action: 'BIRTHDAY_WISH_SENT',
+      module: 'HR',
+      entityType: 'EMPLOYEE',
+      entityId: emp.id,
+      details: `${senderName} sent birthday wishes to ${emp.firstName} ${emp.lastName} (${emp.employeeCode})`,
+    });
+
+    // Send celebration email to the celebrant
+    if (emp.email) {
+      try {
+        await this.mailService.sendBirthdayEmail({
+          to: emp.email,
+          fullName: `${emp.firstName} ${emp.lastName}`.trim(),
+          senderName,
+          message,
+        });
+      } catch (mailErr: any) {
+        this.logger.warn(`Could not dispatch birthday wish email to ${emp.email}: ${mailErr.message}`);
+      }
+    }
+
+    this.logger.log(`[BirthdayCelebration] Wish sent from ${senderName} to ${emp.firstName} ${emp.lastName}`);
+
+    return {
+      success: true,
+      message: `Your warm birthday wish has been delivered to ${emp.firstName}! 🎂🎉`,
+      wish: {
+        id: wishId,
+        senderName,
+        recipientName: `${emp.firstName} ${emp.lastName}`.trim(),
+        message,
+        createdAt: new Date(),
+      },
+    };
+  }
+
+  async broadcastBirthdayWishes(dto: { message?: string }, currentUser: any) {
+    const todayData = await this.getTodayBirthdays(currentUser.id, currentUser.email);
+    if (!todayData.celebrants || todayData.celebrants.length === 0) {
+      return { success: false, message: 'No employees have birthdays today to broadcast to.' };
+    }
+
+    const broadcasterName = currentUser?.fullName || currentUser?.username || 'Executive Management';
+    const results: any[] = [];
+
+    for (const cel of todayData.celebrants) {
+      const msg = dto.message && dto.message.trim().length > 0
+        ? dto.message.trim()
+        : `🎈 Saark Exploration Private Limited wishes you a joyful and splendid Happy Birthday, ${cel.firstName}! Thank you for your dedication and contributions to our team. 🎂🎉 — ${broadcasterName}`;
+
+      const res = await this.sendBirthdayWish({ employeeId: cel.id, message: msg }, currentUser);
+      results.push(res);
+    }
+
+    // Notify ALL other users in the system about the celebration!
+    const allUsers = await this.prisma.user.findMany({
+      where: { status: 'ACTIVE' },
+      select: { id: true },
+    });
+
+    const celebrantNames = todayData.celebrants.map((c: any) => c.fullName).join(', ');
+    for (const u of allUsers) {
+      try {
+        await this.prisma.notification.create({
+          data: {
+            userId: u.id,
+            title: `🎂 Today's Birthday Celebration: ${celebrantNames}! 🎉`,
+            message: `Today is ${celebrantNames}'s birthday! Join Saark Exploration in sending your warmest wishes and blessings!`,
+            module: 'HR',
+          },
+        });
+      } catch (_) {}
+    }
+
+    return {
+      success: true,
+      message: `Company-wide birthday broadcast completed for ${celebrantNames}! 🎂`,
+      results,
+    };
+  }
 }
