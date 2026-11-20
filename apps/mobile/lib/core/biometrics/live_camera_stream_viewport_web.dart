@@ -98,6 +98,8 @@ class LiveCameraStreamViewportState extends State<LiveCameraStreamViewport>
       final video = html.VideoElement()
         ..autoplay = true
         ..muted = true
+        ..setAttribute('playsinline', 'true')
+        ..setAttribute('webkit-playsinline', 'true')
         ..srcObject = stream
         ..style.width = '100%'
         ..style.height = '100%'

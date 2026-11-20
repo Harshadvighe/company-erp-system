@@ -94,7 +94,7 @@ class _SalesMarketingPortalPageState extends ConsumerState<SalesMarketingPortalP
         child: Column(
           children: [
             // ─── 1. Desktop Window Strip ─────────────────────────────
-            _buildWindowBar(user),
+            _buildWindowBar(user, isCompact),
 
             // ─── 2. Top Orange Header Banner ────────────────────────
             _buildOrangeHeader(context, isCompact),
@@ -188,53 +188,50 @@ class _SalesMarketingPortalPageState extends ConsumerState<SalesMarketingPortalP
   }
 
   // ─── 1. Window Top Title Bar ────────────────────────────────────────────────
-  Widget _buildWindowBar(AuthUser? user) {
+  Widget _buildWindowBar(AuthUser? user, bool isCompact) {
     final userName = user?.username ?? 'a';
     final userRole = user?.isAdmin == true ? 'Admin' : (user?.fullName ?? 'User');
 
     return Container(
       height: 28,
       color: const Color(0xFF131417),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: EdgeInsets.symmetric(horizontal: isCompact ? 8 : 12),
       child: Row(
         children: [
           const Icon(Icons.business_center_rounded, color: Color(0xFF00B4D8), size: 14),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           Expanded(
             child: Text(
-              'Company Management Software — Logged in: $userName ($userRole)',
+              isCompact ? 'Saark ERP — $userName ($userRole)' : 'Company Management Software — Logged in: $userName ($userRole)',
               style: const TextStyle(
                 color: Color(0xFFB0B3B8),
-                fontSize: 11,
+                fontSize: 10.5,
                 fontWeight: FontWeight.w400,
               ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(maxWidth: 24, maxHeight: 24),
-                icon: const Icon(Icons.remove, size: 13, color: Color(0xFF8E9297)),
-                onPressed: () {},
-              ),
-              const SizedBox(width: 4),
-              IconButton(
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(maxWidth: 24, maxHeight: 24),
-                icon: const Icon(Icons.crop_square, size: 12, color: Color(0xFF8E9297)),
-                onPressed: () {},
-              ),
-              const SizedBox(width: 4),
-              IconButton(
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(maxWidth: 24, maxHeight: 24),
-                icon: const Icon(Icons.close, size: 13, color: Color(0xFF8E9297)),
-                onPressed: () => context.go('/dashboard'),
-              ),
-            ],
+          if (!isCompact) ...[
+            IconButton(
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(maxWidth: 24, maxHeight: 24),
+              icon: const Icon(Icons.remove, size: 13, color: Color(0xFF8E9297)),
+              onPressed: () {},
+            ),
+            const SizedBox(width: 4),
+            IconButton(
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(maxWidth: 24, maxHeight: 24),
+              icon: const Icon(Icons.crop_square, size: 12, color: Color(0xFF8E9297)),
+              onPressed: () {},
+            ),
+            const SizedBox(width: 4),
+          ],
+          IconButton(
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(maxWidth: 24, maxHeight: 24),
+            icon: const Icon(Icons.close, size: 13, color: Color(0xFF8E9297)),
+            onPressed: () => context.go('/dashboard'),
           ),
         ],
       ),
@@ -244,23 +241,24 @@ class _SalesMarketingPortalPageState extends ConsumerState<SalesMarketingPortalP
   // ─── 2. Top Brand Header Bar ────────────────────────────────────────────────
   Widget _buildOrangeHeader(BuildContext context, bool isCompact) {
     return Container(
-      height: 52,
+      height: isCompact ? 46 : 52,
       color: const Color(0xFFF15A24),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: EdgeInsets.symmetric(horizontal: isCompact ? 10 : 16),
       child: Row(
         children: [
           Expanded(
             child: Text(
-              'SAARK EXPLORATION PRIVATE LIMITED',
+              isCompact ? 'SAARK EXPLORATION' : 'SAARK EXPLORATION PRIVATE LIMITED',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: isCompact ? 13 : 16,
+                fontSize: isCompact ? 12.5 : 16,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.5,
               ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
+          const SizedBox(width: 6),
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [

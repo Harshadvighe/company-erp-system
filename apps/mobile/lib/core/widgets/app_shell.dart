@@ -969,7 +969,7 @@ class _MobileShellState extends ConsumerState<_MobileShell> {
                       },
                       borderRadius: BorderRadius.circular(20),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
                             colors: [Color(0xFFF26522), Color(0xFFFF8A00)],
@@ -987,28 +987,30 @@ class _MobileShellState extends ConsumerState<_MobileShell> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             const Icon(Icons.cake, color: Colors.white, size: 14),
-                            const SizedBox(width: 5),
-                            Text(
-                              birthdayData['isMyBirthday'] == true
-                                  ? 'Happy Birthday! 🎉'
-                                  : "Birthday Today! 🎂",
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
+                            if (MediaQuery.of(context).size.width >= 390) ...[
+                              const SizedBox(width: 4),
+                              Text(
+                                birthdayData['isMyBirthday'] == true
+                                    ? 'Birthday! 🎉'
+                                    : "Birthday! 🎂",
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 4),
                 ],
                 IconButton(
                   icon: Stack(
                     children: [
-                      const Icon(Icons.notifications_outlined),
+                      const Icon(Icons.notifications_outlined, size: 21),
                       if (birthdayData != null && birthdayData['hasCelebrantsToday'] == true)
                         Positioned(
                           right: 0,
@@ -1033,11 +1035,11 @@ class _MobileShellState extends ConsumerState<_MobileShell> {
                 ),
                 PopupMenuButton(
                   icon: CircleAvatar(
-                    radius: 14,
+                    radius: 13,
                     backgroundColor: AppTheme.primary,
                     child: Text(
                       (user?.fullName.isNotEmpty == true) ? user!.fullName[0].toUpperCase() : 'A',
-                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                     ),
                   ),
                   itemBuilder: (_) => [
@@ -1050,12 +1052,16 @@ class _MobileShellState extends ConsumerState<_MobileShell> {
                     ),
                   ],
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
               ],
             )
           : null,
       drawer: _buildDrawer(context, user, navItems),
-      body: widget.child,
+      body: SafeArea(
+        top: !isDashboard,
+        bottom: false,
+        child: widget.child,
+      ),
       bottomNavigationBar: mobileTabs.isNotEmpty
           ? NavigationBar(
               selectedIndex: selectedIndex,

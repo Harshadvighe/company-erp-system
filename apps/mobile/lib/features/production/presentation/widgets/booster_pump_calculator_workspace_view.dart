@@ -509,44 +509,55 @@ class _BoosterPumpCalculatorWorkspaceViewState
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 800;
+
     return Container(
       color: const Color(0xFF111215),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // ─── 1. Sub-Header: Back to Option Bar ──────────────────
-          _buildBackToDashboardBar(),
+          _buildBackToDashboardBar(isMobile),
 
           // ─── 2. Tab Strip: "Material & Labor Calculator" ───────────
           _buildTabStrip(),
 
           // ─── 3. Action Title & Customer Selection Strip ────────────
-          _buildWorkspaceHeaderBar(),
+          _buildWorkspaceHeaderBar(isMobile),
 
           // ─── 4. Main Scrollable Content Area ───────────────────────
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 8 : 14,
+                vertical: isMobile ? 8 : 12,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Upper Split: Left = Inputs (Yellow Section) | Right = Document Canvas
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Left Box: Inputs (Yellow Section)
-                      Expanded(
-                        flex: 6,
-                        child: _buildYellowInputsBox(),
-                      ),
-                      const SizedBox(width: 14),
-                      // Right Box: White Document Preview Sheet
-                      Expanded(
-                        flex: 4,
-                        child: _buildRightDocumentSheet(),
-                      ),
-                    ],
-                  ),
+                  if (isMobile) ...[
+                    // Mobile: Full width stacked inputs and white document sheet
+                    _buildYellowInputsBox(),
+                    const SizedBox(height: 16),
+                    _buildRightDocumentSheet(),
+                  ] else
+                    // Desktop: Upper Split: Left = Inputs (Yellow Section) | Right = Document Canvas
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Left Box: Inputs (Yellow Section)
+                        Expanded(
+                          flex: 6,
+                          child: _buildYellowInputsBox(),
+                        ),
+                        const SizedBox(width: 14),
+                        // Right Box: White Document Preview Sheet
+                        Expanded(
+                          flex: 4,
+                          child: _buildRightDocumentSheet(),
+                        ),
+                      ],
+                    ),
 
                   const SizedBox(height: 18),
 
@@ -562,11 +573,11 @@ class _BoosterPumpCalculatorWorkspaceViewState
   }
 
   // ─── 1. Sub-Header Bar (← Back to Option) ──────────────────────────────
-  Widget _buildBackToDashboardBar() {
+  Widget _buildBackToDashboardBar([bool isMobile = false]) {
     return Container(
       height: 38,
       color: const Color(0xFF222327),
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -590,7 +601,7 @@ class _BoosterPumpCalculatorWorkspaceViewState
                         SizedBox(width: 6),
                         Text(
                           'Back to Option',
-                          style: TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.bold),
+                          style: TextStyle(color: Colors.white, fontSize: 13.0, fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -615,7 +626,7 @@ class _BoosterPumpCalculatorWorkspaceViewState
                       SizedBox(width: 6),
                       Text(
                         'Back to Dashboard',
-                        style: TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.bold),
+                        style: TextStyle(color: Colors.white, fontSize: 13.0, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -623,10 +634,11 @@ class _BoosterPumpCalculatorWorkspaceViewState
               ),
             ],
           ),
-          const Text(
-            'F.Y. 2026-2027',
-            style: TextStyle(color: Color(0xFF8E9297), fontSize: 13.5, fontWeight: FontWeight.w500),
-          ),
+          if (!isMobile)
+            const Text(
+              'F.Y. 2026-2027',
+              style: TextStyle(color: Color(0xFF8E9297), fontSize: 13.0, fontWeight: FontWeight.w500),
+            ),
         ],
       ),
     );
@@ -655,8 +667,156 @@ class _BoosterPumpCalculatorWorkspaceViewState
   }
 
   // ─── 3. Action Title & Customer Selection Strip ────────────────────────────
-  Widget _buildWorkspaceHeaderBar() {
+  Widget _buildWorkspaceHeaderBar([bool isMobile = false]) {
     final customers = ref.watch(customerListProvider).customers;
+
+    final customerDropdown = Container(
+      height: 30,
+      constraints: BoxConstraints(minWidth: isMobile ? 120 : 160, maxWidth: isMobile ? 170 : 220),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C1D21),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: const Color(0xFF383A40)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _selectedCustomerId,
+          isDense: true,
+          dropdownColor: const Color(0xFF222428),
+          icon: const Icon(Icons.arrow_drop_down, color: Colors.white70, size: 16),
+          style: const TextStyle(color: Colors.white, fontSize: 12.5),
+          hint: const Text('Customer (0%)', style: TextStyle(color: Colors.white, fontSize: 12.5)),
+          items: [
+            const DropdownMenuItem<String>(
+              value: null,
+              child: Text('Customer (0%)'),
+            ),
+            ...customers.map(
+              (c) => DropdownMenuItem(
+                value: c.id,
+                child: Text('${c.companyName} (${c.customerCode})', overflow: TextOverflow.ellipsis),
+              ),
+            ),
+          ],
+          onChanged: (val) {
+            setState(() {
+              _selectedCustomerId = val;
+              if (val != null) {
+                final found = customers.where((c) => c.id == val).toList();
+                if (found.isNotEmpty) {
+                  final valPct = found.first.valuationPercentage;
+                  if (valPct != 50.0) {
+                    _customerMarginCtrl.text = valPct.toString();
+                  }
+                }
+              } else {
+                _customerMarginCtrl.text = '0';
+              }
+            });
+            _runCalculation();
+          },
+        ),
+      ),
+    );
+
+    final marginBox = Container(
+      height: 30,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C1D21),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: const Color(0xFF383A40)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('Margin %: ', style: TextStyle(color: Colors.white70, fontSize: 12.0)),
+          SizedBox(
+            width: 36,
+            child: TextField(
+              controller: _customerMarginCtrl,
+              style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.bold),
+              decoration: const InputDecoration(
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(vertical: 6),
+                border: InputBorder.none,
+              ),
+              onSubmitted: (_) => _runCalculation(),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    final addCustomerBtn = ElevatedButton(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFFF15A24),
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+      ),
+      onPressed: _showAddCustomerDialog,
+      child: const Text('+ Customer', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+    );
+
+    final priceListBtn = ElevatedButton(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF2C2F36),
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+      ),
+      onPressed: _showCosterDataSheetModal,
+      child: const Text('Price List', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+    );
+
+    if (isMobile) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        color: const Color(0xFF141518),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Material & Labor Calculator',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                priceListBtn,
+              ],
+            ),
+            const SizedBox(height: 8),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  const Text(
+                    'Customer:  ',
+                    style: TextStyle(color: Colors.white70, fontSize: 11.5, fontWeight: FontWeight.w600),
+                  ),
+                  customerDropdown,
+                  const SizedBox(width: 6),
+                  marginBox,
+                  const SizedBox(width: 6),
+                  addCustomerBtn,
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -677,106 +837,13 @@ class _BoosterPumpCalculatorWorkspaceViewState
             'Select Customer:  ',
             style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600),
           ),
-          Container(
-            height: 30,
-            constraints: const BoxConstraints(minWidth: 160, maxWidth: 220),
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1C1D21),
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: const Color(0xFF383A40)),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _selectedCustomerId,
-                isDense: true,
-                dropdownColor: const Color(0xFF222428),
-                icon: const Icon(Icons.arrow_drop_down, color: Colors.white70, size: 16),
-                style: const TextStyle(color: Colors.white, fontSize: 13.5),
-                hint: const Text('Standard Customer', style: TextStyle(color: Colors.white, fontSize: 13.5)),
-                items: [
-                  const DropdownMenuItem<String>(
-                    value: null,
-                    child: Text('Standard Customer (0%)'),
-                  ),
-                  ...customers.map(
-                    (c) => DropdownMenuItem(
-                      value: c.id,
-                      child: Text('${c.companyName} (${c.customerCode})', overflow: TextOverflow.ellipsis),
-                    ),
-                  ),
-                ],
-                onChanged: (val) {
-                  setState(() {
-                    _selectedCustomerId = val;
-                    if (val != null) {
-                      final found = customers.where((c) => c.id == val).toList();
-                      if (found.isNotEmpty) {
-                        final valPct = found.first.valuationPercentage;
-                        if (valPct != 50.0) {
-                          _customerMarginCtrl.text = valPct.toString();
-                        }
-                      }
-                    } else {
-                      _customerMarginCtrl.text = '0';
-                    }
-                  });
-                  _runCalculation();
-                },
-              ),
-            ),
-          ),
+          customerDropdown,
           const SizedBox(width: 8),
-          Container(
-            height: 30,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1C1D21),
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: const Color(0xFF383A40)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Margin %: ', style: TextStyle(color: Colors.white70, fontSize: 13.0)),
-                SizedBox(
-                  width: 42,
-                  child: TextField(
-                    controller: _customerMarginCtrl,
-                    style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.bold),
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(vertical: 6),
-                      border: InputBorder.none,
-                    ),
-                    onSubmitted: (_) => _runCalculation(),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          marginBox,
           const SizedBox(width: 8),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFF15A24),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-            ),
-            onPressed: _showAddCustomerDialog,
-            child: const Text('+ Add Customer', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold)),
-          ),
+          addCustomerBtn,
           const SizedBox(width: 8),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFF15A24),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-            ),
-            onPressed: _showCosterDataSheetModal,
-            child: const Text('Open Price List', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold)),
-          ),
+          priceListBtn,
         ],
       ),
     );
@@ -1221,31 +1288,37 @@ class _BoosterPumpCalculatorWorkspaceViewState
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             color: const Color(0xFF222327),
-            child: Row(
-              children: [
-                const Text(
-                  'Material Breakdown & BOM',
-                  style: TextStyle(
-                    color: Color(0xFFF15A24),
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  '(${rawBom.length} items)',
-                  style: const TextStyle(color: Colors.white54, fontSize: 13.0),
-                ),
-                const Spacer(),
-                SizedBox(
-                  width: 240,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isNarrow = constraints.maxWidth < 600;
+                final titleRow = Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Material Breakdown & BOM',
+                      style: TextStyle(
+                        color: Color(0xFFF15A24),
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '(${rawBom.length} items)',
+                      style: const TextStyle(color: Colors.white54, fontSize: 12.0),
+                    ),
+                  ],
+                );
+
+                final searchBox = SizedBox(
+                  width: isNarrow ? double.infinity : 240,
                   height: 28,
                   child: TextField(
                     style: const TextStyle(color: Colors.white, fontSize: 13.0),
                     decoration: InputDecoration(
                       hintText: 'Filter SKU, component...',
-                      hintStyle: const TextStyle(color: Color(0xFF72767D), fontSize: 12.5),
+                      hintStyle: const TextStyle(color: Color(0xFF72767D), fontSize: 12.0),
                       prefixIcon: const Icon(Icons.search, color: Color(0xFF72767D), size: 14),
                       contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 8),
                       filled: true,
@@ -1257,8 +1330,27 @@ class _BoosterPumpCalculatorWorkspaceViewState
                     ),
                     onChanged: (val) => setState(() => _bomSearchQuery = val),
                   ),
-                ),
-              ],
+                );
+
+                if (isNarrow) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      titleRow,
+                      const SizedBox(height: 8),
+                      searchBox,
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    titleRow,
+                    const Spacer(),
+                    searchBox,
+                  ],
+                );
+              },
             ),
           ),
 
@@ -1364,6 +1456,47 @@ class _BoosterPumpCalculatorWorkspaceViewState
     required String rightLabel,
     required Widget rightWidget,
   }) {
+    final isNarrow = MediaQuery.of(context).size.width < 600;
+
+    if (isNarrow) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3.0),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  flex: 5,
+                  child: Text(
+                    leftLabel,
+                    style: const TextStyle(color: Color(0xFFB0B3B8), fontSize: 12.0),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(flex: 5, child: leftWidget),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Expanded(
+                  flex: 5,
+                  child: Text(
+                    rightLabel,
+                    style: const TextStyle(color: Color(0xFFB0B3B8), fontSize: 12.0),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(flex: 5, child: rightWidget),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3.5),
       child: Row(

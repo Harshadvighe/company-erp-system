@@ -621,71 +621,78 @@ class _LoginPageState extends ConsumerState<LoginPage>
 
   // ─── Mobile ─────────────────────────────────────────────────────────────────
   Widget _buildMobileLayout() {
-    return SingleChildScrollView(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          minHeight: MediaQuery.of(context).size.height,
-        ),
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AnimatedBuilder(
-                  animation: _pulseController,
-                  builder: (context, child) {
-                    return Transform.translate(
-                      offset: Offset(0, _floatAnimation.value * 0.6),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppTheme.primary.withValues(alpha: 0.20 + 0.15 * _glowAnimation.value),
-                              blurRadius: 20,
-                              spreadRadius: 2,
+    return Scaffold(
+      backgroundColor: const Color(0xFF0E1014),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight - 24,
+                ),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AnimatedBuilder(
+                        animation: _pulseController,
+                        builder: (context, child) {
+                          return Transform.translate(
+                            offset: Offset(0, _floatAnimation.value * 0.5),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppTheme.primary.withValues(alpha: 0.20 + 0.15 * _glowAnimation.value),
+                                    blurRadius: 18,
+                                    spreadRadius: 2,
+                                  ),
+                                ],
+                              ),
+                              child: child,
                             ),
-                          ],
+                          );
+                        },
+                        child: const SaarkFullLogoCard(
+                          width: 170,
+                          height: 105,
+                          padding: EdgeInsets.all(10),
                         ),
-                        child: child,
                       ),
-                    );
-                  },
-                  child: const SaarkFullLogoCard(
-                    width: 200,
-                    height: 130,
-                    padding: EdgeInsets.all(12),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'ENTERPRISE ERP PORTAL',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 2,
+                          color: AppTheme.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      SlideTransition(
+                        position: _slideAnimation,
+                        child: ScaleTransition(
+                          scale: _scaleAnimation,
+                          child: _buildLoginForm(maxWidth: double.infinity, isMobile: true),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 12),
-                const Text(
-                  'ENTERPRISE ERP PORTAL',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 2,
-                    color: AppTheme.primary,
-                  ),
-                ),
-                const SizedBox(height: 32),
-                SlideTransition(
-                  position: _slideAnimation,
-                  child: ScaleTransition(
-                    scale: _scaleAnimation,
-                    child: _buildLoginForm(maxWidth: double.infinity),
-                  ),
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         ),
       ),
     );
   }
 
   // ─── Login Form ─────────────────────────────────────────────────────────────
-  Widget _buildLoginForm({required double maxWidth}) {
+  Widget _buildLoginForm({required double maxWidth, bool isMobile = false}) {
     return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: maxWidth),
       child: Container(
@@ -725,7 +732,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.all(28),
+                  padding: EdgeInsets.all(isMobile ? 18 : 28),
                   child: Form(
                     key: _formKey,
                     child: Column(
@@ -1116,8 +1123,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
                 // ── Single Action: Sign In Button ──
                 Center(
                   child: SizedBox(
-                    width: 280,
-                    height: 50,
+                    width: isMobile ? double.infinity : 280,
+                    height: 48,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.primary,
@@ -1171,23 +1178,26 @@ class _LoginPageState extends ConsumerState<LoginPage>
                 // ── Security Footer ───────────────────────────────────────
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                      const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.03),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                         color: Colors.white.withValues(alpha: 0.06)),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildFooterBadge(Icons.lock_rounded, 'Encrypted'),
-                      _buildFooterDivider(),
-                      _buildFooterBadge(
-                          Icons.face_retouching_natural_rounded, 'Biometric'),
-                      _buildFooterDivider(),
-                      _buildFooterBadge(Icons.security_rounded, 'Secure'),
-                    ],
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _buildFooterBadge(Icons.lock_rounded, 'Encrypted'),
+                        _buildFooterDivider(),
+                        _buildFooterBadge(
+                            Icons.face_retouching_natural_rounded, 'Biometric'),
+                        _buildFooterDivider(),
+                        _buildFooterBadge(Icons.security_rounded, 'Secure'),
+                      ],
+                    ),
                   ),
                 ),
                 AppSpacing.gapH10,

@@ -112,12 +112,50 @@ class _PanelSpecsListPageState extends ConsumerState<PanelSpecsListPage>
   }
 
   Widget _buildHeader(BuildContext context, List<Map<String, dynamic>> specs, NumberFormat currency) {
+    final isMobile = MediaQuery.of(context).size.width < 768;
     final totalPanels = specs.length;
     final totalValue = specs.fold<double>(0, (sum, item) => sum + (NumberFormat().tryParse('${item['finalPrice']}')?.toDouble() ?? (item['finalPrice'] as num?)?.toDouble() ?? 0));
     final vfdPanels = specs.where((s) => s['panelType'] == 'VFD_PANEL').length;
 
+    final backButton = InkWell(
+      onTap: () {
+        if (widget.onBackToDashboard != null) {
+          widget.onBackToDashboard!();
+        } else {
+          context.go('/dashboard');
+        }
+      },
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF15A24),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              widget.onBackToDashboard != null ? Icons.arrow_back : Icons.dashboard_outlined,
+              color: Colors.white,
+              size: 15,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              widget.onBackToDashboard != null ? 'Back to Option' : 'Back to Dashboard',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+      padding: EdgeInsets.fromLTRB(isMobile ? 12 : 20, isMobile ? 12 : 20, isMobile ? 12 : 20, isMobile ? 12 : 16),
       decoration: const BoxDecoration(
         color: AppTheme.darkSurface,
         border: Border(bottom: BorderSide(color: AppTheme.darkBorder)),
@@ -125,109 +163,132 @@ class _PanelSpecsListPageState extends ConsumerState<PanelSpecsListPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  InkWell(
-                    onTap: () {
-                      if (widget.onBackToDashboard != null) {
-                        widget.onBackToDashboard!();
-                      } else {
-                        context.go('/dashboard');
-                      }
-                    },
-                    borderRadius: BorderRadius.circular(6),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                      margin: const EdgeInsets.only(right: 14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF15A24),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            widget.onBackToDashboard != null ? Icons.arrow_back : Icons.dashboard_outlined,
-                            color: Colors.white,
-                            size: 15,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            widget.onBackToDashboard != null ? 'Back to Option' : 'Back to Dashboard',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+          if (isMobile) ...[
+            // Mobile top bar: Back button + Create Spec button
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                backButton,
+                ElevatedButton.icon(
+                  onPressed: () => context.push('/production/new'),
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('Create Spec', style: TextStyle(fontSize: 12)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   ),
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primary.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.precision_manufacturing, color: AppTheme.primary, size: 24),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            // Mobile Title row
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  const SizedBox(width: 12),
-                  const Column(
+                  child: const Icon(Icons.precision_manufacturing, color: AppTheme.primary, size: 20),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Panel Manufacturing & BOM',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.darkText),
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.darkText),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       Text(
-                        'Industrial Control Panels, Specification Design & Live Cost Estimation',
-                        style: TextStyle(fontSize: 12, color: AppTheme.darkTextSecondary),
+                        'Control Panels & Live Cost Estimation',
+                        style: TextStyle(fontSize: 11, color: AppTheme.darkTextSecondary),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
-                ],
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: () => context.go('/dashboard'),
-                    icon: const Icon(Icons.dashboard_outlined, size: 16),
-                    label: const Text('Back to Dashboard'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: const BorderSide(color: Color(0xFF3A3D46)),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                ),
+              ],
+            ),
+          ] else ...[
+            // Desktop top bar
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    backButton,
+                    const SizedBox(width: 14),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primary.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.precision_manufacturing, color: AppTheme.primary, size: 24),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  ElevatedButton.icon(
-                    onPressed: () => context.push('/production/new'),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Create Specification'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primary,
-                      foregroundColor: Colors.white,
+                    const SizedBox(width: 12),
+                    const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Panel Manufacturing & BOM',
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.darkText),
+                        ),
+                        Text(
+                          'Industrial Control Panels, Specification Design & Live Cost Estimation',
+                          style: TextStyle(fontSize: 12, color: AppTheme.darkTextSecondary),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // Stats row
-          Row(
-            children: [
-              _buildStatChip('Total Specifications', '$totalPanels', Icons.assignment_outlined, AppTheme.info),
-              const SizedBox(width: 12),
-              _buildStatChip('VFD Panels', '$vfdPanels', Icons.speed, AppTheme.warning),
-              const SizedBox(width: 12),
-              _buildStatChip('Total Est. Value', currency.format(totalValue), Icons.currency_rupee, AppTheme.success),
-            ],
+                  ],
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () => context.go('/dashboard'),
+                      icon: const Icon(Icons.dashboard_outlined, size: 16),
+                      label: const Text('Back to Dashboard'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: const BorderSide(color: Color(0xFF3A3D46)),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    ElevatedButton.icon(
+                      onPressed: () => context.push('/production/new'),
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Create Specification'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primary,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 12),
+          // Stats row wrapped in SingleChildScrollView for mobile overflow safety
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildStatChip('Total Specifications', '$totalPanels', Icons.assignment_outlined, AppTheme.info),
+                const SizedBox(width: 10),
+                _buildStatChip('VFD Panels', '$vfdPanels', Icons.speed, AppTheme.warning),
+                const SizedBox(width: 10),
+                _buildStatChip('Total Est. Value', currency.format(totalValue), Icons.currency_rupee, AppTheme.success),
+              ],
+            ),
           ),
         ],
       ),

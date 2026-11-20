@@ -62,7 +62,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         onRefresh: _refreshAll,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.lg),
+          padding: EdgeInsets.symmetric(
+            horizontal: MediaQuery.of(context).size.width < 600 ? 12.0 : AppSpacing.xl,
+            vertical: AppSpacing.lg,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -269,38 +272,41 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             ],
           );
 
-          final dateAndControls = Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 7),
-                decoration: BoxDecoration(
-                  color: AppTheme.darkBackground,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.darkBorder),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.calendar_today_rounded, size: 13, color: AppTheme.primary),
-                    AppSpacing.gapW8,
-                    Text(
-                      '${days[now.weekday - 1]}, ${now.day} ${months[now.month - 1]} ${now.year}  •  F.Y. 2026-27',
-                      style: const TextStyle(
-                        color: AppTypography.darkTextSecondary,
-                        fontSize: AppTypography.scaleLabelSmall,
-                        fontWeight: AppTypography.semiBold,
+          final dateAndControls = SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: AppTheme.darkBackground,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.darkBorder),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.calendar_today_rounded, size: 13, color: AppTheme.primary),
+                      AppSpacing.gapW8,
+                      Text(
+                        '${days[now.weekday - 1]}, ${now.day} ${months[now.month - 1]} ${now.year}  •  F.Y. 2026-27',
+                        style: const TextStyle(
+                          color: AppTypography.darkTextSecondary,
+                          fontSize: AppTypography.scaleLabelSmall,
+                          fontWeight: AppTypography.semiBold,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              _IndustrialRefreshButton(
-                isRefreshing: _isRefreshing,
-                onPressed: _refreshAll,
-              ),
-            ],
+                const SizedBox(width: 8),
+                _IndustrialRefreshButton(
+                  isRefreshing: _isRefreshing,
+                  onPressed: _refreshAll,
+                ),
+              ],
+            ),
           );
 
           if (isCompact) {
