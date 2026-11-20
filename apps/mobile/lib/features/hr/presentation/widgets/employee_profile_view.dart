@@ -8,6 +8,7 @@ import 'package:saark_erp_mobile/features/admin/data/admin_repository.dart';
 import 'package:saark_erp_mobile/features/hr/models/hr_models.dart';
 import 'package:saark_erp_mobile/core/utils/web_utils.dart';
 import 'package:saark_erp_mobile/core/biometrics/face_camera_modal.dart';
+import 'package:saark_erp_mobile/core/constants/erp_modules.dart';
 /// Data class representing an Employee record matching the enterprise HR UI
 class EmployeeProfileRecord {
   String dbId;
@@ -339,25 +340,8 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
   String _selectedRole = 'ROLE_EMPLOYEE';
   bool _isBiometricEnrolled = false;
 
-  // ERP Module Options for Granular Employee Access
-  static const List<Map<String, dynamic>> _erpModuleOptions = [
-    {'key': 'SALES_MARKETING', 'title': 'Sales & Marketing', 'icon': Icons.campaign_rounded},
-    {'key': 'B2B_TRADING', 'title': 'B2B Trading', 'icon': Icons.storefront_rounded},
-    {'key': 'PRODUCTION', 'title': 'Production Process', 'icon': Icons.precision_manufacturing_rounded},
-    {'key': 'PANEL_MANUFACTURING', 'title': 'Panel Manufacturing', 'icon': Icons.electrical_services_rounded},
-    {'key': 'QUALITY_CONTROL', 'title': 'Quality Control (QC/QA)', 'icon': Icons.verified_rounded},
-    {'key': 'PROJECTS', 'title': 'Project Management', 'icon': Icons.folder_open_rounded},
-    {'key': 'TASKS', 'title': 'Task Manager', 'icon': Icons.task_alt_rounded},
-    {'key': 'ACCOUNTS', 'title': 'Accounts & Finance', 'icon': Icons.account_balance_rounded},
-    {'key': 'HR', 'title': 'HR (Human Resources)', 'icon': Icons.people_alt_rounded},
-    {'key': 'ATTENDANCE', 'title': 'Attendance', 'icon': Icons.access_time_rounded},
-    {'key': 'PURCHASE', 'title': 'Purchase / Procurement', 'icon': Icons.shopping_bag_rounded},
-    {'key': 'INVENTORY', 'title': 'Stores / Warehouse', 'icon': Icons.warehouse_rounded},
-    {'key': 'MAINTENANCE', 'title': 'Maintenance', 'icon': Icons.home_repair_service_rounded},
-    {'key': 'RESEARCH_DEVELOPMENT', 'title': 'R&D / Engineering', 'icon': Icons.science_rounded},
-    {'key': 'ASSET_MANAGEMENT', 'title': 'Asset Management', 'icon': Icons.domain_rounded},
-    {'key': 'ADMINISTRATION', 'title': 'Administration & IT', 'icon': Icons.admin_panel_settings_rounded},
-  ];
+  // ERP Module Options for Granular Employee Access & Designed Models
+  List<ErpModuleDefinition> _erpModuleOptions = List.from(ErpModulesRegistry.defaultModules);
   List<String> _selectedModules = ['SALES_MARKETING'];
 
   // Dropdown values
@@ -421,7 +405,145 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
     _loadData();
   }
 
+
+  Future<void> _loadModuleOptions({List<String>? includeAssigned}) async {
+    final modules = await ErpModulesRegistry.loadAllModules(includeAssigned: includeAssigned);
+    if (mounted) {
+      setState(() {
+        _erpModuleOptions = modules;
+      });
+    }
+  }
+
+  void _showAddNewModuleDialog() {
+    final titleController = TextEditingController();
+    final keyController = TextEditingController();
+    String selectedCategory = 'Panel Models & Design';
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDlgState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1E2024),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: const BorderSide(color: Color(0xFF383B42)),
+              ),
+              title: const Row(
+                children: [
+                  Icon(Icons.add_box_rounded, color: Color(0xFFF15A24), size: 22),
+                  SizedBox(width: 10),
+                  Text(
+                    'Add New ERP Module / Model',
+                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 440,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Define a new module or engineering model. It will immediately be registered with a tick mark for assignment across all employees.',
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: titleController,
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      decoration: const InputDecoration(
+                        labelText: 'Module / Model Name',
+                        hintText: 'e.g. Solar Pump Control Panel or RO System',
+                        isDense: true,
+                      ),
+                      onChanged: (val) {
+                        setDlgState(() {
+                          keyController.text = val.trim().toUpperCase().replaceAll(RegExp(r'[^A-Z0-9_]'), '_');
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: keyController,
+                      style: const TextStyle(color: Color(0xFF00E5FF), fontSize: 13, fontWeight: FontWeight.bold),
+                      decoration: const InputDecoration(
+                        labelText: 'System Key (Unique Code)',
+                        hintText: 'e.g. SOLAR_PUMP_PANEL',
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: selectedCategory,
+                      dropdownColor: const Color(0xFF222428),
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      decoration: const InputDecoration(labelText: 'Category', isDense: true),
+                      items: const [
+                        DropdownMenuItem(value: 'Panel Models & Design', child: Text('Panel Models & Design')),
+                        DropdownMenuItem(value: 'Core Operations', child: Text('Core Operations')),
+                        DropdownMenuItem(value: 'Custom Models & Modules', child: Text('Custom Models & Modules')),
+                      ],
+                      onChanged: (v) => setDlgState(() => selectedCategory = v ?? 'Panel Models & Design'),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Cancel', style: TextStyle(color: Colors.white60)),
+                ),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.check, size: 16),
+                  label: const Text('Add & Assign'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFF15A24),
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () async {
+                    final title = titleController.text.trim();
+                    final key = keyController.text.trim().toUpperCase().replaceAll(RegExp(r'[^A-Z0-9_]'), '_');
+                    if (title.isEmpty || key.isEmpty) return;
+
+                    final def = await ErpModulesRegistry.registerCustomModule(
+                      title: title,
+                      customKey: key,
+                      category: selectedCategory,
+                    );
+
+                    Navigator.of(ctx).pop();
+
+                    setState(() {
+                      if (!_erpModuleOptions.any((m) => m.key == def.key)) {
+                        _erpModuleOptions.add(def);
+                      }
+                      if (!_selectedModules.contains(def.key)) {
+                        _selectedModules.add(def.key);
+                      }
+                    });
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Module/Model "$title" ($key) registered and assigned.'),
+                        backgroundColor: const Color(0xFF10B981),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _loadData() async {
+    _loadModuleOptions();
     setState(() => _isLoading = true);
     try {
       final adminRepo = ref.read(adminRepositoryProvider);
@@ -546,6 +668,7 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
       _selectedModules = record.assignedModules.isNotEmpty
           ? List<String>.from(record.assignedModules)
           : ['SALES_MARKETING'];
+      _loadModuleOptions(includeAssigned: record.assignedModules);
     });
 
     _loadBiometricStatus(record.dbId.isNotEmpty ? record.dbId : record.id);
@@ -1983,11 +2106,25 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
                 ),
               ),
               const Spacer(),
+              ElevatedButton.icon(
+                onPressed: _showAddNewModuleDialog,
+                icon: const Icon(Icons.add, size: 14),
+                label: const Text('+ Add New Module / Model', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFF15A24),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                ),
+              ),
+              const SizedBox(width: 8),
               TextButton(
                 onPressed: () {
                   setState(() {
                     _selectedModules = _erpModuleOptions
-                        .map((m) => m['key'] as String)
+                        .map((m) => m.key)
                         .toList();
                   });
                 },
@@ -2014,80 +2151,117 @@ class _EmployeeProfileViewState extends ConsumerState<EmployeeProfileView> {
           ),
           const SizedBox(height: 6),
           const Text(
-            'Select which ERP modules this employee is permitted to access. When logged in, the employee will only see and navigate to the checked modules.',
+            'Select which ERP modules or engineered models this employee is permitted to access. When logged in, the employee will only see and navigate to the checked modules. You can add new models anytime with the button above.',
             style: TextStyle(color: Colors.white54, fontSize: 11),
           ),
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _erpModuleOptions.map((opt) {
-              final key = opt['key'] as String;
-              final isChecked = _selectedModules.contains(key);
-              final icon = opt['icon'] as IconData;
-              final title = opt['title'] as String;
-
-              return InkWell(
-                onTap: () {
-                  setState(() {
-                    if (isChecked) {
-                      _selectedModules.remove(key);
-                    } else {
-                      _selectedModules.add(key);
-                    }
-                  });
-                },
-                borderRadius: BorderRadius.circular(4),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: isChecked ? const Color(0x22F26522) : const Color(0xFF1E2024),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(
-                      color: isChecked ? const Color(0xFFF26522) : const Color(0xFF2C2E33),
-                      width: isChecked ? 1.5 : 1.0,
-                    ),
-                  ),
+          ...() {
+            final categories = ['Core Operations', 'Panel Models & Design', 'Custom Models & Modules', 'Assigned / Custom Models'];
+            final List<Widget> sections = [];
+            for (final cat in categories) {
+              final catModules = _erpModuleOptions.where((m) => m.category == cat).toList();
+              if (catModules.isEmpty) continue;
+              sections.add(
+                Padding(
+                  padding: const EdgeInsets.only(top: 10, bottom: 6),
                   child: Row(
-                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: Checkbox(
-                          value: isChecked,
-                          activeColor: const Color(0xFFF26522),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(3)),
-                          side: const BorderSide(color: Color(0xFF4C4E55)),
-                          onChanged: (_) {
-                            setState(() {
-                              if (isChecked) {
-                                _selectedModules.remove(key);
-                              } else {
-                                _selectedModules.add(key);
-                              }
-                            });
-                          },
-                        ),
+                      Icon(
+                        cat == 'Panel Models & Design'
+                            ? Icons.precision_manufacturing_rounded
+                            : (cat == 'Core Operations' ? Icons.business_center_rounded : Icons.extension_rounded),
+                        size: 14,
+                        color: const Color(0xFFF15A24),
                       ),
-                      const SizedBox(width: 8),
-                      Icon(icon, size: 16, color: isChecked ? const Color(0xFFF26522) : Colors.white70),
                       const SizedBox(width: 6),
                       Text(
-                        title,
-                        style: TextStyle(
-                          color: isChecked ? Colors.white : Colors.white70,
-                          fontSize: 11.5,
-                          fontWeight: isChecked ? FontWeight.bold : FontWeight.w500,
+                        cat.toUpperCase(),
+                        style: const TextStyle(
+                          color: Color(0xFFB0B3B8),
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.6,
                         ),
                       ),
                     ],
                   ),
                 ),
               );
-            }).toList(),
-          ),
+              sections.add(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: catModules.map((opt) {
+                    final key = opt.key;
+                    final isChecked = _selectedModules.contains(key);
+                    final icon = opt.icon;
+                    final title = opt.title;
+
+                    return InkWell(
+                      onTap: () {
+                        setState(() {
+                          if (isChecked) {
+                            _selectedModules.remove(key);
+                          } else {
+                            _selectedModules.add(key);
+                          }
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(4),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: isChecked ? const Color(0x22F26522) : const Color(0xFF1E2024),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: isChecked ? const Color(0xFFF26522) : const Color(0xFF2C2E33),
+                            width: isChecked ? 1.5 : 1.0,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: Checkbox(
+                                value: isChecked,
+                                activeColor: const Color(0xFFF26522),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(3)),
+                                side: const BorderSide(color: Color(0xFF4C4E55)),
+                                onChanged: (_) {
+                                  setState(() {
+                                    if (isChecked) {
+                                      _selectedModules.remove(key);
+                                    } else {
+                                      _selectedModules.add(key);
+                                    }
+                                  });
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Icon(icon, size: 16, color: isChecked ? const Color(0xFFF26522) : Colors.white70),
+                            const SizedBox(width: 6),
+                            Text(
+                              title,
+                              style: TextStyle(
+                                color: isChecked ? Colors.white : Colors.white70,
+                                fontSize: 11.5,
+                                fontWeight: isChecked ? FontWeight.bold : FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              );
+            }
+            return sections;
+          }(),
         ],
       ),
     );

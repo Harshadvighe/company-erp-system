@@ -7,6 +7,7 @@ import 'package:saark_erp_mobile/core/theme/app_theme.dart';
 import 'package:saark_erp_mobile/features/admin/data/admin_repository.dart';
 import 'package:saark_erp_mobile/features/admin/presentation/pages/admin_organization_page.dart';
 import 'package:saark_erp_mobile/features/hr/models/hr_models.dart';
+import 'package:saark_erp_mobile/core/constants/erp_modules.dart';
 
 class AdminDashboardPage extends ConsumerStatefulWidget {
   const AdminDashboardPage({super.key});
@@ -887,26 +888,16 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
   }
 
 
-  static const List<Map<String, dynamic>> _adminModuleOptions = [
-    {'key': 'SALES_MARKETING', 'title': 'Sales & Marketing', 'icon': Icons.campaign_rounded},
-    {'key': 'B2B_TRADING', 'title': 'B2B Trading', 'icon': Icons.storefront_rounded},
-    {'key': 'PRODUCTION', 'title': 'Production Process', 'icon': Icons.precision_manufacturing_rounded},
-    {'key': 'PANEL_MANUFACTURING', 'title': 'Panel Manufacturing', 'icon': Icons.electrical_services_rounded},
-    {'key': 'QUALITY_CONTROL', 'title': 'Quality Control (QC/QA)', 'icon': Icons.verified_rounded},
-    {'key': 'PROJECTS', 'title': 'Project Management', 'icon': Icons.folder_open_rounded},
-    {'key': 'TASKS', 'title': 'Task Manager', 'icon': Icons.task_alt_rounded},
-    {'key': 'ACCOUNTS', 'title': 'Accounts & Finance', 'icon': Icons.account_balance_rounded},
-    {'key': 'HR', 'title': 'HR (Human Resources)', 'icon': Icons.people_alt_rounded},
-    {'key': 'ATTENDANCE', 'title': 'Attendance', 'icon': Icons.access_time_rounded},
-    {'key': 'PURCHASE', 'title': 'Purchase / Procurement', 'icon': Icons.shopping_bag_rounded},
-    {'key': 'INVENTORY', 'title': 'Stores / Warehouse', 'icon': Icons.warehouse_rounded},
-    {'key': 'MAINTENANCE', 'title': 'Maintenance', 'icon': Icons.home_repair_service_rounded},
-    {'key': 'RESEARCH_DEVELOPMENT', 'title': 'R&D / Engineering', 'icon': Icons.science_rounded},
-    {'key': 'ASSET_MANAGEMENT', 'title': 'Asset Management', 'icon': Icons.domain_rounded},
-    {'key': 'ADMINISTRATION', 'title': 'Administration & IT', 'icon': Icons.admin_panel_settings_rounded},
-  ];
+  List<ErpModuleDefinition> _adminModuleOptions = List.from(ErpModulesRegistry.defaultModules);
 
   void _showEditEmployeeDialog(Employee employee) {
+    // Dynamically ensure all modules and models are present in options
+    for (final mod in employee.assignedModules) {
+      if (!_adminModuleOptions.any((m) => m.key == mod)) {
+        final cleanTitle = mod.replaceAll('_', ' ').split(' ').map((w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}' : '').join(' ');
+        _adminModuleOptions.add(ErpModuleDefinition(key: mod, title: cleanTitle, icon: Icons.extension_rounded, category: 'Panel Models & Design'));
+      }
+    }
     final firstNameCtrl = TextEditingController(text: employee.firstName);
     final lastNameCtrl = TextEditingController(text: employee.lastName);
     final emailCtrl = TextEditingController(text: employee.email);
@@ -1146,10 +1137,71 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                             style: TextStyle(color: AppTheme.primary, fontSize: 11, fontWeight: AppTypography.bold, letterSpacing: 0.5),
                           ),
                           const Spacer(),
+                          TextButton.icon(
+                            icon: const Icon(Icons.add, size: 13, color: Color(0xFFF15A24)),
+                            label: const Text('Add Model', style: TextStyle(color: Color(0xFFF15A24), fontSize: 11, fontWeight: FontWeight.bold)),
+                            onPressed: () async {
+                              final titleCtrl = TextEditingController();
+                              final keyCtrl = TextEditingController();
+                              final added = await showDialog<ErpModuleDefinition>(
+                                context: context,
+                                builder: (dlgCtx) => AlertDialog(
+                                  backgroundColor: const Color(0xFF1E2024),
+                                  title: const Text('Add New ERP Module / Model', style: TextStyle(color: Colors.white, fontSize: 15)),
+                                  content: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      TextField(
+                                        controller: titleCtrl,
+                                        style: const TextStyle(color: Colors.white, fontSize: 13),
+                                        decoration: const InputDecoration(labelText: 'Module / Model Name', hintText: 'e.g. Solar Pump Panel'),
+                                        onChanged: (v) {
+                                          keyCtrl.text = v.trim().toUpperCase().replaceAll(RegExp(r'[^A-Z0-9_]'), '_');
+                                        },
+                                      ),
+                                      const SizedBox(height: 10),
+                                      TextField(
+                                        controller: keyCtrl,
+                                        style: const TextStyle(color: Color(0xFF00E5FF), fontSize: 13, fontWeight: FontWeight.bold),
+                                        decoration: const InputDecoration(labelText: 'Key Code', hintText: 'e.g. SOLAR_PUMP_PANEL'),
+                                      ),
+                                    ],
+                                  ),
+                                  actions: [
+                                    TextButton(onPressed: () => Navigator.pop(dlgCtx), child: const Text('Cancel')),
+                                    ElevatedButton(
+                                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF15A24)),
+                                      onPressed: () async {
+                                        if (titleCtrl.text.trim().isEmpty) return;
+                                        final def = await ErpModulesRegistry.registerCustomModule(
+                                          title: titleCtrl.text.trim(),
+                                          customKey: keyCtrl.text.trim(),
+                                          category: 'Panel Models & Design',
+                                        );
+                                        Navigator.pop(dlgCtx, def);
+                                      },
+                                      child: const Text('Add & Assign'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (added != null) {
+                                setDialogState(() {
+                                  if (!_adminModuleOptions.any((m) => m.key == added.key)) {
+                                    _adminModuleOptions.add(added);
+                                  }
+                                  if (!selectedModules.contains(added.key)) {
+                                    selectedModules.add(added.key);
+                                  }
+                                });
+                              }
+                            },
+                          ),
+                          const SizedBox(width: 4),
                           TextButton(
                             onPressed: () {
                               setDialogState(() {
-                                selectedModules = _adminModuleOptions.map((m) => m['key'] as String).toList();
+                                selectedModules = _adminModuleOptions.map((m) => m.key).toList();
                               });
                             },
                             child: const Text('Select All', style: TextStyle(color: AppTheme.primary, fontSize: 11)),
@@ -1175,9 +1227,9 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> with Si
                           spacing: 8,
                           runSpacing: 6,
                           children: _adminModuleOptions.map((mod) {
-                            final key = mod['key'] as String;
-                            final title = mod['title'] as String;
-                            final icon = mod['icon'] as IconData;
+                            final key = mod.key;
+                            final title = mod.title;
+                            final icon = mod.icon;
                             final isChecked = selectedModules.contains(key);
 
                             return InkWell(

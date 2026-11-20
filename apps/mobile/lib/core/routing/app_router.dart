@@ -101,7 +101,15 @@ class RouterNotifier extends ChangeNotifier {
             !user.canAccessModule('PRODUCTION') &&
             !user.canAccessModule('PANEL_MANUFACTURING') &&
             !user.canAccessModule('QUALITY_CONTROL') &&
-            !user.canAccessModule('RESEARCH_DEVELOPMENT')) {
+            !user.canAccessModule('RESEARCH_DEVELOPMENT') &&
+            !user.canAccessModule('BOOSTER_PUMP') &&
+            !user.canAccessModule('STP_PANEL') &&
+            !user.canAccessModule('HYPN_PANEL') &&
+            !user.canAccessModule('WTP_PANEL') &&
+            !user.canAccessModule('DEWATERING_PANEL') &&
+            !user.canAccessModule('FIRE_FIGHTING_PANEL') &&
+            !user.canAccessModule('VFD_PANEL') &&
+            !user.canAccessModule('MCC_PCC_PANEL')) {
           return user.getPrimaryModuleRoute();
         }
         if (loc.startsWith('/accounts') && !user.canAccessModule('ACCOUNTS')) {

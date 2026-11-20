@@ -38,10 +38,45 @@ addEventListener("message", eventListener);
 if (!window._flutter) {
   window._flutter = {};
 }
-_flutter.buildConfig = {"engineRevision":"af7e796e161ae0bb1ff0758c71a7105418bd9ded","wasmHashes":{"canvaskit.wasm":"fbed517a43e82452404446683f00f2e876d835aed84410695759e67b6bb01cd3","chromium/canvaskit.wasm":"ae8ff1d858140f7b1300ced3fa89fb8c9dce0a400a0f4f1e11f6dcfb3315fdcf","skwasm.wasm":"e540fd5e8303b7b68ec2718cb49e9c421f8ade3075b15e02a7059a62654df9a1","skwasm_heavy.wasm":"565f5cc1cca6ab120f11934b105f01fec4b58b480c82e0889dca93af8e6f8635","webparagraph/canvaskit.wasm":"0ce1b05082efdc8529550e8a01f6ff0593972d55525035010e26f5600aa9f254","wimp.wasm":"e924eaafd801d41e017d178f3fd5cf8a417f641fe35c9ed34a4e1d7582283e0c"},"builds":[{"compileTarget":"dart2js","renderer":"canvaskit","mainJsPath":"main.dart.js"},{}]};
+_flutter.buildConfig = {"engineRevision":"af7e796e161ae0bb1ff0758c71a7105418bd9ded","wasmHashes":{"canvaskit.wasm":"fbed517a43e82452404446683f00f2e876d835aed84410695759e67b6bb01cd3","chromium/canvaskit.wasm":"ae8ff1d858140f7b1300ced3fa89fb8c9dce0a400a0f4f1e11f6dcfb3315fdcf","skwasm.wasm":"e540fd5e8303b7b68ec2718cb49e9c421f8ade3075b15e02a7059a62654df9a1","skwasm_heavy.wasm":"565f5cc1cca6ab120f11934b105f01fec4b58b480c82e0889dca93af8e6f8635","webparagraph/canvaskit.wasm":"0ce1b05082efdc8529550e8a01f6ff0593972d55525035010e26f5600aa9f254","wimp.wasm":"e924eaafd801d41e017d178f3fd5cf8a417f641fe35c9ed34a4e1d7582283e0c"},"builds":[{"compileTarget":"dart2js","renderer":"canvaskit","mainJsPath":"main.dart.js"}]};
 
-_flutter.loader.load({
-  serviceWorkerSettings: {
-    serviceWorkerVersion: "3002429701" /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */
+
+// Custom industrial bootstrap for Saark ERP
+// Avoids legacy service-worker reload loops and provides smooth splash transition
+function dismissLoadingScreen() {
+  const loader = document.getElementById('app-loading-screen');
+  if (loader && !loader.classList.contains('dismissed')) {
+    loader.classList.add('dismissed');
+    setTimeout(() => {
+      if (loader.parentNode) loader.parentNode.removeChild(loader);
+    }, 450);
+  }
+}
+
+// Fallback observer: if Flutter inserts flutter-view or canvas, dismiss loader
+const observer = new MutationObserver((mutations) => {
+  for (const m of mutations) {
+    for (const node of m.addedNodes) {
+      if (node.nodeName === 'FLUTTER-VIEW' || node.classList?.contains('flt-glass-pane') || node.nodeName === 'CANVAS') {
+        observer.disconnect();
+        dismissLoadingScreen();
+        return;
+      }
+    }
   }
 });
+observer.observe(document.body, { childList: true, subtree: true });
+
+_flutter.loader.load({
+  onEntrypointLoaded: async function(engineInitializer) {
+    try {
+      const appRunner = await engineInitializer.initializeEngine();
+      dismissLoadingScreen();
+      await appRunner.runApp();
+    } catch (err) {
+      console.error('Flutter initialization error:', err);
+      dismissLoadingScreen();
+    }
+  }
+});
+

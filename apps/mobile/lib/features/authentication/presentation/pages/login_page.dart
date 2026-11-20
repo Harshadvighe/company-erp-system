@@ -621,9 +621,9 @@ class _LoginPageState extends ConsumerState<LoginPage>
 
   // ─── Mobile ─────────────────────────────────────────────────────────────────
   Widget _buildMobileLayout() {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0E1014),
-      body: SafeArea(
+    return Container(
+      color: const Color(0xFF0E1014),
+      child: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
             return SingleChildScrollView(

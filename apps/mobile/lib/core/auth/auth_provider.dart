@@ -129,6 +129,16 @@ class AuthUser {
       case 'QUALITY_CONTROL':
       case 'RESEARCH_DEVELOPMENT':
       case 'PRODUCT_DEVELOPMENT':
+      case 'BOOSTER_PUMP':
+      case 'STP_PANEL':
+      case 'HYPN_PANEL':
+      case 'WTP_PANEL':
+      case 'DEWATERING_PANEL':
+      case 'FIRE_FIGHTING_PANEL':
+      case 'VFD_PANEL':
+      case 'MCC_PCC_PANEL':
+      case 'WATER_METER':
+      case 'BMS':
       case 'NPD':
         return canView('PRODUCTION');
       case 'PROJECTS':
@@ -186,10 +196,22 @@ class AuthUser {
         return '/inventory';
       case 'MAINTENANCE':
         return '/my-work';
-      case 'RESEARCH_DEVELOPMENT':
-      case 'PRODUCT_DEVELOPMENT':
-      case 'NPD':
+      case 'BOOSTER_PUMP':
+        return '/production/booster-pump-calculator';
+      case 'STP_PANEL':
+      case 'HYPN_PANEL':
+      case 'WTP_PANEL':
+      case 'DEWATERING_PANEL':
+      case 'FIRE_FIGHTING_PANEL':
+      case 'VFD_PANEL':
+      case 'MCC_PCC_PANEL':
         return '/production/specs';
+      case 'PRODUCT_DEVELOPMENT':
+      case 'RESEARCH_DEVELOPMENT':
+      case 'NPD':
+      case 'WATER_METER':
+      case 'BMS':
+        return '/products';
       case 'ASSET_MANAGEMENT':
         return '/inventory?view=assets';
       case 'ADMINISTRATION':
