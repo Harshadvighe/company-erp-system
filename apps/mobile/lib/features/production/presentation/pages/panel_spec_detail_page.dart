@@ -24,6 +24,12 @@ class PanelSpecDetailPage extends ConsumerWidget {
           onPressed: () => context.pop(),
         ),
         actions: [
+          TextButton.icon(
+            onPressed: () => context.go('/dashboard'),
+            icon: const Icon(Icons.dashboard_outlined, size: 16, color: Colors.white),
+            label: const Text('Dashboard', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(width: 8),
           IconButton(
             icon: const Icon(Icons.share_outlined),
             tooltip: 'Share Specification',

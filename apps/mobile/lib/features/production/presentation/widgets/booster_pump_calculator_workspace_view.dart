@@ -2,6 +2,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:saark_erp_mobile/features/customers/data/customers_repository.dart';
 import 'package:saark_erp_mobile/features/production/data/panel_manufacturing_repository.dart';
@@ -569,27 +570,58 @@ class _BoosterPumpCalculatorWorkspaceViewState
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          InkWell(
-            onTap: widget.onBackToDashboard,
-            borderRadius: BorderRadius.circular(4),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF15A24),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.arrow_back, color: Colors.white, size: 14),
-                  SizedBox(width: 6),
-                  Text(
-                    'Back to Option',
-                    style: TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.bold),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (widget.onBackToDashboard != null) ...[
+                InkWell(
+                  onTap: widget.onBackToDashboard,
+                  borderRadius: BorderRadius.circular(4),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF15A24),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.arrow_back, color: Colors.white, size: 14),
+                        SizedBox(width: 6),
+                        Text(
+                          'Back to Option',
+                          style: TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
                   ),
-                ],
+                ),
+                const SizedBox(width: 8),
+              ],
+              InkWell(
+                onTap: () => context.go('/dashboard'),
+                borderRadius: BorderRadius.circular(4),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2C2F36),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: const Color(0xFF424652)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.dashboard_outlined, color: Colors.white, size: 14),
+                      SizedBox(width: 6),
+                      Text(
+                        'Back to Dashboard',
+                        style: TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
           const Text(
             'F.Y. 2026-2027',

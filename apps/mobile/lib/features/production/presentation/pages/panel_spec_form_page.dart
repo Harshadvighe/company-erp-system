@@ -199,6 +199,12 @@ class _PanelSpecFormPageState extends ConsumerState<PanelSpecFormPage> {
           onPressed: () => context.pop(),
         ),
         actions: [
+          TextButton.icon(
+            onPressed: () => context.go('/dashboard'),
+            icon: const Icon(Icons.dashboard_outlined, size: 16, color: Colors.white70),
+            label: const Text('Dashboard', style: TextStyle(color: Colors.white70, fontSize: 13)),
+          ),
+          const SizedBox(width: 8),
           ElevatedButton.icon(
             onPressed: _isSubmitting ? null : _handleSubmit,
             icon: _isSubmitting

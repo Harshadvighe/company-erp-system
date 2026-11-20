@@ -7562,6 +7562,29 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                       }
                     },
                   ),
+                  InkWell(
+                    onTap: () => context.go('/dashboard'),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      margin: const EdgeInsets.only(right: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF15A24),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.dashboard_outlined, color: Colors.white, size: 14),
+                          SizedBox(width: 5),
+                          Text(
+                            'Back to Dashboard',
+                            style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                   const Expanded(
                     child: Text(
                       'Production',

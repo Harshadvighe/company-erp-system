@@ -134,10 +134,8 @@ class _PanelSpecsListPageState extends ConsumerState<PanelSpecsListPage>
                     onTap: () {
                       if (widget.onBackToDashboard != null) {
                         widget.onBackToDashboard!();
-                      } else if (context.canPop()) {
-                        context.pop();
                       } else {
-                        context.go('/sales-marketing');
+                        context.go('/dashboard');
                       }
                     },
                     borderRadius: BorderRadius.circular(6),
@@ -148,14 +146,18 @@ class _PanelSpecsListPageState extends ConsumerState<PanelSpecsListPage>
                         color: const Color(0xFFF15A24),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.arrow_back, color: Colors.white, size: 15),
-                          SizedBox(width: 6),
+                          Icon(
+                            widget.onBackToDashboard != null ? Icons.arrow_back : Icons.dashboard_outlined,
+                            color: Colors.white,
+                            size: 15,
+                          ),
+                          const SizedBox(width: 6),
                           Text(
-                            'Back to Option',
-                            style: TextStyle(
+                            widget.onBackToDashboard != null ? 'Back to Option' : 'Back to Dashboard',
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
@@ -189,14 +191,30 @@ class _PanelSpecsListPageState extends ConsumerState<PanelSpecsListPage>
                   ),
                 ],
               ),
-              ElevatedButton.icon(
-                onPressed: () => context.push('/production/new'),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Create Specification'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primary,
-                  foregroundColor: Colors.white,
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () => context.go('/dashboard'),
+                    icon: const Icon(Icons.dashboard_outlined, size: 16),
+                    label: const Text('Back to Dashboard'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Color(0xFF3A3D46)),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  ElevatedButton.icon(
+                    onPressed: () => context.push('/production/new'),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Create Specification'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
