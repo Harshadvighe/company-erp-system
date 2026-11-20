@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saark_erp_mobile/features/hr/presentation/widgets/employee_profile_view.dart';
 import 'package:saark_erp_mobile/features/hr/presentation/widgets/hr_sub_views.dart';
 import 'package:saark_erp_mobile/features/hr/presentation/widgets/office_expenses_view.dart';
+import 'package:saark_erp_mobile/features/hr/presentation/widgets/hr_idle_security_view.dart';
 import 'package:saark_erp_mobile/core/widgets/back_to_dashboard_button.dart';
 
 class _HrMenuItem {
@@ -32,6 +33,7 @@ const _hrMenuItems = [
   _HrMenuItem(id: 'payroll_compensation', label: 'Payroll & Compensation', icon: Icons.payments_outlined),
   _HrMenuItem(id: 'payroll_runs', label: 'Payroll Runs', icon: Icons.credit_card_outlined),
   _HrMenuItem(id: 'office_expenses', label: 'Office Expenses (Vouchers)', icon: Icons.receipt_long),
+  _HrMenuItem(id: 'idle_security', label: 'Idle Security & Lockouts', icon: Icons.lock_clock_outlined),
   _HrMenuItem(id: 'performance_goals', label: 'Performance & Goals', icon: Icons.track_changes_outlined),
   _HrMenuItem(id: 'appraisals', label: 'Appraisals', icon: Icons.star),
   _HrMenuItem(id: 'learning_development', label: 'Learning & Development', icon: Icons.menu_book_outlined),
@@ -299,6 +301,8 @@ class _HrDashboardPageState extends ConsumerState<HrDashboardPage> {
       case 11:
         return const OfficeExpensesView();
       case 12:
+        return const HrIdleSecurityView();
+      case 13:
         return const GenericHrWorkspaceView(
           title: 'Performance & Engineering Goals',
           subtitle: 'Wireman wiring speed KPIs, busbar precision metrics, and testing error rate milestones',
@@ -312,7 +316,7 @@ class _HrDashboardPageState extends ConsumerState<HrDashboardPage> {
             ['G-2026-04', 'Level 1 to Level 2 Wireman Certifications', 'Apprentices & Trainees', '5 certified technicians', '2026-12-15', '60% IN PROGRESS'],
           ],
         );
-      case 13:
+      case 14:
         return const GenericHrWorkspaceView(
           title: 'Performance Appraisals & Skill Audits',
           subtitle: 'Annual and bi-annual technician skill evaluations, wage increment reviews, and grade promotions',
@@ -326,7 +330,7 @@ class _HrDashboardPageState extends ConsumerState<HrDashboardPage> {
             ['REV-2026-04', 'Deepak Patil', 'Testing Engineer', 'LEVEL_4_TESTING_EXPERT', '5.0 / 5.0', 'Quality Lead Designation'],
           ],
         );
-      case 14:
+      case 15:
         return const GenericHrWorkspaceView(
           title: 'Learning & Development (Shopfloor Training)',
           subtitle: 'Arc-flash safety certification, high-voltage FAT test procedures, and wiring standards workshops',
@@ -340,7 +344,7 @@ class _HrDashboardPageState extends ConsumerState<HrDashboardPage> {
             ['TRN-2026-04', 'Factories Act Industrial Safety & First Aid Drills', 'MIDC Plant Safety Inspectorate', 'All Shopfloor Workers', '1 Day (4 Hrs)', 'ANNUAL EHS COMPLIANCE'],
           ],
         );
-      case 15:
+      case 16:
         return const GenericHrWorkspaceView(
           title: 'Offboarding & Separation Formalities',
           subtitle: 'Resignation requests, asset recovery (toolkits, PPE gear), PF settlement transfer, and experience letters',

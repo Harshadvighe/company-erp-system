@@ -1715,4 +1715,142 @@ export class HrService {
       message: `Voucher approved by Managing Director. Automatically debited Office Expense Ledger and credited ${paymentMode} (${ledgerRef}).`,
     };
   }
+
+  // -------------------------------------------------------------
+  // 12. USER IDLE SECURITY & INACTIVITY LOCKOUT ACCESS FACILITY
+  // -------------------------------------------------------------
+  async getAllUsersIdleStatus(search?: string, lockedOnly?: boolean) {
+    const where: any = {};
+    if (lockedOnly) {
+      where.OR = [
+        { isIdleLocked: true },
+        { idleLogoutCount: { gte: 10 } },
+      ];
+    }
+    if (search && search.trim().length > 0) {
+      const q = search.trim();
+      where.AND = [
+        ...(where.AND || []),
+        {
+          OR: [
+            { username: { contains: q, mode: 'insensitive' } },
+            { fullName: { contains: q, mode: 'insensitive' } },
+            { email: { contains: q, mode: 'insensitive' } },
+            { designation: { contains: q, mode: 'insensitive' } },
+          ],
+        },
+      ];
+    }
+
+    const users = await this.prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        fullName: true,
+        phone: true,
+        designation: true,
+        status: true,
+        idleLogoutCount: true,
+        isIdleLocked: true,
+        idleLockedAt: true,
+        lastActivityAt: true,
+        faceVerificationEnabled: true,
+        faceVerificationStatus: true,
+        department: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+        userRoles: {
+          select: {
+            role: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: [
+        { isIdleLocked: 'desc' },
+        { idleLogoutCount: 'desc' },
+        { fullName: 'asc' },
+      ],
+    });
+
+    const totalUsers = users.length;
+    const lockedCount = users.filter((u) => u.isIdleLocked || (u.idleLogoutCount ?? 0) >= 10).length;
+    const atRiskCount = users.filter((u) => (u.idleLogoutCount ?? 0) >= 5 && !u.isIdleLocked).length;
+
+    return {
+      users,
+      stats: {
+        totalUsers,
+        lockedCount,
+        atRiskCount,
+        maxLimit: 10,
+        inactivityPeriodMinutes: 30,
+      },
+    };
+  }
+
+  async resetUserIdleLimit(targetUserId: string, hrAdmin: any, ipAddress?: string) {
+    const targetUser = await this.prisma.user.findUnique({
+      where: { id: targetUserId },
+    });
+
+    if (!targetUser) {
+      throw new NotFoundException(`User with ID ${targetUserId} not found`);
+    }
+
+    const previousCount = targetUser.idleLogoutCount ?? 0;
+    const wasLocked = targetUser.isIdleLocked;
+
+    const updatedUser = await this.prisma.user.update({
+      where: { id: targetUserId },
+      data: {
+        idleLogoutCount: 0,
+        isIdleLocked: false,
+        idleLockedAt: null,
+      },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        fullName: true,
+        idleLogoutCount: true,
+        isIdleLocked: true,
+        idleLockedAt: true,
+      },
+    });
+
+    const adminName = hrAdmin?.fullName || hrAdmin?.username || 'HR Administrator';
+
+    await this.auditService.log({
+      userId: hrAdmin?.id || targetUserId,
+      userEmail: hrAdmin?.email,
+      action: 'HR_RESET_IDLE_LOCKOUT',
+      module: 'HR_SECURITY',
+      entityType: 'USER',
+      entityId: targetUserId,
+      details: `HR Administrator ${adminName} granted login access and reset inactivity counter (was ${previousCount}/10, locked: ${wasLocked}) for user ${targetUser.fullName} (${targetUser.username}).`,
+      ipAddress,
+    });
+
+    this.logger.log(
+      `[IdleSecurity] Reset inactivity lockout for user ${targetUser.username} by ${adminName}`,
+    );
+
+    return {
+      success: true,
+      message: `Login access granted! Inactivity counter for ${targetUser.fullName} (${targetUser.username}) has been successfully reset to 0 / 10.`,
+      user: updatedUser,
+    };
+  }
 }

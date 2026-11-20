@@ -98,6 +98,13 @@ export class AuthService {
       throw new UnauthorizedException('User account is currently locked or inactive');
     }
 
+    // Check 10-count Inactivity Logout Lockout Policy
+    if (user.isIdleLocked || (user.idleLogoutCount ?? 0) >= 10) {
+      throw new UnauthorizedException(
+        'Account Locked: You have exceeded the maximum limit of 10 inactivity auto-logouts. Please contact HR to restore login access.',
+      );
+    }
+
     // Check temporary face verification lockout
     if (user.faceLockoutUntil && new Date(user.faceLockoutUntil) > new Date()) {
       const remainingMinutes = Math.ceil(
@@ -262,6 +269,13 @@ export class AuthService {
 
     if (user.status !== 'ACTIVE') {
       throw new UnauthorizedException('User account is currently locked or inactive');
+    }
+
+    // Check 10-count Inactivity Logout Lockout Policy
+    if (user.isIdleLocked || (user.idleLogoutCount ?? 0) >= 10) {
+      throw new UnauthorizedException(
+        'Account Locked: You have exceeded the maximum limit of 10 inactivity auto-logouts. Please contact HR to restore login access.',
+      );
     }
 
     // Check temporary face verification lockout
@@ -906,6 +920,13 @@ export class AuthService {
       } catch (_) {}
     }
 
+    // Check 10-count Inactivity Logout Lockout Policy
+    if (bestMatchUser.isIdleLocked || (bestMatchUser.idleLogoutCount ?? 0) >= 10) {
+      throw new UnauthorizedException(
+        `Account Locked: ${bestMatchUser.fullName} has exceeded the maximum limit of 10 inactivity auto-logouts. Please contact HR to restore login access.`,
+      );
+    }
+
     // Check user lockout
     if (bestMatchUser.faceLockoutUntil && new Date(bestMatchUser.faceLockoutUntil) > new Date()) {
       const remainingMinutes = Math.ceil(
@@ -1400,6 +1421,69 @@ export class AuthService {
     return {
       success: true,
       message: 'Logged out successfully',
+    };
+  }
+
+  /**
+   * Record 30-minute user inactivity auto-logout, increment counter, and enforce 10-count lockout
+   */
+  async recordIdleTimeoutLogout(userId: string, sessionId?: string, ipAddress?: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const nextCount = (user.idleLogoutCount || 0) + 1;
+    const isLocked = nextCount >= 10;
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        idleLogoutCount: nextCount,
+        isIdleLocked: isLocked,
+        idleLockedAt: isLocked ? new Date() : (user.idleLockedAt || null),
+        lastActivityAt: new Date(),
+      },
+    });
+
+    await this.auditService.log({
+      userId: user.id,
+      userEmail: user.email,
+      action: 'IDLE_TIMEOUT_LOGOUT',
+      module: 'AUTH',
+      entityType: 'USER',
+      entityId: user.id,
+      details: `User ${user.fullName} (${user.username}) auto-logged out after 30 minutes of continuous inactivity. Inactivity count: ${nextCount}/10.${isLocked ? ' Maximum limit of 10 reached: ACCOUNT LOCKED. HR intervention required.' : ''}`,
+      ipAddress,
+    });
+
+    if (isLocked) {
+      await this.auditService.log({
+        userId: user.id,
+        userEmail: user.email,
+        action: 'IDLE_LOCKOUT_TRIGGERED',
+        module: 'SECURITY',
+        entityType: 'USER',
+        entityId: user.id,
+        details: `Account locked for ${user.fullName} (${user.username}) after reaching 10 inactivity auto-logouts. Login restricted until unlocked by HR administrator.`,
+        ipAddress,
+      });
+    }
+
+    // Perform session termination
+    await this.logout(userId, sessionId, 'IDLE_TIMEOUT_30MIN', ipAddress);
+
+    return {
+      success: true,
+      idleLogoutCount: nextCount,
+      isIdleLocked: isLocked,
+      maxLimit: 10,
+      message: isLocked
+        ? 'You have exceeded the maximum limit of 10 inactivity auto-logouts. Your account is locked. Please contact HR to restore login access.'
+        : `Inactivity auto-logout recorded (attempt ${nextCount} of 10).`,
     };
   }
 

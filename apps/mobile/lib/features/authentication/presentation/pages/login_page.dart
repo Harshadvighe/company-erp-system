@@ -95,6 +95,33 @@ class _LoginPageState extends ConsumerState<LoginPage>
       vsync: this,
       duration: const Duration(milliseconds: 3000),
     )..repeat();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkRouteQueryParams();
+    });
+  }
+
+  void _checkRouteQueryParams() {
+    try {
+      final state = GoRouterState.of(context);
+      final params = state.uri.queryParameters;
+      final reason = params['reason'];
+      final count = params['count'];
+      final locked = params['locked'] == 'true';
+
+      if (locked || reason == 'idle_locked') {
+        setState(() {
+          _errorMessage =
+              'Account Locked: You have exceeded the maximum limit of 10 inactivity auto-logouts (30 continuous minutes with no user activity). Please contact HR to restore login access.';
+        });
+      } else if (reason == 'idle_timeout') {
+        final c = count ?? '1';
+        setState(() {
+          _errorMessage =
+              'Session Ended: Auto-logged out after 30 continuous minutes of inactivity (Inactivity event: $c of 10). Reaching 10 will lock your account.';
+        });
+      }
+    } catch (_) {}
   }
 
   void _onEmailChanged() {
@@ -774,31 +801,127 @@ class _LoginPageState extends ConsumerState<LoginPage>
 
                 // ── Error Banner ─────────────────────────────────────────
                 if (_errorMessage != null) ...[
-                  Container(
-                    padding: AppSpacing.pMd,
-                    decoration: BoxDecoration(
-                      color: AppTheme.error.withValues(alpha: 0.10),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                          color: AppTheme.error.withValues(alpha: 0.35)),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(Icons.error_outline,
-                            color: AppTheme.error, size: 18),
-                        AppSpacing.gapW10,
-                        Expanded(
-                          child: Text(
-                            _errorMessage!,
-                            style: const TextStyle(
-                              color: AppTheme.error,
-                              fontSize: AppTypography.scaleBodySmall,
-                            ),
+                  Builder(
+                    builder: (context) {
+                      final isIdleLockout = _errorMessage!.toLowerCase().contains('inactivity') ||
+                          _errorMessage!.toLowerCase().contains('limit of 10') ||
+                          _errorMessage!.toLowerCase().contains('exceeded') ||
+                          _errorMessage!.toLowerCase().contains('contact hr');
+
+                      if (isIdleLockout) {
+                        return Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEF4444).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.6), width: 1.5),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFEF4444).withValues(alpha: 0.15),
+                                blurRadius: 12,
+                                spreadRadius: 1,
+                              ),
+                            ],
                           ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEF4444).withValues(alpha: 0.2),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(Icons.lock_clock_rounded, color: Color(0xFFEF4444), size: 20),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  const Expanded(
+                                    child: Text(
+                                      'ACCOUNT SECURITY LOCKOUT',
+                                      style: TextStyle(
+                                        color: Color(0xFFEF4444),
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEF4444),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text(
+                                      '10 / 10 LIMIT',
+                                      style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                _errorMessage!,
+                                style: const TextStyle(
+                                  color: Color(0xFFFF8A80),
+                                  fontSize: 12,
+                                  height: 1.35,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF1E2024),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: const Color(0xFF383B42)),
+                                ),
+                                child: const Row(
+                                  children: [
+                                    Icon(Icons.info_outline, color: Color(0xFF00E5FF), size: 14),
+                                    SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        'HR Action Required: Please contact your HR Manager to unlock your ID from the HR Idle Security panel.',
+                                        style: TextStyle(color: Colors.white70, fontSize: 11),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+
+                      return Container(
+                        padding: AppSpacing.pMd,
+                        decoration: BoxDecoration(
+                          color: AppTheme.error.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppTheme.error.withValues(alpha: 0.35)),
                         ),
-                      ],
-                    ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.error_outline, color: AppTheme.error, size: 18),
+                            AppSpacing.gapW10,
+                            Expanded(
+                              child: Text(
+                                _errorMessage!,
+                                style: const TextStyle(
+                                  color: AppTheme.error,
+                                  fontSize: AppTypography.scaleBodySmall,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                   AppSpacing.gapH16,
                 ],

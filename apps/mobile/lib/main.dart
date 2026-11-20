@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saark_erp_mobile/core/theme/app_theme.dart';
 import 'package:saark_erp_mobile/core/routing/app_router.dart';
+import 'package:saark_erp_mobile/core/session/user_activity_tracker.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -48,6 +49,7 @@ class SaarkErpApp extends ConsumerWidget {
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.dark,
       routerConfig: router,
+      builder: (context, child) => UserActivityTracker(child: child),
     );
   }
 }

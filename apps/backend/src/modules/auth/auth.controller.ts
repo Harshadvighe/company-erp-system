@@ -39,6 +39,16 @@ export class AuthController {
     return this.authService.logout(req.user.id, sessionId, ip);
   }
 
+  @Post('idle-logout')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Record 30-minute inactivity auto-logout, increment user idle counter, and enforce 10-count lockout',
+  })
+  async recordIdleLogout(@Req() req: any, @Body('sessionId') sessionId?: string) {
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    return this.authService.recordIdleTimeoutLogout(req.user.id, sessionId, ip);
+  }
+
   @Post('heartbeat')
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Send session heartbeat to keep session active' })

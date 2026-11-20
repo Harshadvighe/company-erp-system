@@ -119,6 +119,13 @@ class AuthRepository {
     final response = await _dio.get('/auth/face-config');
     return response.data as Map<String, dynamic>;
   }
+
+  Future<Map<String, dynamic>> recordIdleLogout([String? sessionId]) async {
+    final response = await _dio.post('/auth/idle-logout', data: {
+      if (sessionId != null) 'sessionId': sessionId,
+    });
+    return response.data as Map<String, dynamic>;
+  }
 }
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {

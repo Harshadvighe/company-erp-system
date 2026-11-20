@@ -358,6 +358,37 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = const AuthState();
   }
 
+  /// Records 30-minute user inactivity auto-logout with the backend.
+  /// Enforces the 10-count limit and returns server response { idleLogoutCount, isIdleLocked, maxLimit, message }.
+  Future<Map<String, dynamic>?> recordIdleLogout([String? sessionId]) async {
+    final token = await AppStorage.read(AppConstants.accessTokenKey);
+    Map<String, dynamic>? result;
+    if (token != null) {
+      try {
+        final dio = Dio(BaseOptions(
+          baseUrl: AppConstants.baseUrl,
+          connectTimeout: const Duration(seconds: 5),
+          receiveTimeout: const Duration(seconds: 5),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        ));
+        final resp = await dio.post('/auth/idle-logout', data: {
+          if (sessionId != null) 'sessionId': sessionId,
+        });
+        if (resp.data is Map<String, dynamic>) {
+          result = resp.data as Map<String, dynamic>;
+        }
+      } catch (e) {
+        // Fallback if network issue
+      }
+    }
+    await AppStorage.deleteAll();
+    state = const AuthState();
+    return result;
+  }
+
   void setLoading(bool loading) {
     state = state.copyWith(isLoading: loading);
   }

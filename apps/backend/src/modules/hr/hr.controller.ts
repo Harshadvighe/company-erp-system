@@ -295,4 +295,27 @@ export class HrController {
     const approver = req.user?.username || req.user?.email || 'Saarkadmin';
     return this.hrService.approveExpense(id, dto, approver);
   }
+
+  // -------------------------------------------------------------
+  // USER IDLE SECURITY & INACTIVITY LOCKOUT ACCESS FACILITY
+  // -------------------------------------------------------------
+  @Get('idle-lockouts')
+  @ApiOperation({
+    summary: 'List all system users, their 30-min inactivity logout counts, and security lock statuses',
+  })
+  async getIdleLockouts(
+    @Query('search') search?: string,
+    @Query('lockedOnly') lockedOnly?: string,
+  ) {
+    return this.hrService.getAllUsersIdleStatus(search, lockedOnly === 'true');
+  }
+
+  @Post('users/:id/reset-idle-limit')
+  @ApiOperation({
+    summary: 'Grant user login permission and reset 30-minute inactivity logout counter to 0 / 10',
+  })
+  async resetUserIdleLimit(@Param('id') userId: string, @Req() req: any) {
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    return this.hrService.resetUserIdleLimit(userId, req.user, ip);
+  }
 }
