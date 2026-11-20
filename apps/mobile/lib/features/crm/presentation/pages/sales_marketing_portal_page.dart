@@ -12,6 +12,7 @@ import 'package:saark_erp_mobile/features/crm/presentation/widgets/other_documen
 import 'package:saark_erp_mobile/features/crm/presentation/widgets/financial_reports_workspace_view.dart';
 import 'package:saark_erp_mobile/features/production/presentation/widgets/booster_pump_calculator_workspace_view.dart';
 import 'package:saark_erp_mobile/features/b2b_trading/presentation/widgets/b2b_trading_platform_workspace_view.dart';
+import 'package:saark_erp_mobile/features/production/presentation/pages/panel_specs_list_page.dart';
 
 /// Sales and Marketing Product Category & Customer / Vendor Portal Page
 /// Recreates the exact Company Management Software UI requested by the user
@@ -144,7 +145,12 @@ class _SalesMarketingPortalPageState extends ConsumerState<SalesMarketingPortalP
                                                       ? B2bTradingPlatformWorkspaceView(
                                                           onBackToDashboard: () => setState(() => _activeNavTab = 0),
                                                         )
-                                                      : SingleChildScrollView(
+                                                      : _activeNavTab == 11
+                                                          ? PanelSpecsListPage(
+                                                              initialFilter: 'STP_PANEL',
+                                                              onBackToDashboard: () => setState(() => _activeNavTab = 0),
+                                                            )
+                                                          : SingleChildScrollView(
                           physics: const AlwaysScrollableScrollPhysics(),
                           child: Center(
                         child: Container(
@@ -528,6 +534,8 @@ class _SalesMarketingPortalPageState extends ConsumerState<SalesMarketingPortalP
               setState(() => _activeNavTab = 9);
             } else if (item.title == 'B2B Marketplace' || item.title.contains('B2B')) {
               setState(() => _activeNavTab = 10);
+            } else if (item.title == 'STP Panel' || item.title.contains('STP')) {
+              setState(() => _activeNavTab = 11);
             } else {
               context.go(item.route);
             }

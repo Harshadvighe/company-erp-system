@@ -6,7 +6,14 @@ import 'package:saark_erp_mobile/core/theme/app_theme.dart';
 import 'package:saark_erp_mobile/features/production/data/panel_manufacturing_repository.dart';
 
 class PanelSpecsListPage extends ConsumerStatefulWidget {
-  const PanelSpecsListPage({super.key});
+  final VoidCallback? onBackToDashboard;
+  final String? initialFilter;
+
+  const PanelSpecsListPage({
+    super.key,
+    this.onBackToDashboard,
+    this.initialFilter,
+  });
 
   @override
   ConsumerState<PanelSpecsListPage> createState() => _PanelSpecsListPageState();
@@ -29,7 +36,14 @@ class _PanelSpecsListPageState extends ConsumerState<PanelSpecsListPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _typeFilters.length, vsync: this);
+    final initialIdx = widget.initialFilter != null
+        ? _typeFilters.indexOf(widget.initialFilter!)
+        : 0;
+    _tabController = TabController(
+      length: _typeFilters.length,
+      vsync: this,
+      initialIndex: initialIdx != -1 ? initialIdx : 0,
+    );
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) setState(() {});
     });
@@ -116,6 +130,41 @@ class _PanelSpecsListPageState extends ConsumerState<PanelSpecsListPage>
             children: [
               Row(
                 children: [
+                  InkWell(
+                    onTap: () {
+                      if (widget.onBackToDashboard != null) {
+                        widget.onBackToDashboard!();
+                      } else if (context.canPop()) {
+                        context.pop();
+                      } else {
+                        context.go('/sales-marketing');
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                      margin: const EdgeInsets.only(right: 14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF15A24),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.arrow_back, color: Colors.white, size: 15),
+                          SizedBox(width: 6),
+                          Text(
+                            'Back to Option',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
