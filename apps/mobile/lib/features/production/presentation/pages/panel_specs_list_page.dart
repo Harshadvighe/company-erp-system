@@ -200,7 +200,7 @@ class _PanelSpecsListPageState extends ConsumerState<PanelSpecsListPage>
                     children: [
                       Text(
                         'Panel Manufacturing & BOM',
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.darkText),
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFFF15A24)),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -238,7 +238,7 @@ class _PanelSpecsListPageState extends ConsumerState<PanelSpecsListPage>
                       children: [
                         Text(
                           'Panel Manufacturing & BOM',
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.darkText),
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFF15A24)),
                         ),
                         Text(
                           'Industrial Control Panels, Specification Design & Live Cost Estimation',

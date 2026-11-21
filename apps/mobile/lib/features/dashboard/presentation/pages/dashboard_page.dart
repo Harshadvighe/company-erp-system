@@ -442,7 +442,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         subtitle: 'MCC / PCC & automation panels',
         icon: Icons.electrical_services_rounded,
         route: '/production/new',
-        accentColor: Color(0xFFFF7A45),
+        accentColor: Color(0xFFF15A24),
       ));
     }
     if (user.canAccessModule('QUALITY_CONTROL')) {
@@ -481,7 +481,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         subtitle: '24-step NPI lifecycle, dual-track HW/FW & register map',
         icon: Icons.precision_manufacturing_rounded,
         route: '/product-development',
-        accentColor: Color(0xFF00B4D8),
+        accentColor: Color(0xFFF15A24),
       ));
     }
 
@@ -571,7 +571,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         subtitle: 'Technical calculations & panel design',
         icon: Icons.science_rounded,
         route: '/production/specs',
-        accentColor: Color(0xFF6366F1),
+        accentColor: Color(0xFFF15A24),
       ));
     }
 
@@ -1266,16 +1266,25 @@ class _ConsoleTileState extends State<_ConsoleTile> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          d.title,
-                          style: TextStyle(
-                            fontSize: AppTypography.scaleBodySmall,
-                            fontWeight: AppTypography.semiBold,
-                            color: _isHovered ? AppTheme.primary : AppTypography.darkTextPrimary,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        Builder(builder: (context) {
+                          final isDevOrProd = d.title.contains('Production') ||
+                              d.title.contains('Development') ||
+                              d.title.contains('Panel') ||
+                              d.title.contains('R&D');
+                          final titleColor = isDevOrProd
+                              ? const Color(0xFFF15A24)
+                              : (_isHovered ? AppTheme.primary : AppTypography.darkTextPrimary);
+                          return Text(
+                            d.title,
+                            style: TextStyle(
+                              fontSize: AppTypography.scaleBodySmall,
+                              fontWeight: AppTypography.semiBold,
+                              color: titleColor,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          );
+                        }),
                         AppSpacing.gapH2,
                         Text(
                           d.subtitle,

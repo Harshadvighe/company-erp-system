@@ -660,7 +660,7 @@ class _BoosterPumpCalculatorWorkspaceViewState
         ),
         child: const Text(
           'Material & Labor Calculator',
-          style: TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.bold),
+          style: TextStyle(color: Color(0xFFF15A24), fontSize: 13.5, fontWeight: FontWeight.bold),
         ),
       ),
     );
@@ -788,7 +788,7 @@ class _BoosterPumpCalculatorWorkspaceViewState
                 const Text(
                   'Material & Labor Calculator',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: Color(0xFFF15A24),
                     fontSize: 13.5,
                     fontWeight: FontWeight.bold,
                   ),
@@ -826,7 +826,7 @@ class _BoosterPumpCalculatorWorkspaceViewState
           const Text(
             'Material & Labor Calculator',
             style: TextStyle(
-              color: Colors.white,
+              color: Color(0xFFF15A24),
               fontSize: 16,
               fontWeight: FontWeight.bold,
               letterSpacing: 0.3,
@@ -863,7 +863,7 @@ class _BoosterPumpCalculatorWorkspaceViewState
         children: [
           // Section Label in Orange/Amber
           const Text(
-            'Inputs (Yellow Section)',
+            'Inputs (Production & Engineering Sizing)',
             style: TextStyle(
               color: Color(0xFFF15A24),
               fontSize: 12,
@@ -1113,8 +1113,9 @@ class _BoosterPumpCalculatorWorkspaceViewState
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFF1E222A),
         borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: const Color(0xFF2C313C)),
         boxShadow: const [
           BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
         ],
@@ -1135,7 +1136,7 @@ class _BoosterPumpCalculatorWorkspaceViewState
                     Text(
                       'SAARK EXPLORATION PRIVATE LIMITED',
                       style: TextStyle(
-                        color: Color(0xFFD84315),
+                        color: Color(0xFFF15A24),
                         fontSize: 12.5,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 0.3,
@@ -1143,13 +1144,13 @@ class _BoosterPumpCalculatorWorkspaceViewState
                     ),
                     Text(
                       'Booster Pump Control Panel Specification & Sizing Sheet',
-                      style: TextStyle(color: Colors.black87, fontSize: 13.0, fontWeight: FontWeight.w600),
+                      style: TextStyle(color: Colors.white, fontSize: 13.0, fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.black54),
+                icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.white70),
                 tooltip: 'Copy Output Text',
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
@@ -1164,12 +1165,12 @@ class _BoosterPumpCalculatorWorkspaceViewState
             ],
           ),
 
-          const Divider(color: Colors.black26, height: 16),
+          const Divider(color: Color(0xFF2C313C), height: 16),
 
           // Sizing Derivations Box
           const Text(
             'WORKBOOK-DERIVED CALCULATIONS:',
-            style: TextStyle(color: Colors.black, fontSize: 13.0, fontWeight: FontWeight.bold),
+            style: TextStyle(color: Color(0xFFF15A24), fontSize: 13.0, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 4),
           _buildSheetRow(
@@ -1190,20 +1191,20 @@ class _BoosterPumpCalculatorWorkspaceViewState
           _buildSheetRow('Incomer Wire:', '${derived['inputWireGaugeSqmm'] ?? 35.0} sq mm Flexible Polycab'),
           _buildSheetRow('Pump Output Wire:', '${derived['outputWireGaugeSqmm'] ?? 2.5} sq mm Flexible Polycab'),
 
-          const Divider(color: Colors.black26, height: 16),
+          const Divider(color: Color(0xFF2C313C), height: 16),
 
           // Breaker Logic
           const Text(
             'AUTO BREAKER SELECTION LOGIC:',
-            style: TextStyle(color: Colors.black, fontSize: 13.0, fontWeight: FontWeight.bold),
+            style: TextStyle(color: Color(0xFFF15A24), fontSize: 13.0, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 4),
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFFF5F6F8),
+              color: const Color(0xFF141518),
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: Colors.black12),
+              border: Border.all(color: const Color(0xFF2C313C)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1211,23 +1212,23 @@ class _BoosterPumpCalculatorWorkspaceViewState
                   .map(
                     (s) => Text(
                       s,
-                      style: GoogleFonts.jetBrainsMono(color: Colors.black87, fontSize: 12.0),
+                      style: GoogleFonts.jetBrainsMono(color: Colors.white70, fontSize: 12.0),
                     ),
                   )
                   .toList(),
             ),
           ),
 
-          const Divider(color: Colors.black26, height: 16),
+          const Divider(color: Color(0xFF2C313C), height: 16),
 
           // Commercial Price Quote Box
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFF3E0),
+              color: const Color(0xFF261E1A),
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: const Color(0xFFFFB74D)),
+              border: Border.all(color: const Color(0xFFF15A24).withValues(alpha: 0.5)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1238,17 +1239,17 @@ class _BoosterPumpCalculatorWorkspaceViewState
                   'Customer Adjustment (${pricing['customerAdjustmentPercent'] ?? _customerMarginCtrl.text}%):',
                   '${((pricing['customerAdjustmentAmount'] as num?)?.toDouble() ?? 0.0) >= 0 ? "+" : ""}${_currencyFormat.format((pricing['customerAdjustmentAmount'] as num?)?.toDouble() ?? 0.0)}',
                 ),
-                const Divider(color: Color(0xFFFFB74D), height: 12),
+                const Divider(color: Color(0xFFF15A24), height: 12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
                       'GRAND TOTAL:',
-                      style: TextStyle(color: Color(0xFFD84315), fontSize: 12, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: Color(0xFFF15A24), fontSize: 12, fontWeight: FontWeight.bold),
                     ),
                     Text(
                       _currencyFormat.format(pricing['grandTotal'] ?? 184439.50),
-                      style: const TextStyle(color: Color(0xFFD84315), fontSize: 14, fontWeight: FontWeight.bold),
+                      style: const TextStyle(color: Color(0xFFF15A24), fontSize: 14, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
@@ -1649,11 +1650,11 @@ class _BoosterPumpCalculatorWorkspaceViewState
         children: [
           Expanded(
             flex: 4,
-            child: Text(label, style: const TextStyle(color: Colors.black54, fontSize: 12.5)),
+            child: Text(label, style: const TextStyle(color: Colors.white60, fontSize: 12.5)),
           ),
           Expanded(
             flex: 6,
-            child: Text(value, style: const TextStyle(color: Colors.black, fontSize: 12.5, fontWeight: FontWeight.w600)),
+            child: Text(value, style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -1666,8 +1667,8 @@ class _BoosterPumpCalculatorWorkspaceViewState
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: Colors.black87, fontSize: 12.5)),
-          Text(value, style: const TextStyle(color: Colors.black, fontSize: 12.5, fontWeight: FontWeight.bold)),
+          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12.5)),
+          Text(value, style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.bold)),
         ],
       ),
     );

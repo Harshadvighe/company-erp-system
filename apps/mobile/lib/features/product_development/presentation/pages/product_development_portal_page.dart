@@ -53,7 +53,7 @@ class _ProductDevelopmentPortalPageState
               Expanded(
                 child: boardAsync.when(
                   loading: () => const Center(
-                    child: CircularProgressIndicator(color: Color(0xFF3A86FF)),
+                    child: CircularProgressIndicator(color: Color(0xFFF15A24)),
                   ),
                   error: (err, stack) => Center(
                     child: Column(
@@ -121,7 +121,7 @@ class _ProductDevelopmentPortalPageState
           const Text(
             'SAARK EXPLORATION — PRODUCT & DEVELOPMENT (NPI LIFECYCLE)',
             style: TextStyle(
-              color: Colors.white70,
+              color: Color(0xFFF15A24),
               fontSize: 12,
               fontWeight: FontWeight.bold,
               letterSpacing: 0.8,
@@ -139,7 +139,7 @@ class _ProductDevelopmentPortalPageState
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Icon(Icons.account_circle,
-                    color: Color(0xFF3A86FF), size: 14),
+                    color: Color(0xFFF15A24), size: 14),
                 const SizedBox(width: 6),
                 Text(
                   user?.fullName ?? user?.username ?? 'Engineering Lead',
@@ -199,11 +199,11 @@ class _ProductDevelopmentPortalPageState
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF3A86FF).withOpacity(0.15),
+                      color: const Color(0xFFF15A24).withOpacity(0.15),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(Icons.precision_manufacturing_rounded,
-                        color: Color(0xFF3A86FF), size: 24),
+                        color: Color(0xFFF15A24), size: 24),
                   ),
                   const SizedBox(width: 12),
                   DropdownButtonHideUnderline(
@@ -211,7 +211,7 @@ class _ProductDevelopmentPortalPageState
                       value: currentProject.id,
                       dropdownColor: const Color(0xFF252932),
                       style: const TextStyle(
-                          color: Colors.white,
+                          color: Color(0xFFF15A24),
                           fontWeight: FontWeight.bold,
                           fontSize: 16),
                       items: projects.map((p) {
@@ -267,7 +267,7 @@ class _ProductDevelopmentPortalPageState
           // New Project Button
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF3A86FF),
+              backgroundColor: const Color(0xFFF15A24),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               shape: RoundedRectangleBorder(
@@ -323,7 +323,7 @@ class _ProductDevelopmentPortalPageState
                         border: Border(
                           bottom: BorderSide(
                             color: isSelected
-                                ? const Color(0xFF3A86FF)
+                                ? const Color(0xFFF15A24)
                                 : Colors.transparent,
                             width: 2.5,
                           ),
@@ -332,7 +332,7 @@ class _ProductDevelopmentPortalPageState
                       child: Text(
                         title,
                         style: TextStyle(
-                          color: isSelected ? Colors.white : Colors.white60,
+                          color: isSelected ? const Color(0xFFF15A24) : Colors.white60,
                           fontSize: 13,
                           fontWeight:
                               isSelected ? FontWeight.bold : FontWeight.w500,
@@ -418,11 +418,11 @@ class _ProductDevelopmentPortalPageState
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF3A86FF).withOpacity(0.12),
+                color: const Color(0xFFF15A24).withOpacity(0.12),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.precision_manufacturing_rounded,
-                  size: 48, color: Color(0xFF3A86FF)),
+                  size: 48, color: Color(0xFFF15A24)),
             ),
             const SizedBox(height: 16),
             const Text(
@@ -442,7 +442,7 @@ class _ProductDevelopmentPortalPageState
             const SizedBox(height: 24),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF3A86FF),
+                backgroundColor: const Color(0xFFF15A24),
                 foregroundColor: Colors.white,
                 padding:
                     const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
@@ -564,7 +564,7 @@ class _ProductDevelopmentPortalPageState
                     const SizedBox(width: 12),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF3A86FF),
+                        backgroundColor: const Color(0xFFF15A24),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 12),
@@ -631,7 +631,7 @@ class _ProductDevelopmentPortalPageState
           borderSide: BorderSide(color: Colors.white24),
         ),
         focusedBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(color: Color(0xFF3A86FF)),
+          borderSide: BorderSide(color: Color(0xFFF15A24)),
         ),
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(vertical: 8),

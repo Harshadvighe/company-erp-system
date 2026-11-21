@@ -138,7 +138,7 @@ class _NpdRegisterMapViewState extends ConsumerState<NpdRegisterMapView> {
               if (!isFrozen)
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF3A86FF),
+                    backgroundColor: const Color(0xFFF15A24),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
@@ -319,7 +319,7 @@ class _NpdRegisterMapViewState extends ConsumerState<NpdRegisterMapView> {
               child: const Text('Cancel', style: TextStyle(color: Colors.white60)),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF3A86FF)),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF15A24)),
               onPressed: () async {
                 final newItem = RegisterMapItem(
                   pcReg: pcController.text.trim(),

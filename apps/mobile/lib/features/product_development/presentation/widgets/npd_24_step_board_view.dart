@@ -90,7 +90,7 @@ class _Npd24StepBoardViewState extends ConsumerState<Npd24StepBoardView> {
 
   Widget _buildPhasePill(String title, int phaseNumber, [Color? color]) {
     final isSelected = _selectedPhaseFilter == phaseNumber;
-    final pillColor = color ?? const Color(0xFF3A86FF);
+    final pillColor = color ?? const Color(0xFFF15A24);
 
     return InkWell(
       onTap: () => setState(() => _selectedPhaseFilter = phaseNumber),
@@ -124,14 +124,14 @@ class _Npd24StepBoardViewState extends ConsumerState<Npd24StepBoardView> {
 
     Color statusColor = const Color(0xFF6C757D);
     if (isSignedOff) statusColor = const Color(0xFF2EC4B6);
-    else if (isInProgress) statusColor = const Color(0xFF3A86FF);
+    else if (isInProgress) statusColor = const Color(0xFFF15A24);
 
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF1E2128),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isInProgress ? const Color(0xFF3A86FF).withOpacity(0.6) : Colors.white.withOpacity(0.08),
+          color: isInProgress ? const Color(0xFFF15A24).withOpacity(0.6) : Colors.white.withOpacity(0.08),
           width: isInProgress ? 1.5 : 1,
         ),
       ),
@@ -143,7 +143,7 @@ class _Npd24StepBoardViewState extends ConsumerState<Npd24StepBoardView> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: isInProgress
-                  ? const Color(0xFF3A86FF).withOpacity(0.12)
+                  ? const Color(0xFFF15A24).withOpacity(0.12)
                   : isSignedOff
                       ? const Color(0xFF2EC4B6).withOpacity(0.08)
                       : const Color(0xFF252932),
@@ -289,7 +289,7 @@ class _Npd24StepBoardViewState extends ConsumerState<Npd24StepBoardView> {
                     children: [
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF3A86FF),
+                          backgroundColor: const Color(0xFFF15A24),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -427,7 +427,7 @@ class _Npd24StepBoardViewState extends ConsumerState<Npd24StepBoardView> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: Row(
             children: [
-              const Icon(Icons.verified_rounded, color: Color(0xFF3A86FF)),
+              const Icon(Icons.verified_rounded, color: Color(0xFFF15A24)),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(

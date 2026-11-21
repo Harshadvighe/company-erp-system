@@ -42,7 +42,7 @@ class _NpdFactoryQcViewState extends ConsumerState<NpdFactoryQcView> {
           builder: (context, constraints) {
             final isNarrow = constraints.maxWidth < 600;
             final cards = [
-              _buildKpiCard('Total Ingested Units', '$totalTests', Icons.memory, const Color(0xFF3A86FF)),
+              _buildKpiCard('Total Ingested Units', '$totalTests', Icons.memory, const Color(0xFFF15A24)),
               _buildKpiCard('Passed Units (FCT PASS)', '$passCount', Icons.check_circle_rounded, const Color(0xFF2EC4B6)),
               _buildKpiCard('Failed Units (FCT FAIL)', '$failCount', Icons.error_rounded, Colors.redAccent),
               _buildKpiCard('Production First Pass Yield', '$yieldPct%', Icons.analytics_rounded, const Color(0xFFFF9F1C)),
@@ -281,9 +281,9 @@ class _NpdFactoryQcViewState extends ConsumerState<NpdFactoryQcView> {
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.terminal, size: 14, color: Color(0xFF3A86FF)),
+                    Icon(Icons.terminal, size: 14, color: Color(0xFFF15A24)),
                     SizedBox(width: 4),
-                    Text('View Rig Log', style: TextStyle(color: Color(0xFF3A86FF), fontSize: 12)),
+                    Text('View Rig Log', style: TextStyle(color: Color(0xFFF15A24), fontSize: 12)),
                   ],
                 ),
               ),

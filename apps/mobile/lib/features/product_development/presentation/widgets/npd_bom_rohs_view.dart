@@ -108,7 +108,7 @@ class _NpdBomRohsViewState extends ConsumerState<NpdBomRohsView> {
               if (totalCount == 0)
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF3A86FF),
+                    backgroundColor: const Color(0xFFF15A24),
                     foregroundColor: Colors.white,
                   ),
                   icon: const Icon(Icons.auto_awesome, size: 16),
@@ -152,7 +152,7 @@ class _NpdBomRohsViewState extends ConsumerState<NpdBomRohsView> {
               const SizedBox(width: 12),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF3A86FF),
+                  backgroundColor: const Color(0xFFF15A24),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
@@ -337,7 +337,7 @@ class _NpdBomRohsViewState extends ConsumerState<NpdBomRohsView> {
               child: const Text('Cancel', style: TextStyle(color: Colors.white60)),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF3A86FF)),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF15A24)),
               onPressed: () async {
                 final currentItems = widget.boardData.bomLinks.map((b) => {
                   'designator': b.designator,

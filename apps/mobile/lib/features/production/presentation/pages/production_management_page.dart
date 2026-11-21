@@ -7589,7 +7589,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                     child: Text(
                       'Production',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: Color(0xFFF15A24),
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
                       ),
@@ -7654,7 +7654,7 @@ class _ProductionManagementPageState extends ConsumerState<ProductionManagementP
                             'Production Management',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: Colors.white,
+                              color: Color(0xFFF15A24),
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 0.2,

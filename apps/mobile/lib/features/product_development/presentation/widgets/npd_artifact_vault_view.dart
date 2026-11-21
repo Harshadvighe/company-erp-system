@@ -62,7 +62,7 @@ class _NpdArtifactVaultViewState extends ConsumerState<NpdArtifactVaultView> {
               const SizedBox(width: 8),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF3A86FF),
+                  backgroundColor: const Color(0xFFF15A24),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
@@ -124,10 +124,10 @@ class _NpdArtifactVaultViewState extends ConsumerState<NpdArtifactVaultView> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF3A86FF).withOpacity(0.25) : const Color(0xFF2A2E39),
+          color: isSelected ? const Color(0xFFF15A24).withOpacity(0.25) : const Color(0xFF2A2E39),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? const Color(0xFF3A86FF) : Colors.white12,
+            color: isSelected ? const Color(0xFFF15A24) : Colors.white12,
             width: isSelected ? 1.5 : 1,
           ),
         ),
@@ -361,7 +361,7 @@ class _NpdArtifactVaultViewState extends ConsumerState<NpdArtifactVaultView> {
               child: const Text('Cancel', style: TextStyle(color: Colors.white60)),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF3A86FF)),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF15A24)),
               onPressed: () async {
                 try {
                   final repo = ref.read(npdRepositoryProvider);
