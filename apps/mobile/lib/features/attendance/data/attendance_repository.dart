@@ -272,6 +272,83 @@ class AttendanceRepository {
   }
 
   // ───────────────────────────────────────────────────────────────────────────
+  // TEAMWORK CLOUD PUNCHING INTEGRATION
+  // ───────────────────────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> getTeamworkConfig() async {
+    try {
+      final response = await _dio.get('/attendance-sync/teamwork/config');
+      return response.data['data'] ?? response.data;
+    } catch (e) {
+      return {'configured': false, 'siteUrl': '', 'apiKeyMasked': ''};
+    }
+  }
+
+  Future<Map<String, dynamic>> saveTeamworkConfig({
+    required String siteUrl,
+    required String apiKey,
+    bool autoSync = true,
+  }) async {
+    final response = await _dio.post(
+      '/attendance-sync/teamwork/config',
+      data: {
+        'siteUrl': siteUrl,
+        'apiKey': apiKey,
+        'autoSyncEnabled': autoSync,
+      },
+    );
+    return response.data['data'] ?? response.data;
+  }
+
+  Future<Map<String, dynamic>> testTeamworkConnection({
+    required String siteUrl,
+    required String apiKey,
+  }) async {
+    final response = await _dio.post(
+      '/attendance-sync/teamwork/test',
+      data: {
+        'siteUrl': siteUrl,
+        'apiKey': apiKey,
+      },
+    );
+    return response.data['data'] ?? response.data;
+  }
+
+  Future<Map<String, dynamic>> syncTeamworkPunches({
+    DateTime? fromDate,
+    DateTime? toDate,
+  }) async {
+    final response = await _dio.post(
+      '/attendance-sync/teamwork/sync',
+      data: {
+        if (fromDate != null) 'fromDate': DateFormat('yyyy-MM-dd').format(fromDate),
+        if (toDate != null) 'toDate': DateFormat('yyyy-MM-dd').format(toDate),
+      },
+    );
+    return response.data['data'] ?? response.data;
+  }
+
+  Future<Map<String, dynamic>> logTeamworkManualPunch({
+    required String employeeIdentifier,
+    required DateTime punchTime,
+    String punchType = 'AUTO',
+    String? notes,
+    String? location,
+  }) async {
+    final response = await _dio.post(
+      '/attendance-sync/teamwork/manual-punch',
+      data: {
+        'employeeIdentifier': employeeIdentifier,
+        'punchTime': punchTime.toIso8601String(),
+        'punchType': punchType,
+        if (notes != null) 'notes': notes,
+        if (location != null) 'location': location,
+      },
+    );
+    return response.data['data'] ?? response.data;
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
   // SAMPLE DATA FALLBACK GENERATORS
   // ───────────────────────────────────────────────────────────────────────────
 

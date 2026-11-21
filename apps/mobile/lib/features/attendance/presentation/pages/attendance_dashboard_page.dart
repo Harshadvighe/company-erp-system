@@ -13,6 +13,7 @@ import 'package:saark_erp_mobile/features/attendance/presentation/widgets/biomet
 import 'package:saark_erp_mobile/features/attendance/presentation/widgets/web_punch_kiosk_view.dart';
 import 'package:saark_erp_mobile/features/attendance/presentation/widgets/shift_roster_view.dart';
 import 'package:saark_erp_mobile/features/attendance/presentation/widgets/register_device_dialog.dart';
+import 'package:saark_erp_mobile/features/attendance/presentation/widgets/teamwork_config_dialog.dart';
 
 class AttendanceDashboardPage extends ConsumerStatefulWidget {
   const AttendanceDashboardPage({super.key});
@@ -25,6 +26,7 @@ class _AttendanceDashboardPageState extends ConsumerState<AttendanceDashboardPag
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   bool _isSyncingAll = false;
+  bool _isSyncingTeamwork = false;
 
   @override
   void initState() {
@@ -113,6 +115,56 @@ class _AttendanceDashboardPageState extends ConsumerState<AttendanceDashboardPag
         onSaved: () => ref.invalidate(attendanceDevicesProvider),
       ),
     );
+  }
+
+  void _showTeamworkConfigModal() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => TeamworkConfigDialog(
+        onSaved: _refreshAll,
+      ),
+    );
+  }
+
+  Future<void> _handleSyncTeamwork() async {
+    setState(() => _isSyncingTeamwork = true);
+    final repo = ref.read(attendanceRepositoryProvider);
+    try {
+      final res = await repo.syncTeamworkPunches();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.cloud_done_rounded, color: Colors.greenAccent, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    res['message'] ?? 'Teamwork punches synced successfully!',
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF1E222B),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      _refreshAll();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Teamwork sync error: ${e.toString()}'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSyncingTeamwork = false);
+    }
   }
 
   @override
@@ -304,6 +356,35 @@ class _AttendanceDashboardPageState extends ConsumerState<AttendanceDashboardPag
               ),
 
               const SizedBox(width: 12),
+
+              // Teamwork Sync Button
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF60A5FA),
+                  side: const BorderSide(color: Color(0xFF2563EB)),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: _isSyncingTeamwork ? null : _handleSyncTeamwork,
+                icon: _isSyncingTeamwork
+                    ? const SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF60A5FA)),
+                      )
+                    : const Icon(Icons.cloud_sync_rounded, size: 15),
+                label: Text(_isSyncingTeamwork ? 'Syncing TW...' : 'Teamwork Sync'),
+              ),
+              const SizedBox(width: 6),
+
+              // Teamwork Config Icon Button
+              IconButton(
+                icon: const Icon(Icons.tune_rounded, color: Color(0xFF60A5FA), size: 18),
+                tooltip: 'Teamwork Integration Settings',
+                onPressed: _showTeamworkConfigModal,
+              ),
+              const SizedBox(width: 6),
 
               // Sync All Devices Button
               ElevatedButton.icon(

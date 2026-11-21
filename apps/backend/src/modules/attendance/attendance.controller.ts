@@ -14,6 +14,7 @@ import {
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { BiometricDeviceService } from './biometric-device.service';
+import { TeamworkSyncService } from './teamwork-sync.service';
 import {
   RegisterDeviceDto,
   UpdateDeviceDto,
@@ -24,6 +25,12 @@ import {
   SyncAttendanceRequestDto,
   SyncResponseDto,
 } from './dto/sync-request.dto';
+import {
+  TeamworkConfigDto,
+  TeamworkTestConnectionDto,
+  TeamworkSyncRequestDto,
+  TeamworkManualPunchDto,
+} from './dto/teamwork-config.dto';
 
 @ApiTags('Attendance Sync - Biometric Punching Device Integration')
 @ApiBearerAuth()
@@ -32,6 +39,7 @@ import {
 export class AttendanceController {
   constructor(
     private readonly deviceService: BiometricDeviceService,
+    private readonly teamworkService: TeamworkSyncService,
   ) {}
 
   // =========================================================================
@@ -106,6 +114,7 @@ export class AttendanceController {
       defaultPort: 4370,
       defaultTimezone: 'Asia/Kolkata',
       supportedManufacturers: [
+        'Teamwork',
         'TeamOffice',
         'ZKTeco',
         'Suprema',
@@ -115,6 +124,46 @@ export class AttendanceController {
         'Other',
       ],
     };
+  }
+
+  // =========================================================================
+  // TEAMWORK CLOUD PUNCHING INTEGRATION
+  // =========================================================================
+
+  @Get('teamwork/config')
+  @ApiOperation({ summary: 'Get current Teamwork cloud integration status' })
+  async getTeamworkConfig() {
+    return this.teamworkService.getConfig();
+  }
+
+  @Post('teamwork/config')
+  @ApiOperation({ summary: 'Save Teamwork Site URL and API Key credentials' })
+  async saveTeamworkConfig(@Body() dto: TeamworkConfigDto) {
+    return this.teamworkService.saveConfig(dto);
+  }
+
+  @Post('teamwork/test')
+  @ApiOperation({ summary: 'Test connectivity to Teamwork site using API key' })
+  async testTeamworkConnection(@Body() dto: TeamworkTestConnectionDto) {
+    return this.teamworkService.testConnection(dto);
+  }
+
+  @Post('teamwork/sync')
+  @ApiOperation({ summary: 'Pull time entries and punch records from Teamwork' })
+  async syncTeamworkPunches(@Body() dto: TeamworkSyncRequestDto) {
+    return this.teamworkService.syncPunches(dto);
+  }
+
+  @Post('teamwork/manual-punch')
+  @ApiOperation({ summary: 'Directly log an employee manual punch from Teamwork' })
+  async logTeamworkManualPunch(@Body() dto: TeamworkManualPunchDto) {
+    return this.teamworkService.logManualPunch(dto);
+  }
+
+  @Post('teamwork/webhook')
+  @ApiOperation({ summary: 'Incoming webhook listener for real-time Teamwork punch events' })
+  async handleTeamworkWebhook(@Body() payload: any) {
+    return this.teamworkService.handleWebhook(payload);
   }
 }
 export { AttendanceController as AttendanceSyncController };

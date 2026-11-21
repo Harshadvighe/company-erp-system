@@ -309,15 +309,38 @@ class _DailyAttendanceTableState extends ConsumerState<DailyAttendanceTable> {
                   ),
                   if (item.punchIn != null) ...[
                     const SizedBox(width: 6),
-                    Icon(
-                      item.checkInNote?.contains('Face') == true
-                          ? Icons.face_rounded
-                          : (item.checkInNote?.contains('Finger') == true
-                              ? Icons.fingerprint_rounded
-                              : Icons.touch_app_outlined),
-                      size: 13,
-                      color: const Color(0xFF38BDF8),
-                    ),
+                    if (item.checkInNote?.toLowerCase().contains('teamwork') == true ||
+                        item.location?.toLowerCase().contains('teamwork') == true) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2563EB).withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: const Color(0xFF3B82F6), width: 0.8),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.cloud_done_rounded, size: 10, color: Color(0xFF60A5FA)),
+                            SizedBox(width: 3),
+                            Text(
+                              'TEAMWORK',
+                              style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF93C5FD)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ] else ...[
+                      Icon(
+                        item.checkInNote?.contains('Face') == true
+                            ? Icons.face_rounded
+                            : (item.checkInNote?.contains('Finger') == true
+                                ? Icons.fingerprint_rounded
+                                : Icons.touch_app_outlined),
+                        size: 13,
+                        color: const Color(0xFF38BDF8),
+                      ),
+                    ],
                   ],
                 ],
               ),
