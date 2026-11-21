@@ -403,8 +403,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
                               end: Alignment.bottomCenter,
                               colors: [
                                 Colors.transparent,
-                                const Color(0xFF00E5FF).withValues(alpha: 0.05),
-                                const Color(0xFF00E5FF).withValues(alpha: 0.22),
+                                const Color(0xFFF15A24).withValues(alpha: 0.05),
+                                const Color(0xFFF15A24).withValues(alpha: 0.22),
                                 Colors.white.withValues(alpha: 0.55),
                                 const Color(0xFFFF7A00).withValues(alpha: 0.22),
                                 Colors.transparent,
@@ -496,7 +496,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                 spreadRadius: 2 + 2 * _glowAnimation.value,
                               ),
                               BoxShadow(
-                                color: const Color(0xFF00E5FF).withValues(alpha: 0.14 * (1.0 - _glowAnimation.value)),
+                                color: const Color(0xFFF15A24).withValues(alpha: 0.14 * (1.0 - _glowAnimation.value)),
                                 blurRadius: 18,
                                 spreadRadius: 1,
                               ),
@@ -664,12 +664,12 @@ class _LoginPageState extends ConsumerState<LoginPage>
                       ),
                       const SizedBox(height: 10),
                       const Text(
-                        'ENTERPRISE ERP PORTAL',
+                        'SAARK ERP',
                         style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 2,
-                          color: AppTheme.primary,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 2.5,
+                          color: Color(0xFFF15A24),
                         ),
                       ),
                       const SizedBox(height: 18),
@@ -888,7 +888,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                 ),
                                 child: const Row(
                                   children: [
-                                    Icon(Icons.info_outline, color: Color(0xFF00E5FF), size: 14),
+                                    Icon(Icons.info_outline, color: Color(0xFFF15A24), size: 14),
                                     SizedBox(width: 6),
                                     Expanded(
                                       child: Text(
@@ -977,14 +977,14 @@ class _LoginPageState extends ConsumerState<LoginPage>
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const Icon(Icons.face_retouching_natural_rounded,
-                            size: 14, color: Color(0xFF00E5FF)),
+                            size: 14, color: Color(0xFFF15A24)),
                         const SizedBox(width: 6),
                         const Text(
                           'Live Face Scan',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF00E5FF),
+                            color: Color(0xFFF15A24),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -1018,12 +1018,12 @@ class _LoginPageState extends ConsumerState<LoginPage>
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: const Color(0xFF00E5FF).withValues(alpha: 0.3),
+                            color: const Color(0xFFF15A24).withValues(alpha: 0.4),
                             width: 1.5,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF00E5FF).withValues(alpha: 0.06),
+                              color: const Color(0xFFF15A24).withValues(alpha: 0.1),
                               blurRadius: 16,
                               spreadRadius: 2,
                             ),
